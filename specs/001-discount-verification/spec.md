@@ -8,6 +8,16 @@
 
 **Input**: User description: "Build a web-based discount verification system for a restaurant business."
 
+## Clarifications
+
+### Session 2026-05-27
+
+- Q: What should happen if a customer requests a new barcode while another active code exists for the same phone number? -> A: Invalidate the previous active code and issue a new one.
+- Q: What lookup key should the discount verification service return to the main restaurant application after a one-time barcode is successfully validated? -> A: Return the verified phone number as the lookup key.
+- Q: How should phone numbers be represented for uniqueness and lookup across customer profiles, SMS verification, and main application validation? -> A: Use a Ukraine-accepted phone format; questionnaire forms must validate correct entry.
+- Q: What should be the initial limit for invalid SMS code attempts before the redemption flow fails? -> A: 3 attempts per SMS code.
+- Q: What customer-facing behavior should occur when SMS sending fails during redemption? -> A: Show a retryable error and allow requesting SMS again, limited to 1 request per 5 seconds.
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - Redeem Discount With Verified Phone (Priority: P1)
@@ -61,7 +71,8 @@ creation, and use that phone number to start the redemption flow.
 
 1. **Given** an authorized administrator, **When** they enter required profile
    data including a phone number and save the profile, **Then** the customer
-   profile exists and can be found later by that phone number.
+   profile exists and can be found later by that correctly validated phone
+   number.
 2. **Given** an administrator is creating or updating a profile, **When** they
    save the phone number, **Then** the system does not require SMS verification
    during profile creation in the initial release.
@@ -83,7 +94,7 @@ only proves verified phone access.
 
 **Independent Test**: Present a web-generated one-time barcode to the main
 restaurant application, validate it with the discount verification service,
-confirm the service returns the agreed lookup key once, and confirm invalid,
+confirm the service returns the verified phone number once, and confirm invalid,
 expired, used, and unknown codes fail.
 
 **Acceptance Scenarios**:
@@ -93,8 +104,8 @@ expired, used, and unknown codes fail.
    card process continues without using the web-code validation flow.
 2. **Given** a scanned value is a web-generated one-time code, **When** the main
    restaurant application requests validation, **Then** the service validates
-   the code and returns the phone number or other agreed lookup key only if the
-   code is valid and unused.
+   the code and returns the verified phone number only if the code is valid and
+   unused.
 3. **Given** a one-time code is invalid, expired, already used, or unknown,
    **When** validation is requested, **Then** the service returns a failed
    validation result and no discount is applied based on that code.
@@ -136,8 +147,10 @@ phone hash where appropriate.
 
 - Customer mistypes a phone number on a mobile keyboard.
 - Customer submits a phone number for which no saved profile exists.
-- SMS send fails or is delayed.
-- Customer submits an invalid, expired, or over-attempt SMS code.
+- SMS send fails or is delayed; the customer sees a retryable error, but SMS
+  requests are limited to 1 request per 5 seconds.
+- Customer submits an invalid, expired, or over-attempt SMS code; after 3
+  invalid attempts for one SMS code, the redemption flow fails.
 - Customer requests a new barcode while another active barcode exists for the
   same phone number.
 - Barcode expires before the cashier scans it.
@@ -160,6 +173,9 @@ phone hash where appropriate.
   authorized administrator can create and update customer profiles.
 - **FR-002**: A customer profile MUST include a phone number used as the primary
   identifier for later discount redemption and discount card lookup.
+- **FR-002a**: Phone numbers MUST be entered in a format accepted in Ukraine,
+  and customer profile forms MUST validate that the telephone number is entered
+  correctly before saving.
 - **FR-003**: The initial release MUST NOT require SMS verification during
   administrator-managed profile creation.
 - **FR-004**: The initial release MUST NOT include complex customer profile
@@ -170,24 +186,30 @@ phone hash where appropriate.
   horizontal scrolling, use clear short forms, support reliable touch
   interaction, and provide clear loading, error, retry, and expired-code states.
 - **FR-007**: The system MUST search for a saved customer profile by the
-  customer-entered phone number before sending any SMS code.
+  customer-entered phone number before sending any SMS code, using the same
+  normalized Ukraine-accepted phone representation used by saved profiles.
 - **FR-008**: If no saved customer profile exists for the entered phone number,
   the system MUST stop the redemption process without sending an SMS code and
   without issuing a barcode.
 - **FR-009**: If a saved customer profile exists, the system MUST send an SMS
   verification code to the same phone number entered by the customer.
+- **FR-009a**: If SMS sending fails during redemption, the customer MUST see a
+  retryable error and be allowed to request SMS again.
+- **FR-009b**: SMS verification requests MUST be limited to no more than 1
+  request per 5 seconds for the same redemption flow.
 - **FR-010**: The system MUST reject invalid, expired, or over-attempt SMS code
   submissions and MUST NOT issue a barcode for those failures.
+- **FR-010a**: The system MUST allow no more than 3 invalid SMS code attempts
+  for one SMS code before failing the redemption flow.
 - **FR-011**: The system MUST issue a one-time discount code only after
   successful SMS verification during the discount redemption process.
 - **FR-012**: A one-time discount code MUST be random, hard to guess,
   short-lived, and usable only once.
 - **FR-013**: The default one-time discount code lifetime SHOULD be 3 minutes and
   MUST be configurable.
-- **FR-014**: The system MUST ensure that no more than one active one-time
-  discount code exists for the same phone number at the same time by either
-  rejecting a new request or invalidating the previous active code before
-  issuing a new one.
+- **FR-014**: If a customer requests a new one-time discount code while another
+  active code exists for the same phone number, the system MUST invalidate the
+  previous active code before issuing the new one.
 - **FR-015**: The one-time discount code MUST be displayed to the customer as a
   barcode that is readable on mobile screens and practical for cashier scanning.
 - **FR-016**: The web-generated barcode SHOULD use a format distinguishable from
@@ -206,8 +228,8 @@ phone hash where appropriate.
   service.
 - **FR-021**: The discount verification service MUST return a failed validation
   result for invalid, expired, already used, or unknown one-time codes.
-- **FR-022**: The discount verification service MUST return the phone number or
-  another agreed lookup key only when the one-time code is valid.
+- **FR-022**: The discount verification service MUST return the verified phone
+  number as the lookup key only when the one-time code is valid.
 - **FR-023**: After successful validation, the one-time code MUST be immediately
   deleted or invalidated and MUST NOT be usable again.
 - **FR-024**: A successfully validated one-time code MUST NOT be restored if the
@@ -236,6 +258,9 @@ phone hash where appropriate.
   including clear labels, validation messages, focus behavior, keyboard
   accessibility, suitable mobile touch targets, sufficient contrast, and
   non-color-only status communication.
+- **FR-035a**: Phone number entry fields MUST help users enter a valid Ukrainian
+  phone number on mobile keyboards and MUST show clear validation messages when
+  the number is incomplete or incorrectly formatted.
 - **FR-036**: The initial release MUST exclude SMS verification during
   administrator profile creation, profile drafts, profile synchronization
   states, long-lived coupons, manual cancellation state for one-time codes,
@@ -246,15 +271,16 @@ phone hash where appropriate.
 ### Key Entities *(include if feature involves data)*
 
 - **Customer Profile**: A saved record that represents a customer pre-approved
-  for a discount. It includes at least a phone number and profile data entered
-  by an administrator. In the initial release, it has no complex workflow state.
+  for a discount. It includes at least a correctly validated phone number in a
+  Ukraine-accepted format and profile data entered by an administrator. In the
+  initial release, it has no complex workflow state.
 - **SMS Verification**: A short-lived verification challenge sent to the
   customer-entered phone number during discount redemption.
 - **One-Time Discount Code**: A random, short-lived, single-use code generated
   only after successful SMS verification and shown as a barcode.
 - **Barcode Validation Result**: The result returned to the main restaurant
   application when it validates a web-generated one-time code, including either
-  failure or an agreed lookup key.
+  failure or the verified phone number as the lookup key.
 - **Audit Event**: A trace record for important profile, verification, barcode,
   and validation events, associated with a correlation id and optional phone
   hash.
@@ -270,12 +296,19 @@ phone hash where appropriate.
   code.
 - **SC-002**: 100% of redemption attempts for phone numbers without saved
   customer profiles stop before SMS sending and barcode issuance.
+- **SC-002a**: 100% of customer profile saves reject missing, incomplete, or
+  incorrectly formatted Ukrainian phone numbers with a clear validation message.
 - **SC-003**: 100% of successfully validated one-time codes fail when validated a
   second time.
 - **SC-004**: 100% of expired, unknown, invalid, or already used one-time codes
   return failed validation results.
-- **SC-005**: 100% of successful web-code validations return only the agreed
-  discount-card lookup key and do not calculate or return a discount amount.
+- **SC-004a**: 100% of SMS verification flows fail without barcode issuance
+  after 3 invalid SMS code attempts for one SMS code.
+- **SC-004b**: 100% of repeated SMS requests made less than 5 seconds after the
+  previous request are blocked without sending another SMS.
+- **SC-005**: 100% of successful web-code validations return only the verified
+  phone number as the discount-card lookup key and do not calculate or return a
+  discount amount.
 - **SC-006**: Customer-facing mobile screens meet WCAG AA accessibility checks
   for labels, focus behavior, contrast, keyboard access, touch target usability,
   and non-color-only state communication.
@@ -297,15 +330,15 @@ phone hash where appropriate.
 - The exact administrator authorization mechanism is outside this feature
   specification and will be selected during design without changing the
   business flow.
-- The final customer profile field list is not fixed yet, but phone number is
-  mandatory for the initial release.
+- The final customer profile field list is not fixed yet, but a correctly
+  validated Ukrainian phone number is mandatory for the initial release.
 - The main restaurant application can distinguish standard EAN13 discount cards
   from web-generated one-time codes after the final barcode format is agreed.
 - The main restaurant application remains the owner of discount card lookup,
   discount calculation, and sale cancellation behavior.
-- The selected policy for a new code request while another code is active may be
-  either rejection or invalidation of the previous active code, provided only one
-  active code remains for the phone number.
+- If a customer requests a new code while another code is active for the same
+  phone number, the previous active code is invalidated before the new one is
+  issued.
 - Audit event retention duration is not defined in the initial release, but
   audit events are retained long enough for troubleshooting, support, and fraud
   investigation.
