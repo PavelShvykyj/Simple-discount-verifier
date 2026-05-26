@@ -18,17 +18,17 @@
   the iteration process.
 -->
 
-**Language/Version**: [e.g., Python 3.11, Swift 5.9, Rust 1.75 or NEEDS CLARIFICATION]
+**Language/Version**: [e.g., TypeScript with Angular version, Python 3.11, Swift 5.9, Rust 1.75 or NEEDS CLARIFICATION]
 
-**Primary Dependencies**: [e.g., FastAPI, UIKit, LLVM or NEEDS CLARIFICATION]
+**Primary Dependencies**: [e.g., Angular + Ionic for frontend, FastAPI, UIKit, LLVM or NEEDS CLARIFICATION]
 
 **Storage**: [if applicable, e.g., PostgreSQL, CoreData, files or N/A]
 
 **Testing**: [e.g., pytest, XCTest, cargo test or NEEDS CLARIFICATION]
 
-**Target Platform**: [e.g., Linux server, iOS 15+, WASM or NEEDS CLARIFICATION]
+**Target Platform**: [e.g., mobile-first web on modern mobile browsers, Linux server, iOS 15+, WASM or NEEDS CLARIFICATION]
 
-**Project Type**: [e.g., library/cli/web-service/mobile-app/compiler/desktop-app or NEEDS CLARIFICATION]
+**Project Type**: [e.g., frontend web app, web-service, library/cli/mobile-app/compiler/desktop-app or NEEDS CLARIFICATION]
 
 **Performance Goals**: [domain-specific, e.g., 1000 req/s, 10k lines/sec, 60 fps or NEEDS CLARIFICATION]
 
@@ -41,6 +41,25 @@
 *GATE: Must pass before Phase 0 research. Re-check after Phase 1 design.*
 
 [Gates determined based on constitution file]
+
+For frontend work, the plan MUST answer these gates before Phase 0 research and
+again after Phase 1 design:
+
+- Mobile-first UX: primary flows are designed for mobile screens first,
+  one-handed customer redemption, no horizontal scrolling, readable barcode, and
+  small-screen loading/error/retry/expired-code states.
+- Technology stack: Angular + Ionic are used consistently with no additional
+  frontend frameworks, state managers, or UI kits introduced by default.
+- Feature-Sliced Design: source layout uses `app`, `pages`, `widgets`,
+  `features`, `entities`, and `shared`, with dependencies flowing only from
+  higher layers toward lower layers.
+- Flow separation: public redemption and administrator profile management remain
+  separated unless integration is explicitly justified through entities or
+  shared contracts.
+- Quality gates: ESLint and Prettier checks are part of completion criteria.
+- Accessibility: WCAG AA, keyboard accessibility, mobile-sized touch targets,
+  labels, validation messages, focus behavior, and non-color-only states are
+  planned.
 
 ## Project Structure
 
@@ -87,9 +106,12 @@ backend/
 
 frontend/
 ├── src/
-│   ├── components/
+│   ├── app/
 │   ├── pages/
-│   └── services/
+│   ├── widgets/
+│   ├── features/
+│   ├── entities/
+│   └── shared/
 └── tests/
 
 # [REMOVE IF UNUSED] Option 3: Mobile + API (when "iOS/Android" detected)

@@ -23,6 +23,9 @@ description: "Task list template for feature implementation"
 
 - **Single project**: `src/`, `tests/` at repository root
 - **Web app**: `backend/src/`, `frontend/src/`
+- **Frontend FSD**: `frontend/src/app/`, `frontend/src/pages/`,
+  `frontend/src/widgets/`, `frontend/src/features/`,
+  `frontend/src/entities/`, `frontend/src/shared/`
 - **Mobile**: `api/src/`, `ios/src/` or `android/src/`
 - Paths shown below assume single project - adjust based on plan.md structure
 
@@ -51,7 +54,7 @@ description: "Task list template for feature implementation"
 
 - [ ] T001 Create project structure per implementation plan
 - [ ] T002 Initialize [language] project with [framework] dependencies
-- [ ] T003 [P] Configure linting and formatting tools
+- [ ] T003 [P] Configure ESLint and Prettier formatting checks
 
 ---
 
@@ -69,6 +72,11 @@ Examples of foundational tasks (adjust based on your project):
 - [ ] T007 Create base models/entities that all stories depend on
 - [ ] T008 Configure error handling and logging infrastructure
 - [ ] T009 Setup environment configuration management
+
+For frontend work, foundational tasks MUST include Angular + Ionic setup,
+Feature-Sliced Design layer structure, shared API client foundation, reusable UI
+primitives, mobile-first layout foundation, WCAG AA accessibility defaults, and
+lint/format commands.
 
 **Checkpoint**: Foundation ready - user story implementation can now begin in parallel
 
@@ -95,6 +103,12 @@ Examples of foundational tasks (adjust based on your project):
 - [ ] T015 [US1] Implement [endpoint/feature] in src/[location]/[file].py
 - [ ] T016 [US1] Add validation and error handling
 - [ ] T017 [US1] Add logging for user story 1 operations
+
+For frontend stories, implementation tasks MUST place code in the correct FSD
+layer, keep public customer redemption and administrator profile management
+flows separated, keep business logic out of Ionic components, and include
+mobile-first states for loading, error, retry, validation, and expiration where
+applicable.
 
 **Checkpoint**: At this point, User Story 1 should be fully functional and testable independently
 
@@ -156,6 +170,8 @@ Examples of foundational tasks (adjust based on your project):
 - [ ] TXXX Performance optimization across all stories
 - [ ] TXXX [P] Additional unit tests (if requested) in tests/unit/
 - [ ] TXXX Security hardening
+- [ ] TXXX Run ESLint and Prettier checks
+- [ ] TXXX Verify WCAG AA accessibility and mobile touch target behavior
 - [ ] TXXX Run quickstart.md validation
 
 ---
