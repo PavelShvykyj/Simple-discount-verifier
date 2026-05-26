@@ -1,0 +1,14 @@
+# Spec Kit local tooling and generated scaffolding.
+/.agents/skills/speckit-*/
+/.specify/extensions/
+/.specify/integrations/
+/.specify/scripts/
+/.specify/templates/
+/.specify/workflows/
+/.specify/extensions.yml
+/.specify/init-options.json
+/.specify/integration.json
+
+# Keep project-owned Spec Kit artifacts tracked:
+# /.specify/memory/
+# /.specify/specs/
