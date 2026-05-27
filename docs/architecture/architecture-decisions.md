@@ -3,6 +3,15 @@
 ## Accepted for initial version
 
 - Frontend: Angular + Ionic.
+- Frontend runtime baseline: Node.js 24 LTS with npm 11.
+- Frontend framework baseline: Angular 21 and Ionic Angular 8.
+- Frontend rendering: client-side web application; Angular SSR is not used.
+- Frontend platform target: web-only. Capacitor and native Android/iOS builds
+  are out of scope unless a future requirement explicitly adds native mobile
+  distribution.
+- Angular change detection: zone-based Angular is used for the initial Ionic
+  implementation. Zoneless Angular is deferred until Ionic support and project
+  overlay/navigation/form behavior are verified.
 - Frontend architecture: Feature-Sliced Design with `app`, `pages`, `widgets`,
   `features`, `entities`, and `shared` layers.
 - Frontend usage context: mobile-first; desktop support is secondary and must
