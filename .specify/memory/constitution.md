@@ -29,8 +29,7 @@ enhance the experience, but MUST NOT define or compromise the core mobile UX.
 ### II. Angular and Ionic Only
 
 Frontend implementation MUST use Angular and Ionic consistently. The frontend
-MUST NOT introduce additional frontend frameworks, UI kits, state managers, or
-deployment rules unless this constitution and the architecture documentation are
+MUST NOT introduce additional frontend frameworks, UI kits unless this constitution and the architecture documentation are
 explicitly amended. Backend and hosting context MUST remain aligned with the
 accepted architecture decisions: Azure Functions for backend context and Azure
 for hosting context.
