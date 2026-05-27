@@ -1,0 +1,14 @@
+#!/bin/sh
+set -eu
+
+branch="$(git rev-parse --abbrev-ref HEAD)"
+
+case "$branch" in
+  master|develop)
+    echo "Running frontend lint before commit on $branch..."
+    npm --prefix frontend run lint
+    ;;
+  *)
+    echo "Skipping pre-commit lint on $branch. Lint is enforced on master and develop."
+    ;;
+esac

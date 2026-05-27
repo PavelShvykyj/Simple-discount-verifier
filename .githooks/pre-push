@@ -1,0 +1,15 @@
+#!/bin/sh
+set -eu
+
+remote_name="${1:-}"
+remote_url="${2:-}"
+
+case "$remote_url" in
+  *github.com*|git@github.com:*)
+    echo "Running frontend tests before pushing to GitHub remote $remote_name..."
+    npm --prefix frontend run test -- --watch=false
+    ;;
+  *)
+    echo "Skipping pre-push tests for non-GitHub remote $remote_name ($remote_url)."
+    ;;
+esac
