@@ -1,20 +1,27 @@
 # Git Hooks
 
-The repository uses tracked hooks under `.githooks`.
+The repository uses Husky hooks from the Git repository root.
 
-Enable them in each local clone:
+Install root tooling and enable Husky:
 
 ```powershell
-git config core.hooksPath .githooks
+npm install
+npm run prepare
 ```
 
 ## Hooks
 
-- `pre-commit`: runs `npm --prefix frontend run lint` only on `master` and
-  `develop`.
+- `pre-commit`: on `master` and `develop`, runs `npx lint-staged`.
 - `pre-push`: runs `npm --prefix frontend run test -- --watch=false` before a
   push to a GitHub remote.
 
-The frontend project is intentionally addressed via `npm --prefix frontend`
-because Git is initialized at the repository root while the Angular/Ionic app is
-one directory below it.
+`lint-staged` is configured in `lint-staged.config.mjs` and lints only staged
+frontend `ts` and `html` files. It converts root-relative staged paths to paths
+relative to `frontend/`, then runs ESLint through the frontend package:
+
+```powershell
+npm --prefix frontend exec eslint -- <staged frontend files>
+```
+
+The explicit `--prefix frontend` is required because Git and Husky run from the
+repository root while the Angular/Ionic app is one directory below it.

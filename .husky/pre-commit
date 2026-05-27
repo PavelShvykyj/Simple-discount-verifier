@@ -1,0 +1,11 @@
+branch="$(git rev-parse --abbrev-ref HEAD)"
+
+case "$branch" in
+  master|develop)
+    echo "Running lint-staged before commit on $branch..."
+    npx lint-staged
+    ;;
+  *)
+    echo "Skipping pre-commit lint-staged on $branch. It is enforced on master and develop."
+    ;;
+esac

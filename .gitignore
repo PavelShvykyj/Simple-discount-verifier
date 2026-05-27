@@ -1,4 +1,6 @@
 # Spec Kit local tooling and generated scaffolding.
+node_modules/
+
 /.agents/skills/speckit-*/
 /.specify/extensions/
 /.specify/integrations/
