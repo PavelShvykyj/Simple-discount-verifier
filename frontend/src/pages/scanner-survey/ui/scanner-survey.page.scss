@@ -3,17 +3,11 @@
 }
 
 .survey-shell {
-  display: grid;
-  gap: 1rem;
-  max-width: 64rem;
-  margin: 0 auto;
   padding-bottom: 2rem;
 }
 
-.top-row {
-  display: grid;
-  gap: 1rem;
-  align-items: start;
+.survey-shell > ion-row {
+  margin-bottom: 1rem;
 }
 
 .intro {
@@ -73,14 +67,31 @@ ion-card {
   color: var(--ion-color-primary-contrast);
 }
 
+.step-dot.error {
+  border-color: var(--ion-color-danger);
+  color: var(--ion-color-danger);
+}
+
+.step-dot.active.error {
+  background: var(--ion-color-danger);
+  color: var(--ion-color-danger-contrast);
+}
+
 .step-dot span {
   font-weight: 700;
 }
 
-.field-grid,
-.barcode-step {
-  display: grid;
-  gap: 1rem;
+.step-dot:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
+.inner-grid {
+  padding: 0;
+}
+
+.inner-grid ion-col {
+  padding-inline: 0;
 }
 
 .field {
@@ -94,7 +105,6 @@ ion-card {
   font-weight: 700;
 }
 
-.field input,
 .field textarea {
   width: 100%;
   min-height: 3rem;
@@ -110,6 +120,14 @@ ion-card {
   resize: vertical;
 }
 
+.invalid-control {
+  border-color: var(--ion-color-danger) !important;
+}
+
+ion-input.invalid-control {
+  --border-color: var(--ion-color-danger);
+}
+
 ion-select {
   --background: var(--app-surface-strong);
   --border-color: var(--app-border);
@@ -122,6 +140,10 @@ ion-select {
   --padding-top: 0.75rem;
   width: 100%;
   min-height: 3rem;
+}
+
+ion-select.invalid-control {
+  --border-color: var(--ion-color-danger);
 }
 
 .barcode-meta {
@@ -173,38 +195,14 @@ code {
   height: auto;
 }
 
-.answer-group {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 0.6rem;
-}
-
-.answer-group button {
+.answer-button {
+  width: 100%;
   min-height: 3rem;
-  padding: 0.75rem;
-  border: 1px solid var(--app-border);
-  border-radius: 8px;
-  background: var(--app-surface);
-  color: var(--ion-text-color);
-  font: inherit;
-  font-weight: 700;
-}
-
-.answer-group button.selected {
-  border-color: var(--ion-color-primary);
-  background: var(--ion-color-primary);
-  color: var(--ion-color-primary-contrast);
 }
 
 .summary {
   display: grid;
   gap: 0.45rem;
-}
-
-.actions {
-  display: flex;
-  gap: 0.75rem;
-  justify-content: flex-start;
 }
 
 ion-note {
@@ -214,35 +212,7 @@ ion-note {
 }
 
 @media (min-width: 760px) {
-  .top-row {
-    grid-template-columns: 1fr minmax(19rem, 24rem);
-  }
-
-  .field-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  .field-wide {
-    grid-column: 1 / -1;
-  }
-
-  .barcode-step {
-    grid-template-columns: minmax(13rem, 1fr) minmax(20rem, 1.3fr);
-    align-items: center;
-  }
-
-  .barcode-step .answer-group {
-    grid-column: 1 / -1;
-  }
-}
-
-@media (max-width: 480px) {
-  .actions,
-  .actions ion-button {
-    width: 100%;
-  }
-
-  .actions {
-    display: grid;
+  .inner-grid ion-col + ion-col {
+    padding-left: 1rem;
   }
 }

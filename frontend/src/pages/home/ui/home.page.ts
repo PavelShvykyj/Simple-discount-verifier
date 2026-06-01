@@ -3,8 +3,11 @@ import { Component, inject } from '@angular/core';
 import { Router } from '@angular/router';
 import {
   IonButton,
+  IonCol,
   IonContent,
+  IonGrid,
   IonHeader,
+  IonRow,
   IonTitle,
   IonToolbar,
 } from '@ionic/angular/standalone';
@@ -13,7 +16,17 @@ import { ThemeModeToggleComponent } from '../../../shared/theme/ui/theme-mode-to
 
 @Component({
   selector: 'app-home-page',
-  imports: [IonButton, IonContent, IonHeader, IonTitle, IonToolbar, ThemeModeToggleComponent],
+  imports: [
+    IonButton,
+    IonCol,
+    IonContent,
+    IonGrid,
+    IonHeader,
+    IonRow,
+    IonTitle,
+    IonToolbar,
+    ThemeModeToggleComponent,
+  ],
   templateUrl: './home.page.html',
   styleUrl: './home.page.scss',
 })

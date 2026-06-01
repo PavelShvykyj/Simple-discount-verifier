@@ -49,6 +49,10 @@ effects that only refresh UI because Zone.js patched the browser API.
   explicit requirement.
 - When both an Angular tool and a generic browser/third-party alternative are
   reasonable, choose the Angular tool first.
+- Use Ionic layout primitives for page layout. In particular, page-level
+  responsive layout should use `ion-grid`, `ion-row`, and `ion-col` instead of
+  ad hoc CSS grid/flex containers. Keep content inside `ion-col`, matching the
+  Ionic grid model.
 
 ## Commands
 

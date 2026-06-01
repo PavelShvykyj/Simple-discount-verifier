@@ -10,9 +10,13 @@ import {
   IonCardHeader,
   IonCardSubtitle,
   IonCardTitle,
+  IonCol,
   IonContent,
+  IonGrid,
   IonHeader,
+  IonInput,
   IonNote,
+  IonRow,
   IonSelect,
   IonSelectOption,
   IonTitle,
@@ -25,6 +29,7 @@ import { ThemeModeToggleComponent } from '../../../shared/theme/ui/theme-mode-to
 type BranchName = 'Люксор' | 'Дастор' | 'Вопак';
 type ReadabilityAnswer = 'yes' | 'no' | null;
 type SubmitStatus = 'idle' | 'submitting' | 'success' | 'error';
+type ControlKey = 'branchName' | 'terminalName' | `answer:${string}`;
 
 interface BarcodeScenario {
   readonly id: string;
@@ -114,9 +119,13 @@ const BARCODE_SCENARIOS: readonly BarcodeScenario[] = [
     IonCardHeader,
     IonCardSubtitle,
     IonCardTitle,
+    IonCol,
     IonContent,
+    IonGrid,
     IonHeader,
+    IonInput,
     IonNote,
+    IonRow,
     IonSelect,
     IonSelectOption,
     IonTitle,
@@ -133,10 +142,20 @@ export class ScannerSurveyPage {
   protected readonly barcodes = BARCODE_SCENARIOS;
   protected readonly barcodeImages = this.createBarcodeImages();
   protected readonly currentStepIndex = signal(0);
+  protected readonly touchedControls = signal<ReadonlySet<ControlKey>>(new Set());
+  protected readonly dirtyControls = signal<ReadonlySet<ControlKey>>(new Set());
   protected readonly submitStatus = signal<SubmitStatus>('idle');
   protected readonly surveyModel = signal<ScannerSurveyFormModel>(this.createInitialModel('Люксор'));
   protected readonly surveyForm: FieldTree<ScannerSurveyFormModel> = form(this.surveyModel);
   protected readonly formValue = computed(() => this.surveyForm().value());
+  protected readonly branchRequiredError = computed(() => !this.isBranchName(this.formValue().branchName));
+  protected readonly terminalNameRequiredError = computed(() => this.terminal().terminalName.trim().length === 0);
+  protected readonly isFormValid = computed(
+    () =>
+      !this.branchRequiredError() &&
+      !this.terminalNameRequiredError() &&
+      this.barcodes.every((barcode) => this.terminal().answers[barcode.id] !== null),
+  );
   protected readonly steps = computed(() => [
     'Робоче місце',
     ...this.barcodes.map((barcode) => barcode.title),
@@ -154,12 +173,35 @@ export class ScannerSurveyPage {
 
   protected setBranchName(value: string): void {
     if (this.isBranchName(value)) {
+      if (value !== this.formValue().branchName) {
+        this.markControlDirty('branchName');
+      }
+
       this.patchModel({ branchName: value });
     }
   }
 
+  protected markBranchTouched(): void {
+    this.markControlTouched('branchName');
+  }
+
   protected setTerminalName(value: string): void {
+    if (value !== this.terminal().terminalName) {
+      this.markControlDirty('terminalName');
+    }
+
     this.updateTerminal({ terminalName: value });
+  }
+
+  protected markTerminalNameTouched(): void {
+    this.markControlTouched('terminalName');
+  }
+
+  protected moveTerminalNameFocusForward(event: Event): void {
+    event.preventDefault();
+    this.markTerminalNameTouched();
+    this.blurEventTarget(event);
+    this.focusElementById('scanner-survey-next-action');
   }
 
   protected setAnswer(barcodeId: string, value: string): void {
@@ -168,6 +210,13 @@ export class ScannerSurveyPage {
     }
 
     const terminal = this.terminal();
+    const controlKey = this.answerControlKey(barcodeId);
+
+    this.markControlTouched(controlKey);
+
+    if (terminal.answers[barcodeId] !== value) {
+      this.markControlDirty(controlKey);
+    }
 
     this.updateTerminal({
       answers: {
@@ -182,10 +231,26 @@ export class ScannerSurveyPage {
   }
 
   protected nextStep(): void {
+    if (!this.isStepValid(this.currentStepIndex())) {
+      return;
+    }
+
     this.currentStepIndex.update((index) => Math.min(index + 1, this.steps().length - 1));
   }
 
+  protected setCurrentStep(index: number): void {
+    if (!this.canNavigateToStep(index)) {
+      return;
+    }
+
+    this.currentStepIndex.set(index);
+  }
+
   protected submitSurvey(): void {
+    if (!this.isFormValid()) {
+      return;
+    }
+
     if (this.submitStatus() === 'submitting') {
       return;
     }
@@ -197,6 +262,8 @@ export class ScannerSurveyPage {
         const branchName = this.surveyModel().branchName;
         this.surveyModel.set(this.createInitialModel(branchName));
         this.currentStepIndex.set(0);
+        this.touchedControls.set(new Set());
+        this.dirtyControls.set(new Set());
         this.submitStatus.set('success');
       },
       error: () => {
@@ -207,6 +274,55 @@ export class ScannerSurveyPage {
 
   protected barcodeImage(barcodeId: string): string {
     return this.barcodeImages.get(barcodeId) ?? '';
+  }
+
+  protected isStepValid(index: number): boolean {
+    if (index === 0) {
+      return !this.terminalNameRequiredError();
+    }
+
+    if (index > 0 && index <= this.barcodes.length) {
+      return this.terminal().answers[this.barcodes[index - 1].id] !== null;
+    }
+
+    return this.isFormValid();
+  }
+
+  protected shouldShowBranchError(): boolean {
+    return this.branchRequiredError() && this.isControlTouchedAndDirty('branchName');
+  }
+
+  protected shouldShowTerminalError(): boolean {
+    return this.terminalNameRequiredError() && this.isControlTouchedAndDirty('terminalName');
+  }
+
+  protected shouldShowAnswerError(barcodeId: string): boolean {
+    return (
+      this.terminal().answers[barcodeId] === null &&
+      this.isControlTouchedAndDirty(this.answerControlKey(barcodeId))
+    );
+  }
+
+  protected shouldShowStepError(index: number): boolean {
+    if (index === 0) {
+      return this.shouldShowTerminalError();
+    }
+
+    if (index > 0 && index <= this.barcodes.length) {
+      return this.shouldShowAnswerError(this.barcodes[index - 1].id);
+    }
+
+    return false;
+  }
+
+  protected canNavigateToStep(index: number): boolean {
+    if (index <= this.currentStepIndex()) {
+      return true;
+    }
+
+    return this.steps()
+      .slice(0, index)
+      .every((_, stepIndex) => this.isStepValid(stepIndex));
   }
 
   private createInitialModel(branchName: BranchName): ScannerSurveyFormModel {
@@ -242,6 +358,32 @@ export class ScannerSurveyPage {
         },
       ],
     });
+  }
+
+  private markControlTouched(controlKey: ControlKey): void {
+    this.touchedControls.update((controls) => new Set(controls).add(controlKey));
+  }
+
+  private markControlDirty(controlKey: ControlKey): void {
+    this.dirtyControls.update((controls) => new Set(controls).add(controlKey));
+  }
+
+  private isControlTouchedAndDirty(controlKey: ControlKey): boolean {
+    return this.touchedControls().has(controlKey) && this.dirtyControls().has(controlKey);
+  }
+
+  private blurEventTarget(event: Event): void {
+    if (event.target instanceof HTMLElement) {
+      event.target.blur();
+    }
+  }
+
+  private focusElementById(elementId: string): void {
+    requestAnimationFrame(() => document.getElementById(elementId)?.focus());
+  }
+
+  private answerControlKey(barcodeId: string): ControlKey {
+    return `answer:${barcodeId}`;
   }
 
   private createPayload(): ScannerSurveyPayload {

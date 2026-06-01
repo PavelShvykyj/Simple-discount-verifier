@@ -5,19 +5,27 @@
 </ion-header>
 
 <ion-content fullscreen class="home-page">
-  <main class="home-shell ion-padding">
-    <div class="theme-panel" aria-label="Налаштування теми">
-      <app-theme-mode-toggle />
-    </div>
+  <ion-grid fixed class="home-shell ion-padding">
+    <ion-row class="theme-row">
+      <ion-col size="12" size-md="7" offset-md="5" size-lg="5" offset-lg="7">
+        <div class="theme-panel" aria-label="Налаштування теми">
+          <app-theme-mode-toggle />
+        </div>
+      </ion-col>
+    </ion-row>
 
-    <section class="welcome">
-      <p class="eyebrow">Тестовий стенд</p>
-      <h1>Вітаємо у Simple Discount Verifier</h1>
-      <p>
-        Зараз ми перевіряємо сумісність робочих місць зі сканерами штрихкодів перед
-        підключенням основного сценарію знижок.
-      </p>
-      <ion-button (click)="openScannerSurvey()">Перейти до тесту сканера</ion-button>
-    </section>
-  </main>
+    <ion-row>
+      <ion-col size="12">
+        <section class="welcome">
+          <p class="eyebrow">Тестовий стенд</p>
+          <h1>Вітаємо у Simple Discount Verifier</h1>
+          <p>
+            Зараз ми перевіряємо сумісність робочих місць зі сканерами штрихкодів перед
+            підключенням основного сценарію знижок.
+          </p>
+          <ion-button (click)="openScannerSurvey()">Перейти до тесту сканера</ion-button>
+        </section>
+      </ion-col>
+    </ion-row>
+  </ion-grid>
 </ion-content>

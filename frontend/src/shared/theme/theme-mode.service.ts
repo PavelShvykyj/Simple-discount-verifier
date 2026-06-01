@@ -1,13 +1,18 @@
-import { Injectable, signal } from '@angular/core';
+import { DOCUMENT } from '@angular/common';
+import { Injectable, inject, signal } from '@angular/core';
 
 export type ThemeMode = 'system' | 'light' | 'dark';
 
 const STORAGE_KEY = 'simple-discount-verifier.theme-mode';
+const LIGHT_THEME_COLOR = '#1252a3';
+const DARK_THEME_COLOR = '#1a2027';
 
 @Injectable({
   providedIn: 'root',
 })
 export class ThemeModeService {
+  private readonly document = inject(DOCUMENT);
+
   readonly mode = signal<ThemeMode>(this.readStoredMode());
 
   private readonly systemDarkQuery =
@@ -31,7 +36,14 @@ export class ThemeModeService {
   private applyMode(mode: ThemeMode): void {
     const shouldUseDark = mode === 'dark' || (mode === 'system' && this.systemDarkQuery?.matches);
 
-    document.documentElement.classList.toggle('ion-palette-dark', Boolean(shouldUseDark));
+    this.document.documentElement.classList.toggle('ion-palette-dark', Boolean(shouldUseDark));
+    this.updateThemeColor(Boolean(shouldUseDark));
+  }
+
+  private updateThemeColor(shouldUseDark: boolean): void {
+    this.document
+      .querySelector<HTMLMetaElement>('meta[name="theme-color"]')
+      ?.setAttribute('content', shouldUseDark ? DARK_THEME_COLOR : LIGHT_THEME_COLOR);
   }
 
   private readStoredMode(): ThemeMode {
