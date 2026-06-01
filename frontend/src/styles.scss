@@ -12,6 +12,9 @@
   --app-border: #d8e1ec;
   --app-text-muted: #526070;
   --app-shadow: 0 16px 40px rgba(20, 42, 74, 0.08);
+  --app-header-background: #1252a3;
+  --app-header-contrast: #ffffff;
+  --app-theme-color: #1252a3;
 }
 
 :root.ion-palette-dark {
@@ -21,6 +24,9 @@
   --app-border: #35414d;
   --app-text-muted: #b8c2cc;
   --app-shadow: 0 16px 40px rgba(0, 0, 0, 0.28);
+  --app-header-background: #1a2027;
+  --app-header-contrast: #f6f8fb;
+  --app-theme-color: #1a2027;
 }
 
 html,
@@ -30,4 +36,14 @@ body {
 
 * {
   box-sizing: border-box;
+}
+
+ion-header {
+  background: var(--app-header-background);
+}
+
+ion-toolbar {
+  --background: var(--app-header-background);
+  --border-color: transparent;
+  --color: var(--app-header-contrast);
 }

@@ -20,6 +20,9 @@
   `HttpClient` over `fetch`, Angular forms/signals over ad hoc mutable form
   state, Angular router over manual navigation, and Angular DI services over
   module-level singletons.
+- Ionic layout rule: page-level responsive layout uses Ionic grid primitives
+  (`ion-grid`, `ion-row`, `ion-col`) before custom CSS grid/flex containers.
+  Content is placed inside `ion-col`, following Ionic's grid structure.
 - Reactive programming rule: frontend async workflows should use Observables,
   signals, and Angular reactive primitives. Avoid `async`/`await` in Angular
   application code unless an API cannot be represented cleanly through Angular

@@ -8,138 +8,216 @@
 </ion-header>
 
 <ion-content fullscreen class="survey-page">
-  <main class="survey-shell ion-padding">
-    <div class="top-row">
-      <section class="intro">
-        <p class="eyebrow">Опитування філії</p>
-        <h1>Перевірка читання штрихкодів</h1>
-        <p>
-          Оберіть філію, вкажіть робоче місце, а потім пройдіть штрихкоди по одному.
-        </p>
-      </section>
+  <ion-grid fixed class="survey-shell ion-padding">
+    <ion-row class="top-row">
+      <ion-col size="12" size-md="7">
+        <section class="intro">
+          <p class="eyebrow">Опитування філії</p>
+          <h1>Перевірка читання штрихкодів</h1>
+          <p>
+            Оберіть філію, вкажіть робоче місце, а потім пройдіть штрихкоди по одному.
+          </p>
+        </section>
+      </ion-col>
 
-      <app-theme-mode-toggle />
-    </div>
+      <ion-col size="12" size-md="5">
+        <app-theme-mode-toggle />
+      </ion-col>
+    </ion-row>
 
-    <ion-card class="branch-card">
-      <ion-card-header>
-        <ion-card-title>Філія</ion-card-title>
-        <ion-card-subtitle>Значення зберігається лише в пам'яті сторінки</ion-card-subtitle>
-      </ion-card-header>
-      <ion-card-content>
-        <ion-select
-          label="Філія"
-          labelPlacement="stacked"
-          interface="popover"
-          [value]="formValue().branchName"
-          (ionChange)="setBranchName($event.detail.value)"
-        >
-          @for (branch of branchOptions; track branch) {
-            <ion-select-option [value]="branch">{{ branch }}</ion-select-option>
+    <ion-row>
+      <ion-col size="12">
+        <ion-card class="branch-card">
+          <ion-card-header>
+            <ion-card-title>Філія</ion-card-title>
+          </ion-card-header>
+          <ion-card-content>
+            <ion-select
+              label="Філія"
+              labelPlacement="stacked"
+              interface="popover"
+              [class.invalid-control]="shouldShowBranchError()"
+              [attr.aria-invalid]="shouldShowBranchError()"
+              [value]="formValue().branchName"
+              (ionChange)="setBranchName($event.detail.value)"
+              (ionBlur)="markBranchTouched()"
+            >
+              @for (branch of branchOptions; track branch) {
+                <ion-select-option [value]="branch">{{ branch }}</ion-select-option>
+              }
+            </ion-select>
+            @if (shouldShowBranchError()) {
+              <ion-note color="danger">Оберіть філію.</ion-note>
+            }
+          </ion-card-content>
+        </ion-card>
+      </ion-col>
+    </ion-row>
+
+    <ion-row>
+      <ion-col size="12">
+        <nav class="step-nav" aria-label="Кроки тестування">
+          @for (step of steps(); track step; let index = $index) {
+            <button
+              type="button"
+              class="step-dot"
+              [class.active]="index === currentStepIndex()"
+              [class.error]="shouldShowStepError(index)"
+              [attr.aria-current]="index === currentStepIndex() ? 'step' : null"
+              [attr.aria-invalid]="shouldShowStepError(index)"
+              [disabled]="!canNavigateToStep(index)"
+              (click)="setCurrentStep(index)"
+            >
+              <span>{{ index + 1 }}</span>
+            </button>
           }
-        </ion-select>
-      </ion-card-content>
-    </ion-card>
+        </nav>
+      </ion-col>
+    </ion-row>
 
-    <nav class="step-nav" aria-label="Кроки тестування">
-      @for (step of steps(); track step; let index = $index) {
-        <button
-          type="button"
-          class="step-dot"
-          [class.active]="index === currentStepIndex()"
-          [attr.aria-current]="index === currentStepIndex() ? 'step' : null"
-          (click)="currentStepIndex.set(index)"
-        >
-          <span>{{ index + 1 }}</span>
-        </button>
-      }
-    </nav>
+    <ion-row>
+      <ion-col size="12">
+        <ion-card class="step-card">
+          <ion-card-header>
+            <ion-card-subtitle
+              >Крок {{ currentStepIndex() + 1 }} з {{ steps().length }}</ion-card-subtitle
+            >
+            <ion-card-title>{{ currentStep() }}</ion-card-title>
+          </ion-card-header>
 
-    <ion-card class="step-card">
-      <ion-card-header>
-        <ion-card-subtitle>Крок {{ currentStepIndex() + 1 }} з {{ steps().length }}</ion-card-subtitle>
-        <ion-card-title>{{ currentStep() }}</ion-card-title>
-      </ion-card-header>
+          <ion-card-content>
+            @if (isFirstStep()) {
+              <ion-grid class="inner-grid">
+                <ion-row>
+                  <ion-col size="12" size-md="6">
+                    <div class="field">
+                      <span id="terminal-name-label">Робоче місце</span>
+                      <ion-input
+                        aria-labelledby="terminal-name-label"
+                        fill="outline"
+                        required
+                        [class.invalid-control]="shouldShowTerminalError()"
+                        [attr.aria-invalid]="shouldShowTerminalError()"
+                        [value]="terminal().terminalName"
+                        placeholder="Наприклад: каса 1"
+                        (ionInput)="setTerminalName($event.detail.value ?? '')"
+                        (ionBlur)="markTerminalNameTouched()"
+                        (keydown.enter)="moveTerminalNameFocusForward($event)"
+                      />
+                      @if (shouldShowTerminalError()) {
+                        <ion-note color="danger">Вкажіть робоче місце.</ion-note>
+                      }
+                    </div>
+                  </ion-col>
+                </ion-row>
+              </ion-grid>
+            }
 
-      <ion-card-content>
-        @if (isFirstStep()) {
-          <div class="field-grid">
-            <label class="field">
-              <span>Робоче місце</span>
-              <input
-                type="text"
-                [value]="terminal().terminalName"
-                placeholder="Наприклад: каса 1"
-                (input)="setTerminalName($any($event.target).value)"
-              />
-            </label>
-          </div>
-        }
+            @if (activeBarcode(); as barcode) {
+              <ion-grid class="inner-grid barcode-step">
+                <ion-row>
+                  <ion-col size="12" size-md="5">
+                    <div class="barcode-meta">
+                      <span class="format">{{ barcode.formatLabel }}</span>
+                      <h2>{{ barcode.title }}</h2>
+                      <p>{{ barcode.purpose }}</p>
+                      <code>{{ barcode.value }}</code>
+                    </div>
+                  </ion-col>
 
-        @if (activeBarcode(); as barcode) {
-          <section class="barcode-step">
-            <div class="barcode-meta">
-              <span class="format">{{ barcode.formatLabel }}</span>
-              <h2>{{ barcode.title }}</h2>
-              <p>{{ barcode.purpose }}</p>
-              <code>{{ barcode.value }}</code>
-            </div>
+                  <ion-col size="12" size-md="7">
+                    <div class="barcode-preview">
+                      <img [src]="barcodeImage(barcode.id)" [alt]="barcode.title" />
+                    </div>
+                  </ion-col>
 
-            <div class="barcode-preview">
-              <img [src]="barcodeImage(barcode.id)" [alt]="barcode.title" />
-            </div>
+                  <ion-col size="6">
+                    <ion-button
+                      expand="block"
+                      [fill]="terminal().answers[barcode.id] === 'yes' ? 'solid' : 'outline'"
+                      [color]="shouldShowAnswerError(barcode.id) ? 'danger' : 'primary'"
+                      class="answer-button"
+                      [class.selected]="terminal().answers[barcode.id] === 'yes'"
+                      [class.invalid-control]="shouldShowAnswerError(barcode.id)"
+                      (click)="setAnswer(barcode.id, 'yes')"
+                    >
+                      Читається
+                    </ion-button>
+                  </ion-col>
+                  <ion-col size="6">
+                    <ion-button
+                      expand="block"
+                      [fill]="terminal().answers[barcode.id] === 'no' ? 'solid' : 'outline'"
+                      [color]="shouldShowAnswerError(barcode.id) ? 'danger' : 'primary'"
+                      class="answer-button"
+                      [class.selected]="terminal().answers[barcode.id] === 'no'"
+                      [class.invalid-control]="shouldShowAnswerError(barcode.id)"
+                      (click)="setAnswer(barcode.id, 'no')"
+                    >
+                      Не читається
+                    </ion-button>
+                  </ion-col>
+                  @if (shouldShowAnswerError(barcode.id)) {
+                    <ion-col size="12">
+                      <ion-note color="danger">Оберіть результат читання штрихкоду.</ion-note>
+                    </ion-col>
+                  }
+                </ion-row>
+              </ion-grid>
+            }
 
-            <div class="answer-group" role="group" [attr.aria-label]="'Чи читається ' + barcode.title">
-              <button
-                type="button"
-                [class.selected]="terminal().answers[barcode.id] === 'yes'"
-                (click)="setAnswer(barcode.id, 'yes')"
-              >
-                Читається
-              </button>
-              <button
-                type="button"
-                [class.selected]="terminal().answers[barcode.id] === 'no'"
-                (click)="setAnswer(barcode.id, 'no')"
-              >
-                Не читається
-              </button>
-            </div>
-          </section>
-        }
+            @if (isLastStep()) {
+              <section class="summary">
+                <h2>Готово до відправки</h2>
+                <p>Філія: {{ formValue().branchName }}</p>
+                <p>Робоче місце: {{ terminal().terminalName || 'не вказано' }}</p>
+              </section>
 
-        @if (isLastStep()) {
-          <section class="summary">
-            <h2>Готово до відправки</h2>
-            <p>Філія: {{ formValue().branchName }}</p>
-            <p>Робоче місце: {{ terminal().terminalName || 'не вказано' }}</p>
-          </section>
+              @if (submitStatus() === 'success') {
+                <ion-note color="success">
+                  Дані збережено. Робоче місце та відповіді скинуто, філію залишено без змін.
+                </ion-note>
+              }
 
-          @if (submitStatus() === 'success') {
-            <ion-note color="success">
-              Дані збережено. Робоче місце та відповіді скинуто, філію залишено без змін.
-            </ion-note>
-          }
+              @if (submitStatus() === 'error') {
+                <ion-note color="danger">
+                  Не вдалося зберегти дані. Перевірте підключення і спробуйте ще раз.
+                </ion-note>
+              }
+            }
+          </ion-card-content>
+        </ion-card>
+      </ion-col>
+    </ion-row>
 
-          @if (submitStatus() === 'error') {
-            <ion-note color="danger">
-              Не вдалося зберегти дані. Перевірте підключення і спробуйте ще раз.
-            </ion-note>
-          }
-        }
-      </ion-card-content>
-    </ion-card>
-
-    <div class="actions">
-      <ion-button fill="outline" [disabled]="isFirstStep()" (click)="previousStep()">Назад</ion-button>
-
-      @if (!isLastStep()) {
-        <ion-button (click)="nextStep()">Далі</ion-button>
-      } @else {
-        <ion-button [disabled]="submitStatus() === 'submitting'" (click)="submitSurvey()">
-          {{ submitStatus() === 'submitting' ? 'Збереження...' : 'Надіслати результати' }}
+    <ion-row class="actions">
+      <ion-col size="6">
+        <ion-button expand="block" fill="outline" [disabled]="isFirstStep()" (click)="previousStep()">
+          Назад
         </ion-button>
-      }
-    </div>
-  </main>
+      </ion-col>
+
+      <ion-col size="6">
+        @if (!isLastStep()) {
+          <ion-button
+            id="scanner-survey-next-action"
+            expand="block"
+            [disabled]="!isStepValid(currentStepIndex())"
+            (click)="nextStep()"
+          >
+            Далі
+          </ion-button>
+        } @else {
+          <ion-button
+            id="scanner-survey-next-action"
+            expand="block"
+            [disabled]="submitStatus() === 'submitting' || !isFormValid()"
+            (click)="submitSurvey()"
+          >
+            {{ submitStatus() === 'submitting' ? 'Збереження...' : 'Надіслати результати' }}
+          </ion-button>
+        }
+      </ion-col>
+    </ion-row>
+  </ion-grid>
 </ion-content>
