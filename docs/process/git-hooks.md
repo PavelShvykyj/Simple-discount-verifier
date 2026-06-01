@@ -11,7 +11,7 @@ npm run prepare
 
 ## Hooks
 
-- `pre-commit`: on `master` and `develop`, runs `npx lint-staged`.
+- `pre-commit`: runs `npx lint-staged` on every branch.
 - `pre-push`: runs `npm --prefix frontend run test -- --watch=false` before a
   push to a GitHub remote.
 

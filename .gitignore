@@ -1,6 +1,11 @@
 # Spec Kit local tooling and generated scaffolding.
 node_modules/
 
+# Azure Functions local secrets.
+functions/local.settings.json
+functions/bin/
+functions/obj/
+
 /.agents/skills/speckit-*/
 /.specify/extensions/
 /.specify/integrations/
