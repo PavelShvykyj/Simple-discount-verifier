@@ -1,0 +1,145 @@
+<ion-header>
+  <ion-toolbar>
+    <ion-buttons slot="start">
+      <ion-back-button defaultHref="/" text="Назад" />
+    </ion-buttons>
+    <ion-title>Тест сканерів</ion-title>
+  </ion-toolbar>
+</ion-header>
+
+<ion-content fullscreen class="survey-page">
+  <main class="survey-shell ion-padding">
+    <div class="top-row">
+      <section class="intro">
+        <p class="eyebrow">Опитування філії</p>
+        <h1>Перевірка читання штрихкодів</h1>
+        <p>
+          Оберіть філію, вкажіть робоче місце, а потім пройдіть штрихкоди по одному.
+        </p>
+      </section>
+
+      <app-theme-mode-toggle />
+    </div>
+
+    <ion-card class="branch-card">
+      <ion-card-header>
+        <ion-card-title>Філія</ion-card-title>
+        <ion-card-subtitle>Значення зберігається лише в пам'яті сторінки</ion-card-subtitle>
+      </ion-card-header>
+      <ion-card-content>
+        <ion-select
+          label="Філія"
+          labelPlacement="stacked"
+          interface="popover"
+          [value]="formValue().branchName"
+          (ionChange)="setBranchName($event.detail.value)"
+        >
+          @for (branch of branchOptions; track branch) {
+            <ion-select-option [value]="branch">{{ branch }}</ion-select-option>
+          }
+        </ion-select>
+      </ion-card-content>
+    </ion-card>
+
+    <nav class="step-nav" aria-label="Кроки тестування">
+      @for (step of steps(); track step; let index = $index) {
+        <button
+          type="button"
+          class="step-dot"
+          [class.active]="index === currentStepIndex()"
+          [attr.aria-current]="index === currentStepIndex() ? 'step' : null"
+          (click)="currentStepIndex.set(index)"
+        >
+          <span>{{ index + 1 }}</span>
+        </button>
+      }
+    </nav>
+
+    <ion-card class="step-card">
+      <ion-card-header>
+        <ion-card-subtitle>Крок {{ currentStepIndex() + 1 }} з {{ steps().length }}</ion-card-subtitle>
+        <ion-card-title>{{ currentStep() }}</ion-card-title>
+      </ion-card-header>
+
+      <ion-card-content>
+        @if (isFirstStep()) {
+          <div class="field-grid">
+            <label class="field">
+              <span>Робоче місце</span>
+              <input
+                type="text"
+                [value]="terminal().terminalName"
+                placeholder="Наприклад: каса 1"
+                (input)="setTerminalName($any($event.target).value)"
+              />
+            </label>
+          </div>
+        }
+
+        @if (activeBarcode(); as barcode) {
+          <section class="barcode-step">
+            <div class="barcode-meta">
+              <span class="format">{{ barcode.formatLabel }}</span>
+              <h2>{{ barcode.title }}</h2>
+              <p>{{ barcode.purpose }}</p>
+              <code>{{ barcode.value }}</code>
+            </div>
+
+            <div class="barcode-preview">
+              <img [src]="barcodeImage(barcode.id)" [alt]="barcode.title" />
+            </div>
+
+            <div class="answer-group" role="group" [attr.aria-label]="'Чи читається ' + barcode.title">
+              <button
+                type="button"
+                [class.selected]="terminal().answers[barcode.id] === 'yes'"
+                (click)="setAnswer(barcode.id, 'yes')"
+              >
+                Читається
+              </button>
+              <button
+                type="button"
+                [class.selected]="terminal().answers[barcode.id] === 'no'"
+                (click)="setAnswer(barcode.id, 'no')"
+              >
+                Не читається
+              </button>
+            </div>
+          </section>
+        }
+
+        @if (isLastStep()) {
+          <section class="summary">
+            <h2>Готово до відправки</h2>
+            <p>Філія: {{ formValue().branchName }}</p>
+            <p>Робоче місце: {{ terminal().terminalName || 'не вказано' }}</p>
+          </section>
+
+          @if (submitStatus() === 'success') {
+            <ion-note color="success">
+              Дані збережено. Робоче місце та відповіді скинуто, філію залишено без змін.
+            </ion-note>
+          }
+
+          @if (submitStatus() === 'error') {
+            <ion-note color="danger">
+              Не вдалося зберегти дані. Перевірте підключення і спробуйте ще раз.
+            </ion-note>
+          }
+        }
+      </ion-card-content>
+    </ion-card>
+
+    <div class="actions">
+      <ion-button fill="outline" [disabled]="isFirstStep()" (click)="previousStep()">Назад</ion-button>
+
+      @if (!isLastStep()) {
+        <ion-button (click)="nextStep()">Далі</ion-button>
+      } @else {
+        <ion-button [disabled]="submitStatus() === 'submitting'" (click)="submitSurvey()">
+          {{ submitStatus() === 'submitting' ? 'Збереження...' : 'Надіслати результати' }}
+        </ion-button>
+      }
+    </div>
+  </main>
+</ion-content>

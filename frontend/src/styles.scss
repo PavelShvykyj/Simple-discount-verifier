@@ -6,9 +6,28 @@
   --ion-color-primary-contrast-rgb: 255, 255, 255;
   --ion-color-primary-shade: #104890;
   --ion-color-primary-tint: #2a63ac;
+  --app-page-background: #f6f8fb;
+  --app-surface: #ffffff;
+  --app-surface-strong: #edf3fa;
+  --app-border: #d8e1ec;
+  --app-text-muted: #526070;
+  --app-shadow: 0 16px 40px rgba(20, 42, 74, 0.08);
+}
+
+:root.ion-palette-dark {
+  --app-page-background: #101418;
+  --app-surface: #1a2027;
+  --app-surface-strong: #232b34;
+  --app-border: #35414d;
+  --app-text-muted: #b8c2cc;
+  --app-shadow: 0 16px 40px rgba(0, 0, 0, 0.28);
 }
 
 html,
 body {
   height: 100%;
+}
+
+* {
+  box-sizing: border-box;
 }

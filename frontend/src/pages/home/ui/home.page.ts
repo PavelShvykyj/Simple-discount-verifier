@@ -1,42 +1,40 @@
-import { Component } from '@angular/core';
+import { DOCUMENT } from '@angular/common';
+import { Component, inject } from '@angular/core';
+import { Router } from '@angular/router';
 import {
   IonButton,
   IonContent,
   IonHeader,
-  IonIcon,
-  IonItem,
-  IonLabel,
-  IonList,
-  IonText,
   IonTitle,
   IonToolbar,
 } from '@ionic/angular/standalone';
-import { addIcons } from 'ionicons';
-import { barcodeOutline, chatbubbleEllipsesOutline, phonePortraitOutline } from 'ionicons/icons';
+
+import { ThemeModeToggleComponent } from '../../../shared/theme/ui/theme-mode-toggle.component';
 
 @Component({
   selector: 'app-home-page',
-  imports: [
-    IonButton,
-    IonContent,
-    IonHeader,
-    IonIcon,
-    IonItem,
-    IonLabel,
-    IonList,
-    IonText,
-    IonTitle,
-    IonToolbar,
-  ],
+  imports: [IonButton, IonContent, IonHeader, IonTitle, IonToolbar, ThemeModeToggleComponent],
   templateUrl: './home.page.html',
   styleUrl: './home.page.scss',
 })
 export class HomePage {
-  constructor() {
-    addIcons({
-      barcodeOutline,
-      chatbubbleEllipsesOutline,
-      phonePortraitOutline,
-    });
+  private readonly document = inject(DOCUMENT);
+  private readonly router = inject(Router);
+
+  protected openScannerSurvey(): void {
+    this.blurFocusedElement();
+    void this.router.navigateByUrl('/scanner-survey');
+  }
+
+  private blurFocusedElement(): void {
+    let activeElement = this.document.activeElement;
+
+    while (activeElement instanceof HTMLElement && activeElement.shadowRoot?.activeElement) {
+      activeElement = activeElement.shadowRoot.activeElement;
+    }
+
+    if (activeElement instanceof HTMLElement) {
+      activeElement.blur();
+    }
   }
 }
