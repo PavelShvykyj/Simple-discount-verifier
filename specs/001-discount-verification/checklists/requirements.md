@@ -34,7 +34,6 @@
 - Validation completed during specification generation.
 - Known product uncertainties from existing project docs are represented as
   requirements or assumptions instead of unresolved clarification markers:
-  barcode compatibility must be verified, administrator authorization details
-  are deferred to design, and the one-active-code policy may be implemented by
-  rejection or previous-code invalidation as long as only one active code
-  remains.
+  barcode compatibility must be verified, and the one-active-code policy may be
+  implemented by rejection or previous-code invalidation as long as only one
+  active code remains.

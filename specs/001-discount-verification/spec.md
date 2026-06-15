@@ -55,30 +55,25 @@ validation attempt fails.
 
 ### User Story 2 - Register Eligible Customer Profile (Priority: P2)
 
-An administrator signs in to a protected administrative area and creates a saved
-customer profile for a customer who has been approved to receive a discount,
-including the phone number that will later connect the profile to the discount
-card in the main restaurant application.
+An administrator creates a saved customer profile for a customer who has been
+approved to receive a discount, including the phone number that will later
+connect the profile to the discount card in the main restaurant application.
 
 **Why this priority**: Redemption can only work for pre-approved customers, so
 the restaurant needs a simple way to record eligible customers before payment.
 
-**Independent Test**: Sign in as an administrator, create a customer profile
-with a phone number, confirm it is saved without SMS verification during profile
-creation, and use that phone number to start the redemption flow.
+**Independent Test**: Create a customer profile with a phone number, confirm it
+is saved without SMS verification during profile creation, and use that phone
+number to start the redemption flow.
 
 **Acceptance Scenarios**:
 
-1. **Given** an authorized administrator, **When** they enter required profile
-   data including a phone number and save the profile, **Then** the customer
-   profile exists and can be found later by that correctly validated phone
-   number.
+1. **Given** an administrator enters required profile data including a phone
+   number, **When** they save the profile, **Then** the customer profile exists
+   and can be found later by that correctly validated phone number.
 2. **Given** an administrator is creating or updating a profile, **When** they
    save the phone number, **Then** the system does not require SMS verification
    during profile creation in the initial release.
-3. **Given** an administrator is not authorized, **When** they try to access the
-   administrative profile area, **Then** they cannot create or update customer
-   profiles.
 
 ---
 
@@ -106,10 +101,14 @@ expired, used, and unknown codes fail.
    restaurant application requests validation, **Then** the service validates
    the code and returns the verified phone number only if the code is valid and
    unused.
-3. **Given** a one-time code is invalid, expired, already used, or unknown,
+3. **Given** the main restaurant application requests web-code validation,
+   **When** the request reaches the discount verification service, **Then** the
+   service accepts the request only if the server-to-server HMAC headers are
+   valid.
+4. **Given** a one-time code is invalid, expired, already used, or unknown,
    **When** validation is requested, **Then** the service returns a failed
    validation result and no discount is applied based on that code.
-4. **Given** a one-time code validates successfully, **When** the validation is
+5. **Given** a one-time code validates successfully, **When** the validation is
    completed, **Then** the code is immediately deleted or invalidated and cannot
    be restored after a later sale cancellation.
 
@@ -117,10 +116,9 @@ expired, used, and unknown codes fail.
 
 ### User Story 4 - Trace Redemption and Fraud-Relevant Events (Priority: P4)
 
-Restaurant support or authorized staff can trace a discount redemption flow from
-phone verification request through barcode issue, validation, failure,
-expiration, or invalidation without exposing the raw phone number in operational
-logs.
+Restaurant support staff can trace a discount redemption flow from phone
+verification request through barcode issue, validation, failure, expiration, or
+invalidation without exposing the raw phone number in operational logs.
 
 **Why this priority**: Traceability supports troubleshooting and fraud
 investigation, especially because the system is intended to reduce staff fraud
@@ -160,6 +158,8 @@ phone hash where appropriate.
   web-generated one-time code.
 - Main restaurant application cannot find a discount card by the returned lookup
   key.
+- Main restaurant application sends a web-code validation request with missing,
+  stale, or invalid HMAC headers.
 - Web-generated barcode format or prefix is not reliably distinguishable from
   EAN13 during scanner compatibility testing.
 - Public redemption screens are used on small mobile screens with one-handed
@@ -169,8 +169,8 @@ phone hash where appropriate.
 
 ### Functional Requirements
 
-- **FR-001**: The system MUST provide a protected administrative area where an
-  authorized administrator can create and update customer profiles.
+- **FR-001**: The system MUST provide an administrative area where an
+  administrator can create and update customer profiles.
 - **FR-002**: A customer profile MUST include a phone number used as the primary
   identifier for later discount redemption and discount card lookup.
 - **FR-002a**: Phone numbers MUST be entered in a format accepted in Ukraine,
@@ -226,6 +226,15 @@ phone hash where appropriate.
 - **FR-020**: When a scanned value is a web-generated one-time code, the main
   restaurant application MUST request validation from the discount verification
   service.
+- **FR-020a**: POS-facing server-to-server validation APIs MUST authenticate
+  requests inside the Azure Function using HMAC headers `x-client-id`,
+  `x-timestamp`, and `x-signature`.
+- **FR-020b**: The initial POS client id MUST be `main-pos-system`.
+- **FR-020c**: POS HMAC validation MUST reject requests with missing, stale, or
+  invalid HMAC headers before validating any one-time code.
+- **FR-020d**: Nonce-based replay protection with a used-nonce table and
+  periodic cleanup is deferred to a future phase and MUST NOT be required for
+  the initial release.
 - **FR-021**: The discount verification service MUST return a failed validation
   result for invalid, expired, already used, or unknown one-time codes.
 - **FR-022**: The discount verification service MUST return the verified phone
@@ -265,8 +274,7 @@ phone hash where appropriate.
   administrator profile creation, profile drafts, profile synchronization
   states, long-lived coupons, manual cancellation state for one-time codes,
   reservation/redeem lifecycle for barcode codes, restoring barcodes after sale
-  cancellation, advanced administrator roles, and detailed profile change
-  history.
+  cancellation, and detailed profile change history.
 
 ### Key Entities *(include if feature involves data)*
 
@@ -309,6 +317,8 @@ phone hash where appropriate.
 - **SC-005**: 100% of successful web-code validations return only the verified
   phone number as the discount-card lookup key and do not calculate or return a
   discount amount.
+- **SC-005a**: 100% of POS web-code validation requests with missing, stale, or
+  invalid HMAC headers are rejected before one-time code validation.
 - **SC-006**: Customer-facing mobile screens meet WCAG AA accessibility checks
   for labels, focus behavior, contrast, keyboard access, touch target usability,
   and non-color-only state communication.
@@ -325,11 +335,8 @@ phone hash where appropriate.
   receive SMS messages at payment time.
 - The public customer redemption flow is used primarily on mobile devices;
   desktop support is secondary.
-- Administrators are restaurant employees or managers with access to a protected
-  administrative area.
-- The exact administrator authorization mechanism is outside this feature
-  specification and will be selected during design without changing the
-  business flow.
+- Administrators are restaurant employees or managers who maintain customer
+  profiles.
 - The final customer profile field list is not fixed yet, but a correctly
   validated Ukrainian phone number is mandatory for the initial release.
 - The main restaurant application can distinguish standard EAN13 discount cards

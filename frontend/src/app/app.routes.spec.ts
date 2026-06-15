@@ -1,4 +1,5 @@
 import { routes } from './app.routes';
+import { adminGuard } from '../shared/auth/admin.guard';
 
 describe('routes', () => {
   it('loads the expected route components', () => {
@@ -10,6 +11,7 @@ describe('routes', () => {
         }),
         expect.objectContaining({
           path: 'scanner-survey',
+          canActivate: [adminGuard],
           loadComponent: expect.any(Function),
         }),
       ]),
