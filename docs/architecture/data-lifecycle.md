@@ -2,7 +2,7 @@
 
 ## Customer Profile
 
-- Created by an authorized administrator.
+- Created by an administrator.
 - Stored as the source of pre-approved discount eligibility.
 - Identified for integration primarily by phone number.
 - Has no workflow state in the initial release.

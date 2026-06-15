@@ -35,17 +35,79 @@
 - Frontend interface language: Ukrainian.
 - Frontend theme support: system, light, and dark modes.
 - Barcode generation for scanner compatibility testing: `@bwip-js/browser`.
+- Web barcode format: Code 128 with a prefix that distinguishes web codes from
+  EAN13 discount cards.
 - Frontend quality gates: ESLint and Prettier are required.
 - Frontend accessibility target: WCAG AA.
-- Backend: Azure Functions.
-- Storage: Azure Table Storage.
-- Secrets: Azure Key Vault.
-- Hosting: Azure.
-- SMS: external SMS provider likely, SMS-Fly is a candidate.
+- Hosting and API shell: Azure Static Web Apps.
+- Frontend delivery: Angular SPA served by Azure Static Web Apps.
+- API hosting for MVP: Azure Static Web Apps managed Azure Functions exposed
+  under `/api`.
+- CORS policy: avoid browser CORS complexity in the MVP by serving the Angular
+  SPA and managed Functions API from the same Static Web Apps origin.
+- Authentication for MVP: Azure Static Web Apps built-in authentication through
+  `/.auth/*`.
+- Static Web Apps auth endpoints used by the application:
+  `/.auth/login/aad` starts the Microsoft Entra ID login flow,
+  `/.auth/logout` ends the Static Web Apps session, and `/.auth/me` returns the
+  current user.
+- Static Web Apps built-in roles are `anonymous` and `authenticated`;
+  `authenticated` means any user who successfully signs in through the provider.
+- Administrative access MUST use the custom Static Web Apps role `admin`,
+  because `authenticated` is too broad for the administrative area when using
+  preconfigured Microsoft Entra ID.
+- The `admin` role is a Static Web Apps custom role. It is not an Azure RBAC
+  role and not a Microsoft Entra group.
+- Administrative UI routes under `/admin*` and administrative API routes under
+  `/api/admin/*` MUST allow only the `admin` role.
+- For admin auth verification, `/scanner-survey*` and `/api/scanner-survey`
+  require the custom Static Web Apps `admin` role while the home page remains
+  public. The Angular `scanner-survey` route also uses `adminGuard`.
+- External POS server-to-server routes under `/api/pos/*` MUST be reachable
+  without Static Web Apps user authentication so the Azure Function can perform
+  custom HMAC authentication internally.
+- POS-facing Functions MUST validate HMAC authentication with headers
+  `x-client-id`, `x-timestamp`, and `x-signature`.
+- The initial POS client id is `main-pos-system`.
+- POS HMAC secrets are server-side configuration values and MUST NOT be exposed
+  to Angular or browser-delivered assets.
+- POS request freshness MUST be checked with `x-timestamp`. A future phase will
+  add a nonce, a used-nonce table, and periodic cleanup of that table.
+- Public API routes under `/api/public/*` allow both `anonymous` and
+  `authenticated` roles.
+- Friendly authentication routes MAY be configured in `staticwebapp.config.json`
+  with `/login` redirecting to `/.auth/login/aad` and `/logout` redirecting to
+  `/.auth/logout`.
+- Route protection for MVP: `staticwebapp.config.json`.
+- Static Web Apps navigation fallback rewrites SPA routes to `/index.html` and
+  excludes `/api/*`, `/.auth/*`, `/assets/*`, and static asset file extensions.
+- Static Web Apps response overrides redirect `401` to
+  `/.auth/login/aad?post_login_redirect_uri=.referrer` and rewrite `403` to
+  `/forbidden.html`.
+- Managed Functions runtime for Static Web Apps is `dotnet-isolated:8.0`.
+- Admin role assignment for the small MVP is handled through Azure Portal:
+  Static Web App -> Settings -> Role Management -> Invite, with provider `aad`,
+  the user's email, domain, role `admin`, and an expiration.
+- A Static Web Apps invitation does not create a Microsoft account; it links an
+  already signed-in Microsoft identity to the `admin` role. The invitation email
+  should match the identity the user will actually use to sign in.
+- MVP exclusions: no separate Function App, no frontend MSAL setup, no dedicated
+  App Registration for the Angular SPA, and no Managed Identity dependency.
+- Storage: Azure Storage Tables.
+- Storage access: managed Azure Functions access Azure Storage Tables through a
+  Storage connection string.
+- Frontend storage rule: Angular must never access Azure Storage Tables
+  directly; all storage operations go through `/api`.
+- Secrets and connection strings: kept in Azure Static Web Apps/API
+  configuration, never in Angular code or browser-delivered assets.
+- SMS provider: SMS-Fly.
 - Main restaurant application does not expose public API.
 - Main restaurant application can act as a REST client.
 - Discount calculation is owned by the main restaurant application.
 - Web service does not calculate discount amount.
+- Main application lookup key returned by the web service: phone number.
+- When a customer requests a new one-time barcode while an active barcode exists,
+  the web service recreates the barcode and overwrites the active table record.
 - One-time barcode is invalidated immediately after successful validation.
 - Customer profile has no complex workflow state.
 - SMS verification during profile creation is out of scope for initial release.

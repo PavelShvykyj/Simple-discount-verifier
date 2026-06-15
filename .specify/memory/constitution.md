@@ -1,13 +1,13 @@
 <!--
 Sync Impact Report
-Version change: N/A -> 1.0.0
-Modified principles: initial ratification
-Added sections: Frontend Scope and Product Areas; Governance
-Removed sections: template placeholder sections
+Version change: 1.0.0 -> 1.0.1
+Modified principles: II. Angular and Ionic Only
+Added sections: none
+Removed sections: none
 Templates requiring updates:
-- .specify/templates/plan-template.md: updated
-- .specify/templates/spec-template.md: updated
-- .specify/templates/tasks-template.md: updated
+- .specify/templates/plan-template.md: reviewed, no update required
+- .specify/templates/spec-template.md: reviewed, no update required
+- .specify/templates/tasks-template.md: reviewed, no update required
 - .specify/templates/checklist-template.md: reviewed, no update required
 Follow-up TODOs: none
 -->
@@ -31,8 +31,8 @@ enhance the experience, but MUST NOT define or compromise the core mobile UX.
 Frontend implementation MUST use Angular and Ionic consistently. The frontend
 MUST NOT introduce additional frontend frameworks, UI kits unless this constitution and the architecture documentation are
 explicitly amended. Backend and hosting context MUST remain aligned with the
-accepted architecture decisions: Azure Functions for backend context and Azure
-for hosting context.
+accepted architecture decisions: Azure Static Web Apps for hosting context and
+managed Azure Functions under `/api` for backend context.
 
 ### III. Feature-Sliced Design Boundaries
 
@@ -91,4 +91,4 @@ MAJOR for incompatible governance or principle redefinitions, MINOR for new or
 materially expanded principles or sections, and PATCH for clarifications that do
 not change meaning.
 
-**Version**: 1.0.0 | **Ratified**: 2026-05-27 | **Last Amended**: 2026-05-27
+**Version**: 1.0.1 | **Ratified**: 2026-05-27 | **Last Amended**: 2026-06-15
