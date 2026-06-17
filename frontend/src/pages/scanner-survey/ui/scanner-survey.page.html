@@ -191,7 +191,7 @@
                     <div class="qr-actions">
                       <ion-button
                         expand="block"
-                        [disabled]="supportQrStatus() === 'matched'"
+                        [disabled]="supportQrStatus() === 'scanned'"
                         (click)="requestQrScanner()"
                       >
                         Прочитати камерою
@@ -199,7 +199,7 @@
                       <ion-button
                         expand="block"
                         fill="outline"
-                        [disabled]="supportQrStatus() === 'matched'"
+                        [disabled]="supportQrStatus() === 'scanned'"
                         (click)="refreshSupportQr()"
                       >
                         Новий QR
@@ -210,10 +210,7 @@
                   <ion-col size="12">
                     @if (isQrScannerRequested()) {
                       @defer {
-                        <app-support-qr-scanner
-                          [expectedPrefix]="supportQrValuePrefix"
-                          (matched)="confirmSupportQrMatch()"
-                        />
+                        <app-support-qr-scanner (scanned)="confirmSupportQrScan($event)" />
                       } @placeholder {
                         <div class="scanner-loader">
                           <ion-spinner name="crescent" />
@@ -230,9 +227,9 @@
                     }
                   </ion-col>
 
-                  @if (supportQrStatus() === 'matched') {
+                  @if (supportQrStatus() === 'scanned' && scannedSupportQrValue(); as scannedValue) {
                     <ion-col size="12">
-                      <ion-note color="success">QR-код прочитано другим телефоном.</ion-note>
+                      <ion-note color="success">{{ scannedValue }}</ion-note>
                     </ion-col>
                   }
                 </ion-row>

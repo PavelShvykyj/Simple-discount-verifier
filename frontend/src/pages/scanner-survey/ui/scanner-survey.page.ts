@@ -30,7 +30,7 @@ import { SupportQrScannerComponent } from './support-qr-scanner.component';
 
 type BranchName = 'Люксор' | 'Дастор' | 'Вопак';
 type ReadabilityAnswer = 'yes' | 'no' | null;
-type QrTestStatus = 'idle' | 'matched';
+type QrTestStatus = 'idle' | 'scanned';
 type SubmitStatus = 'idle' | 'submitting' | 'success' | 'error';
 type ControlKey = 'branchName' | 'terminalName' | `answer:${string}`;
 
@@ -153,8 +153,8 @@ export class ScannerSurveyPage {
   protected readonly dirtyControls = signal<ReadonlySet<ControlKey>>(new Set());
   protected readonly submitStatus = signal<SubmitStatus>('idle');
   protected readonly supportQrValue = signal(this.createSupportQrValue());
-  protected readonly supportQrValuePrefix = SUPPORT_QR_VALUE_PREFIX;
   protected readonly supportQrStatus = signal<QrTestStatus>('idle');
+  protected readonly scannedSupportQrValue = signal<string | null>(null);
   protected readonly isQrScannerRequested = signal(false);
   protected readonly surveyModel = signal<ScannerSurveyFormModel>(this.createInitialModel('Люксор'));
   protected readonly surveyForm: FieldTree<ScannerSurveyFormModel> = form(this.surveyModel);
@@ -321,10 +321,12 @@ export class ScannerSurveyPage {
   protected refreshSupportQr(): void {
     this.supportQrValue.set(this.createSupportQrValue());
     this.supportQrStatus.set('idle');
+    this.scannedSupportQrValue.set(null);
   }
 
-  protected confirmSupportQrMatch(): void {
-    this.supportQrStatus.set('matched');
+  protected confirmSupportQrScan(value: string): void {
+    this.scannedSupportQrValue.set(value);
+    this.supportQrStatus.set('scanned');
     this.isQrScannerRequested.set(false);
   }
 
@@ -369,7 +371,7 @@ export class ScannerSurveyPage {
     }
 
     if (index === this.supportQrStepIndex()) {
-      return this.isQrScannerRequested() && this.supportQrStatus() !== 'matched';
+      return this.isQrScannerRequested() && this.supportQrStatus() !== 'scanned';
     }
 
     return false;
@@ -465,6 +467,7 @@ export class ScannerSurveyPage {
   private resetSupportQrTest(): void {
     this.supportQrValue.set(this.createSupportQrValue());
     this.supportQrStatus.set('idle');
+    this.scannedSupportQrValue.set(null);
     this.isQrScannerRequested.set(false);
   }
 

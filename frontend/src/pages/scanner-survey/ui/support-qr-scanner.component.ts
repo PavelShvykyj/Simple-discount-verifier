@@ -3,7 +3,6 @@ import {
   Component,
   OnDestroy,
   computed,
-  input,
   output,
   signal,
   viewChild,
@@ -27,7 +26,7 @@ import { ZXingScannerComponent, ZXingScannerModule } from '@zxing/ngx-scanner';
     </div>
 
     @if (statusMessage(); as message) {
-      <ion-note [color]="isMatched() ? 'success' : 'medium'">{{ message }}</ion-note>
+      <ion-note [color]="lastScannedValue() ? 'success' : 'medium'">{{ message }}</ion-note>
     }
   `,
   styles: [
@@ -53,8 +52,7 @@ import { ZXingScannerComponent, ZXingScannerModule } from '@zxing/ngx-scanner';
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class SupportQrScannerComponent implements OnDestroy {
-  readonly expectedPrefix = input.required<string>();
-  readonly matched = output<string>();
+  readonly scanned = output<string>();
 
   private readonly scanner = viewChild(ZXingScannerComponent);
 
@@ -62,7 +60,6 @@ export class SupportQrScannerComponent implements OnDestroy {
   protected readonly hasCamera = signal<boolean | null>(null);
   protected readonly hasPermission = signal<boolean | null>(null);
 
-  protected readonly isMatched = computed(() => this.isSupportQrValue(this.lastScannedValue()));
   protected readonly statusMessage = computed(() => {
     if (this.hasPermission() === false) {
       return 'Немає доступу до камери. Дозвольте камеру в браузері й повторіть тест.';
@@ -78,19 +75,12 @@ export class SupportQrScannerComponent implements OnDestroy {
       return 'Наведіть камеру на QR-код, відкритий на іншому телефоні.';
     }
 
-    if (this.isMatched()) {
-      return 'QR-код прочитано й підтверджено.';
-    }
-
-    return 'Прочитано інший QR-код. Наведіть камеру на QR цього тесту.';
+    return `Відскановано: ${scannedValue}`;
   });
 
   protected handleScanSuccess(value: string): void {
     this.lastScannedValue.set(value);
-
-    if (this.isSupportQrValue(value)) {
-      this.matched.emit(value);
-    }
+    this.scanned.emit(value);
   }
 
   protected handlePermissionResponse(hasPermission: boolean): void {
@@ -107,15 +97,5 @@ export class SupportQrScannerComponent implements OnDestroy {
 
   ngOnDestroy(): void {
     this.scanner()?.reset();
-  }
-
-  private isSupportQrValue(value: string | null): boolean {
-    if (value === null || !value.startsWith(this.expectedPrefix())) {
-      return false;
-    }
-
-    return /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
-      value.slice(this.expectedPrefix().length),
-    );
   }
 }
