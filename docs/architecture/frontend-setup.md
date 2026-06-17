@@ -21,6 +21,9 @@ commands.
 - Interface language: Ukrainian.
 - Theme modes: system, light, and dark.
 - Barcode rendering for scanner compatibility testing: `@bwip-js/browser`.
+- Browser camera barcode/QR reading on the admin scanner survey page:
+  `@zxing-js/ngx-scanner`, the Angular integration recommended from the
+  `@zxing/browser` package documentation.
 
 Capacitor is intentionally not installed. The Ionic CLI is used for web
 development commands such as `ionic serve`; Capacitor, Cordova, and native
@@ -227,3 +230,16 @@ business logic out of `app`.
 
 Temporary scanner compatibility testing lives in `pages/scanner-survey/ui` and
 posts results to the Static Web Apps protected API route `/api/scanner-survey`.
+The page must support two kinds of checks:
+
+- POS/workplace compatibility checks for generated Code 128 samples.
+- Admin browser-camera checks where one app instance displays a QR code or test
+  barcode and another mobile browser instance reads it through
+  `@zxing-js/ngx-scanner`.
+
+The QR-code scenario is confirmed for admin/support navigation. The primary
+support QR is generated from `correlationId` returned by the first
+`POST /api/public/redemptions` response, including business-error responses when
+the backend can create a correlation id. This lets an administrator inspect an
+attempt even if the problem happened before barcode generation. A separate
+manual support code is not part of the current scope.

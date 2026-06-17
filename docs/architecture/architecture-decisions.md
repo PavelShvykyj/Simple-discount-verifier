@@ -96,6 +96,10 @@
 - Storage: Azure Storage Tables.
 - Storage access: managed Azure Functions access Azure Storage Tables through a
   Storage connection string.
+- MVP table design is fixed in `docs/architecture/table-storage-design.md`:
+  customer profiles are keyed by normalized phone, runtime redemption data is
+  stored as one current row per phone using an opaque phone runtime key, and
+  audit events are stored separately by correlation id.
 - Frontend storage rule: Angular must never access Azure Storage Tables
   directly; all storage operations go through `/api`.
 - Secrets and connection strings: kept in Azure Static Web Apps/API
