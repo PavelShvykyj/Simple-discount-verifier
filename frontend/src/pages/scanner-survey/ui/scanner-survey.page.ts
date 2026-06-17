@@ -1,5 +1,5 @@
 import { HttpClient } from '@angular/common/http';
-import { Component, computed, inject, signal } from '@angular/core';
+import { Component, computed, effect, inject, signal } from '@angular/core';
 import { form, type FieldTree } from '@angular/forms/signals';
 import {
   IonBackButton,
@@ -19,15 +19,18 @@ import {
   IonRow,
   IonSelect,
   IonSelectOption,
+  IonSpinner,
   IonTitle,
   IonToolbar,
 } from '@ionic/angular/standalone';
 import * as bwipjs from '@bwip-js/browser';
 
 import { ThemeModeToggleComponent } from '../../../shared/theme/ui/theme-mode-toggle.component';
+import { SupportQrScannerComponent } from './support-qr-scanner.component';
 
 type BranchName = 'Люксор' | 'Дастор' | 'Вопак';
 type ReadabilityAnswer = 'yes' | 'no' | null;
+type QrTestStatus = 'idle' | 'matched';
 type SubmitStatus = 'idle' | 'submitting' | 'success' | 'error';
 type ControlKey = 'branchName' | 'terminalName' | `answer:${string}`;
 
@@ -64,6 +67,8 @@ interface ScannerSurveyPayload {
 }
 
 const BRANCH_OPTIONS: readonly BranchName[] = ['Люксор', 'Дастор', 'Вопак'];
+const SUPPORT_QR_STEP_TITLE = 'QR підтримки камерою';
+const SUPPORT_QR_VALUE_PREFIX = 'SDV-SUPPORT-QR:';
 
 const BARCODE_SCENARIOS: readonly BarcodeScenario[] = [
   {
@@ -128,8 +133,10 @@ const BARCODE_SCENARIOS: readonly BarcodeScenario[] = [
     IonRow,
     IonSelect,
     IonSelectOption,
+    IonSpinner,
     IonTitle,
     IonToolbar,
+    SupportQrScannerComponent,
     ThemeModeToggleComponent,
   ],
   templateUrl: './scanner-survey.page.html',
@@ -145,6 +152,10 @@ export class ScannerSurveyPage {
   protected readonly touchedControls = signal<ReadonlySet<ControlKey>>(new Set());
   protected readonly dirtyControls = signal<ReadonlySet<ControlKey>>(new Set());
   protected readonly submitStatus = signal<SubmitStatus>('idle');
+  protected readonly supportQrValue = signal(this.createSupportQrValue());
+  protected readonly supportQrValuePrefix = SUPPORT_QR_VALUE_PREFIX;
+  protected readonly supportQrStatus = signal<QrTestStatus>('idle');
+  protected readonly isQrScannerRequested = signal(false);
   protected readonly surveyModel = signal<ScannerSurveyFormModel>(this.createInitialModel('Люксор'));
   protected readonly surveyForm: FieldTree<ScannerSurveyFormModel> = form(this.surveyModel);
   protected readonly formValue = computed(() => this.surveyForm().value());
@@ -157,6 +168,7 @@ export class ScannerSurveyPage {
       this.barcodes.every((barcode) => this.terminal().answers[barcode.id] !== null),
   );
   protected readonly steps = computed(() => [
+    SUPPORT_QR_STEP_TITLE,
     'Робоче місце',
     ...this.barcodes.map((barcode) => barcode.title),
     'Відправка',
@@ -164,12 +176,37 @@ export class ScannerSurveyPage {
   protected readonly currentStep = computed(() => this.steps()[this.currentStepIndex()] ?? this.steps()[0]);
   protected readonly isFirstStep = computed(() => this.currentStepIndex() === 0);
   protected readonly isLastStep = computed(() => this.currentStepIndex() === this.steps().length - 1);
+  protected readonly isWorkplaceStep = computed(() => this.currentStepIndex() === this.workplaceStepIndex());
   protected readonly activeBarcode = computed(() =>
-    this.currentStepIndex() > 0 && !this.isLastStep()
-      ? this.barcodes[this.currentStepIndex() - 1]
+    this.currentStepIndex() > this.workplaceStepIndex() &&
+    this.currentStepIndex() <= this.barcodes.length + this.workplaceStepIndex()
+      ? this.barcodes[this.currentStepIndex() - this.workplaceStepIndex() - 1]
       : undefined,
   );
+  protected readonly isSupportQrStep = computed(
+    () => this.currentStepIndex() === this.supportQrStepIndex(),
+  );
   protected readonly terminal = computed(() => this.formValue().terminals[0]);
+  protected readonly supportQrImage = computed(() =>
+    this.svgToDataUrl(
+      bwipjs.toSVG({
+        bcid: 'qrcode',
+        text: this.supportQrValue(),
+        scale: 6,
+        paddingwidth: 8,
+        paddingheight: 8,
+        backgroundcolor: 'FFFFFF',
+      }),
+    ),
+  );
+
+  constructor() {
+    effect(() => {
+      if (!this.isSupportQrStep()) {
+        this.isQrScannerRequested.set(false);
+      }
+    });
+  }
 
   protected setBranchName(value: string): void {
     if (this.isBranchName(value)) {
@@ -262,6 +299,7 @@ export class ScannerSurveyPage {
         const branchName = this.surveyModel().branchName;
         this.surveyModel.set(this.createInitialModel(branchName));
         this.currentStepIndex.set(0);
+        this.resetSupportQrTest();
         this.touchedControls.set(new Set());
         this.dirtyControls.set(new Set());
         this.submitStatus.set('success');
@@ -276,13 +314,31 @@ export class ScannerSurveyPage {
     return this.barcodeImages.get(barcodeId) ?? '';
   }
 
+  protected requestQrScanner(): void {
+    this.isQrScannerRequested.set(true);
+  }
+
+  protected refreshSupportQr(): void {
+    this.supportQrValue.set(this.createSupportQrValue());
+    this.supportQrStatus.set('idle');
+  }
+
+  protected confirmSupportQrMatch(): void {
+    this.supportQrStatus.set('matched');
+    this.isQrScannerRequested.set(false);
+  }
+
   protected isStepValid(index: number): boolean {
-    if (index === 0) {
+    if (index === this.supportQrStepIndex()) {
+      return true;
+    }
+
+    if (index === this.workplaceStepIndex()) {
       return !this.terminalNameRequiredError();
     }
 
-    if (index > 0 && index <= this.barcodes.length) {
-      return this.terminal().answers[this.barcodes[index - 1].id] !== null;
+    if (this.isBarcodeStepIndex(index)) {
+      return this.terminal().answers[this.barcodes[index - this.workplaceStepIndex() - 1].id] !== null;
     }
 
     return this.isFormValid();
@@ -304,25 +360,33 @@ export class ScannerSurveyPage {
   }
 
   protected shouldShowStepError(index: number): boolean {
-    if (index === 0) {
+    if (index === this.workplaceStepIndex()) {
       return this.shouldShowTerminalError();
     }
 
-    if (index > 0 && index <= this.barcodes.length) {
-      return this.shouldShowAnswerError(this.barcodes[index - 1].id);
+    if (this.isBarcodeStepIndex(index)) {
+      return this.shouldShowAnswerError(this.barcodes[index - this.workplaceStepIndex() - 1].id);
+    }
+
+    if (index === this.supportQrStepIndex()) {
+      return this.isQrScannerRequested() && this.supportQrStatus() !== 'matched';
     }
 
     return false;
   }
 
   protected canNavigateToStep(index: number): boolean {
+    if (index === this.supportQrStepIndex()) {
+      return true;
+    }
+
     if (index <= this.currentStepIndex()) {
       return true;
     }
 
     return this.steps()
       .slice(0, index)
-      .every((_, stepIndex) => this.isStepValid(stepIndex));
+      .every((_, stepIndex) => stepIndex === this.supportQrStepIndex() || this.isStepValid(stepIndex));
   }
 
   private createInitialModel(branchName: BranchName): ScannerSurveyFormModel {
@@ -386,6 +450,24 @@ export class ScannerSurveyPage {
     return `answer:${barcodeId}`;
   }
 
+  private supportQrStepIndex(): number {
+    return 0;
+  }
+
+  private workplaceStepIndex(): number {
+    return 1;
+  }
+
+  private isBarcodeStepIndex(index: number): boolean {
+    return index > this.workplaceStepIndex() && index <= this.barcodes.length + this.workplaceStepIndex();
+  }
+
+  private resetSupportQrTest(): void {
+    this.supportQrValue.set(this.createSupportQrValue());
+    this.supportQrStatus.set('idle');
+    this.isQrScannerRequested.set(false);
+  }
+
   private createPayload(): ScannerSurveyPayload {
     const model = this.surveyModel();
 
@@ -425,6 +507,10 @@ export class ScannerSurveyPage {
 
   private svgToDataUrl(svg: string): string {
     return `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(svg)}`;
+  }
+
+  private createSupportQrValue(): string {
+    return `${SUPPORT_QR_VALUE_PREFIX}${crypto.randomUUID()}`;
   }
 
   private isBranchName(value: string): value is BranchName {

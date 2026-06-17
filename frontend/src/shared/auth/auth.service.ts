@@ -2,6 +2,8 @@ import { HttpClient } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { Observable, catchError, map, of, shareReplay } from 'rxjs';
 
+import { environment } from '../../environments/environment';
+
 export interface StaticWebAppsClientPrincipal {
   identityProvider: string;
   userId: string;
@@ -26,6 +28,15 @@ export class AuthService {
       this.currentUser$ = this.http.get<StaticWebAppsMeResponse>('/.auth/me').pipe(
         map((response) => response.clientPrincipal),
         catchError((error: unknown) => {
+          if (this.shouldUseLocalAuthBypass()) {
+            return of({
+              identityProvider: 'local-dev',
+              userId: 'local-admin',
+              userDetails: 'local-admin',
+              userRoles: ['anonymous', 'authenticated', 'admin'],
+            });
+          }
+
           console.error('Failed to load current user', error);
           return of(null);
         }),
@@ -56,5 +67,20 @@ export class AuthService {
 
   clearCache(): void {
     this.currentUser$ = undefined;
+  }
+
+  private shouldUseLocalAuthBypass(): boolean {
+    if (!environment.enableLocalAuthBypass) {
+      return false;
+    }
+
+    const hostname = window.location.hostname;
+
+    return (
+      ['localhost', '127.0.0.1', '::1'].includes(hostname) ||
+      /^10\./.test(hostname) ||
+      /^192\.168\./.test(hostname) ||
+      /^172\.(1[6-9]|2\d|3[01])\./.test(hostname)
+    );
   }
 }

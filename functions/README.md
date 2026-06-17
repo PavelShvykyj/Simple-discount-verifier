@@ -1,6 +1,9 @@
 # Scanner Survey Azure Functions
 
 This API stores temporary scanner compatibility survey results for restaurant branches and terminals.
+It also stores admin browser-camera checks where one app instance displays a QR
+code or test barcode and another mobile browser instance reads it through the
+Angular `@zxing-js/ngx-scanner` integration.
 
 ## Endpoint
 
@@ -28,6 +31,11 @@ Example payload:
           "barcodeId": "ean13-valid-discount-card",
           "isReadable": false,
           "comment": "Scanner beeps, POS ignores the value"
+        },
+        {
+          "barcodeId": "qr-admin-inspect-cross-instance-zxing",
+          "isReadable": true,
+          "comment": "Read by mobile browser from another app instance"
         }
       ]
     }
@@ -37,6 +45,8 @@ Example payload:
 ```
 
 The function intentionally does not validate business values. If the JSON body can be read, it stores the submitted values. Invalid JSON returns `400 Bad Request`.
+QR-code checks reuse the same `barcodeId`, `isReadable`, and `comment` answer
+shape. A separate manual support code is not part of the current scope.
 
 ## Table Storage Shape
 
