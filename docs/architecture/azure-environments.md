@@ -21,8 +21,9 @@ model for the project environments.
 - The deployed frontend output is `dist/app/browser`.
 - The workflow uses a Static Web Apps deployment token stored in GitHub
   Secrets as `AZURE_STATIC_WEB_APPS_API_TOKEN_BLACK_POND_085834203`.
-- No infrastructure-as-code files are currently present for Azure resource
-  creation.
+- Initial infrastructure-as-code files are present under `infra/`.
+- `infra/main.bicep` is the first Azure resource baseline for the current
+  `develop` environment and the future `master` production-pilot environment.
 
 ## Current Development Azure Inventory
 
@@ -87,9 +88,6 @@ Storage Account:
 Current tables:
 
 - `ScannerSurveyResults`.
-
-Missing expected tables for the full MVP backend:
-
 - `CustomerProfiles`.
 - `DiscountRuntime`.
 - `AuditEvents`.
@@ -102,13 +100,16 @@ Application Insights:
   `/subscriptions/33427c73-b710-48a3-99a2-82217072bd94/resourceGroups/rg-simple-discount-verifier/providers/Microsoft.OperationalInsights/workspaces/ws-simple-discount-verifier`.
 - Public network access for ingestion: `Enabled`.
 - Public network access for query: `Enabled`.
-- Current retention: 90 days.
-- Current daily data cap: not set.
+- Current retention: 30 days.
+- Current daily data cap: 100 MB/day, represented as
+  `DataVolumeCap.Cap = 0.1` on the Application Insights
+  `CurrentBillingFeatures` child resource.
+- `az monitor app-insights component show` may still report
+  `dailyDataCapInGB: null`; verify the cap through
+  `Microsoft.Insights/components/CurrentBillingFeatures`.
 
 Application Insights differences from the target production-pilot baseline:
 
-- Retention should be 30 days, but the current value is 90 days.
-- Daily cap should be 100 MB/day, but no cap is currently configured.
 - The existing Smart Detection action group has no email receivers configured.
 - No metric alert rules are currently configured.
 - No scheduled query alert rules are currently configured.
@@ -257,11 +258,8 @@ For each environment:
 
 ## Automation Direction
 
-Use infrastructure as code for repeatable Azure resource creation and updates.
-Bicep is the preferred first option because the project is Azure-only and the
-resource model is small.
-
-Target repository shape:
+Use Bicep for repeatable Azure resource creation and updates. The current
+repository shape is:
 
 ```text
 infra/
