@@ -93,6 +93,17 @@
   should match the identity the user will actually use to sign in.
 - MVP exclusions: no separate Function App, no frontend MSAL setup, no dedicated
   App Registration for the Angular SPA, and no Managed Identity dependency.
+- Observability for the production pilot is fixed in
+  `docs/architecture/observability.md`.
+- Application Insights is enabled only for the backend Azure Functions/API in
+  the production pilot. Browser/frontend telemetry is out of scope.
+- Business events remain in Azure Storage Table `AuditEvents`; Application
+  Insights is used for operational telemetry only.
+- Application Insights must use a 30-day retention period and a daily cap of
+  100 MB/day to keep pilot monitoring cost close to the free allowance.
+- Application Insights alerts are email-based for the production pilot.
+- Backend telemetry must carry the same `correlationId` used by `AuditEvents`
+  whenever a correlation id exists.
 - Storage: Azure Storage Tables.
 - Storage access: managed Azure Functions access Azure Storage Tables through a
   Storage connection string.
