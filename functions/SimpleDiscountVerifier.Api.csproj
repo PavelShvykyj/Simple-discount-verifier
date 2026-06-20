@@ -16,6 +16,6 @@
   </ItemGroup>
 
   <ItemGroup>
-    <None Update="Domain\CustomerProfiles\questionnaire.definition.json" CopyToOutputDirectory="PreserveNewest" />
+    <None Update="Domain/CustomerProfiles/questionnaire.definition.json" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
   </ItemGroup>
 </Project>

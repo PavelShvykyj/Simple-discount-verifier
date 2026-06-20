@@ -6,6 +6,8 @@ public sealed partial record WebBarcode(string Value, string PhoneRuntimeKey, st
 {
     public const string Prefix = "SDV";
     public const string Format = "code128";
+    private const string BarcodePatternValue =
+        "^" + Prefix + @"-(?<phoneRuntimeKey>p_[A-Z2-7]{16})-(?<correlationId>c_[A-Z2-7]{26})$";
 
     public static string Create(string phoneRuntimeKey, string correlationId)
     {
@@ -39,6 +41,6 @@ public sealed partial record WebBarcode(string Value, string PhoneRuntimeKey, st
         return true;
     }
 
-    [GeneratedRegex(@"^SDV-(?<phoneRuntimeKey>p_[A-Z2-7]{16})-(?<correlationId>c_[A-Z2-7]{26})$", RegexOptions.CultureInvariant)]
+    [GeneratedRegex(BarcodePatternValue, RegexOptions.CultureInvariant)]
     private static partial Regex BarcodePattern();
 }

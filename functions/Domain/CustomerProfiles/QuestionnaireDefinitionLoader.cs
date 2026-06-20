@@ -28,6 +28,11 @@ public static class QuestionnaireDefinitionLoader
             throw new InvalidOperationException("Questionnaire definition must specify a version.");
         }
 
+        if (document.Fields is null)
+        {
+            throw new InvalidOperationException("Questionnaire definition must specify fields.");
+        }
+
         var fields = document.Fields.Select(ToFieldDefinition).ToArray();
         return new QuestionnaireDefinition(document.Version, fields);
     }

@@ -14,6 +14,11 @@ public static class SecretHasher
     public static bool FixedTimeEquals(string expectedHash, string value, string secret)
     {
         var actualHash = HmacSha256(value, secret);
+        if (expectedHash.Length != actualHash.Length)
+        {
+            return false;
+        }
+
         return CryptographicOperations.FixedTimeEquals(
             Encoding.UTF8.GetBytes(expectedHash),
             Encoding.UTF8.GetBytes(actualHash));
