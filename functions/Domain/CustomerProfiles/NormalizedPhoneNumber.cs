@@ -2,11 +2,16 @@ using System.Text;
 
 namespace SimpleDiscountVerifier.Api.Domain.CustomerProfiles;
 
-public sealed record NormalizedPhoneNumber(string Value)
+public sealed record NormalizedPhoneNumber
 {
-    public string StorageKey => Value.StartsWith('+') && Value.Length > 1
-        ? Value[1..]
-        : throw new InvalidOperationException("Normalized phone number must start with '+' and include digits.");
+    private NormalizedPhoneNumber(string value)
+    {
+        Value = value;
+    }
+
+    public string Value { get; }
+
+    public string StorageKey => Value[1..];
 
     public static bool TryCreate(string? input, out NormalizedPhoneNumber phone)
     {
