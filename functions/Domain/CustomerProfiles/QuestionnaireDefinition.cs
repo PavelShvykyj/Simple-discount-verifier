@@ -87,19 +87,21 @@ public sealed class QuestionnaireDefinition
                 continue;
             }
 
-            if (!_fieldsByCode.ContainsKey(answer.Code))
+            var code = answer.Code.Trim();
+
+            if (!_fieldsByCode.ContainsKey(code))
             {
                 errors.Add(QuestionnaireValidationErrorCodes.WithCode(
                     QuestionnaireValidationErrorCodes.UnknownAnswerCode,
-                    answer.Code));
+                    code));
                 continue;
             }
 
-            if (!supplied.TryAdd(answer.Code, answer.Value))
+            if (!supplied.TryAdd(code, answer.Value))
             {
                 errors.Add(QuestionnaireValidationErrorCodes.WithCode(
                     QuestionnaireValidationErrorCodes.DuplicateAnswerCode,
-                    answer.Code));
+                    code));
             }
         }
 
