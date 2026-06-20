@@ -14,7 +14,8 @@ public sealed class DomainValidationResult<T>
 
     public bool IsValid => Errors.Count == 0;
 
-    public static DomainValidationResult<T> Success(T value) => new(value, []);
-
-    public static DomainValidationResult<T> Failure(params string[] errors) => new(default, errors);
+    public static DomainValidationResult<T> Failure(params string[] errors) =>
+        errors.Length == 0
+            ? throw new ArgumentException("At least one error must be supplied.", nameof(errors))
+            : new(default, errors);
 }
