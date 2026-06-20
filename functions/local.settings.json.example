@@ -3,6 +3,7 @@
   "Values": {
     "AzureWebJobsStorage": "UseDevelopmentStorage=true",
     "FUNCTIONS_WORKER_RUNTIME": "dotnet-isolated",
+    "APPLICATIONINSIGHTS_CONNECTION_STRING": "",
     "AppStorageConnectionString": "UseDevelopmentStorage=true",
     "ScannerSurveyTableName": "ScannerSurveyResults",
     "CustomerProfilesTableName": "CustomerProfiles",
