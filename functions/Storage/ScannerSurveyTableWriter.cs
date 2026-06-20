@@ -1,6 +1,8 @@
-﻿using System.Text.RegularExpressions;
+using System.Text.RegularExpressions;
 using Azure;
 using Azure.Data.Tables;
+using Microsoft.Extensions.Options;
+using SimpleDiscountVerifier.Api.Infrastructure.Options;
 using SimpleDiscountVerifier.Api.Models;
 
 namespace SimpleDiscountVerifier.Api.Storage;
@@ -9,25 +11,28 @@ public sealed partial class ScannerSurveyTableWriter : IScannerSurveyTableWriter
 {
     private const string StorageConnectionSettingName = "AppStorageConnectionString";
     private const string TableNameSettingName = "ScannerSurveyTableName";
-    private const string DefaultTableName = "ScannerSurveyResults";
 
     private readonly TableClient _tableClient;
 
-    public ScannerSurveyTableWriter()
+    public ScannerSurveyTableWriter(IOptions<StorageOptions> options)
     {
-        var connectionString = Environment.GetEnvironmentVariable(StorageConnectionSettingName);
+        var storageOptions = options.Value;
 
-        if (string.IsNullOrWhiteSpace(connectionString))
+        if (string.IsNullOrWhiteSpace(storageOptions.AppStorageConnectionString))
         {
             throw new InvalidOperationException(
                 $"Application setting '{StorageConnectionSettingName}' is required.");
         }
 
-        var tableName = Environment.GetEnvironmentVariable(TableNameSettingName);
+        if (string.IsNullOrWhiteSpace(storageOptions.ScannerSurveyTableName))
+        {
+            throw new InvalidOperationException(
+                $"Application setting '{TableNameSettingName}' is required.");
+        }
 
         _tableClient = new TableClient(
-            connectionString,
-            string.IsNullOrWhiteSpace(tableName) ? DefaultTableName : tableName);
+            storageOptions.AppStorageConnectionString,
+            storageOptions.ScannerSurveyTableName);
     }
 
     public async Task<int> WriteAsync(
@@ -175,4 +180,3 @@ public sealed partial class ScannerSurveyTableWriter : IScannerSurveyTableWriter
     [GeneratedRegex(@"[\/\\#?]")]
     private static partial Regex InvalidTableKeyCharacters();
 }
-

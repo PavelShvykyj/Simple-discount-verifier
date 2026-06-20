@@ -32,8 +32,8 @@ Git/GitHub стратегия выполнения задач зафиксиро
 
 | PR | ID | Task | Status | Notes | Evidence |
 | --- | --- | --- | --- | --- | --- |
-| PR-1 | BE-01 | Backend Foundation | todo | Internal layers, response helpers, `IClock`, DI baseline. | |
-| PR-1 | BE-02 | Configuration And Secrets | todo | Typed options for storage, POS, hashing, SMS, TTL and telemetry settings. | |
+| PR-1 | BE-01 | Backend Foundation | review | Internal layers, response helpers, `IClock`, DI baseline added. | `dotnet build functions\SimpleDiscountVerifier.Api.csproj` passed with 0 warnings, 0 errors on 2026-06-20. |
+| PR-1 | BE-02 | Configuration And Secrets | review | Typed options for storage, POS, hashing, SMS, TTL and telemetry settings added. | `dotnet build functions\SimpleDiscountVerifier.Api.csproj` passed with 0 warnings, 0 errors on 2026-06-20. |
 | PR-2 | BE-03 | Domain Utilities | todo | Phone, questionnaire, ids, hashing, barcode, HMAC rules. | |
 | PR-3 | BE-04 | Storage Adapters | todo | Repositories for `CustomerProfiles`, `DiscountRuntime`, `AuditEvents`. | |
 | PR-3 | BE-05 | Audit Writer And Telemetry Correlation | todo | Append-only audit events and safe operational telemetry correlation. | |
