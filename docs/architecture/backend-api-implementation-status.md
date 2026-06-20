@@ -26,7 +26,7 @@ Git/GitHub стратегия выполнения задач зафиксиро
 | Existing implemented API | `POST /api/scanner-survey` |
 | Main storage | Azure Table Storage |
 | Required tables | `CustomerProfiles`, `DiscountRuntime`, `AuditEvents`, `ScannerSurveyResults` |
-| Current phase | Planning |
+| Current phase | PR-2 review |
 
 ## Task Tracker
 
@@ -34,7 +34,7 @@ Git/GitHub стратегия выполнения задач зафиксиро
 | --- | --- | --- | --- | --- | --- |
 | PR-1 | BE-01 | Backend Foundation | done | Internal layers, response helpers, `IClock`, DI baseline added and delivered to Azure dev portal. | `dotnet build functions\SimpleDiscountVerifier.Api.csproj` passed with 0 warnings, 0 errors on 2026-06-20. Delivered to Azure dev portal. |
 | PR-1 | BE-02 | Configuration And Secrets | done | Typed options for storage, POS, hashing, SMS, TTL and telemetry settings added and delivered to Azure dev portal. | `dotnet build functions\SimpleDiscountVerifier.Api.csproj` passed with 0 warnings, 0 errors on 2026-06-20. Delivered to Azure dev portal. |
-| PR-2 | BE-03 | Domain Utilities | todo | Phone, questionnaire, ids, hashing, barcode, HMAC rules. | |
+| PR-2 | BE-03 | Domain Utilities | review | Phone normalization, JSON-backed questionnaire validation, ids, hashing, SMS code, barcode and POS HMAC helpers added. | `dotnet build functions\SimpleDiscountVerifier.Api.csproj` passed with 0 warnings, 0 errors on 2026-06-20. |
 | PR-3 | BE-04 | Storage Adapters | todo | Repositories for `CustomerProfiles`, `DiscountRuntime`, `AuditEvents`. | |
 | PR-3 | BE-05 | Audit Writer And Telemetry Correlation | todo | Append-only audit events and safe operational telemetry correlation. | |
 | PR-4 | BE-06 | Admin Customer Profile API | todo | Create/list/get/update saved profiles. | |
