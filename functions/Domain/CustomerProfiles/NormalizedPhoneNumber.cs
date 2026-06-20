@@ -4,7 +4,9 @@ namespace SimpleDiscountVerifier.Api.Domain.CustomerProfiles;
 
 public sealed record NormalizedPhoneNumber(string Value)
 {
-    public string StorageKey => Value[1..];
+    public string StorageKey => Value.StartsWith('+') && Value.Length > 1
+        ? Value[1..]
+        : throw new InvalidOperationException("Normalized phone number must start with '+' and include digits.");
 
     public static bool TryCreate(string? input, out NormalizedPhoneNumber phone)
     {
