@@ -9,8 +9,6 @@ namespace SimpleDiscountVerifier.Api.Infrastructure.Storage;
 
 public sealed class AzureTableAuditEventRepository : IAuditEventRepository
 {
-    private const int RandomSuffixUpperBound = 1_000_000_000;
-
     private readonly TableClient _tableClient;
 
     public AzureTableAuditEventRepository(TableClientProvider tableClientProvider)
@@ -100,9 +98,12 @@ public sealed class AzureTableAuditEventRepository : IAuditEventRepository
     private static string BuildRowKey(DateTimeOffset occurredAtUtc)
     {
         var suffix = RandomNumberGenerator
-            .GetInt32(RandomSuffixUpperBound)
+            .GetInt32(AuditRowKeyRandomSuffixUpperBound)
             .ToString($"D{StorageConstants.AuditRowKeyRandomSuffixLength}");
 
         return $"{occurredAtUtc.UtcDateTime:yyyyMMddTHHmmssfffZ}_ae_{suffix}";
     }
+
+    private static int AuditRowKeyRandomSuffixUpperBound =>
+        (int)Math.Pow(10, StorageConstants.AuditRowKeyRandomSuffixLength);
 }
