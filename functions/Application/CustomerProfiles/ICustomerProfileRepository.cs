@@ -27,4 +27,10 @@ public interface ICustomerProfileRepository
         NormalizedPhoneNumber phone,
         string concurrencyToken,
         CancellationToken cancellationToken);
+
+    Task<StorageWriteResult> ChangePhoneAsync(
+        NormalizedPhoneNumber currentPhone,
+        string currentConcurrencyToken,
+        CustomerProfileRecord newProfile,
+        CancellationToken cancellationToken);
 }
