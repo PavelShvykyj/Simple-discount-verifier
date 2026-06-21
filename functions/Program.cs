@@ -1,6 +1,7 @@
 using Microsoft.Azure.Functions.Worker;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using SimpleDiscountVerifier.Api.Application.CustomerProfiles;
 using SimpleDiscountVerifier.Api.Domain.Shared;
 using SimpleDiscountVerifier.Api.Infrastructure;
 using SimpleDiscountVerifier.Api.Infrastructure.Options;
@@ -13,6 +14,7 @@ var host = new HostBuilder()
     {
         services.AddBackendOptions(context.Configuration);
         services.AddBackendStorage();
+        services.AddSingleton<AdminCustomerProfileService>();
         services.AddSingleton<IClock, SystemClock>();
         services.AddSingleton<IScannerSurveyTableWriter, ScannerSurveyTableWriter>();
     })

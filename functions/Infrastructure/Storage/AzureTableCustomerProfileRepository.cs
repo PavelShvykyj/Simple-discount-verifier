@@ -122,6 +122,42 @@ public sealed class AzureTableCustomerProfileRepository : ICustomerProfileReposi
         }
     }
 
+    public async Task<StorageWriteResult> ChangePhoneAsync(
+        NormalizedPhoneNumber currentPhone,
+        string currentConcurrencyToken,
+        CustomerProfileRecord newProfile,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            var actions = new[]
+            {
+                new TableTransactionAction(TableTransactionActionType.Add, ToEntity(newProfile)),
+                new TableTransactionAction(
+                    TableTransactionActionType.Delete,
+                    new TableEntity(StorageConstants.CustomerProfilePartitionKey, currentPhone.StorageKey)
+                    {
+                        ETag = new ETag(currentConcurrencyToken)
+                    })
+            };
+
+            await _tableClient.SubmitTransactionAsync(actions, cancellationToken);
+            return StorageWriteResult.Updated;
+        }
+        catch (RequestFailedException exception) when (TableStorageWriteResultMapper.IsConflict(exception))
+        {
+            return StorageWriteResult.Conflict;
+        }
+        catch (RequestFailedException exception) when (TableStorageWriteResultMapper.IsNotFound(exception))
+        {
+            return StorageWriteResult.NotFound;
+        }
+        catch (RequestFailedException exception) when (TableStorageWriteResultMapper.IsPreconditionFailed(exception))
+        {
+            return StorageWriteResult.PreconditionFailed;
+        }
+    }
+
     private static TableEntity ToEntity(CustomerProfileRecord profile)
     {
         return new TableEntity(StorageConstants.CustomerProfilePartitionKey, profile.Phone.StorageKey)
