@@ -65,8 +65,19 @@ public sealed class PublicRedemptionsFunction
             return await HttpResponseWriter.WriteErrorAsync(request, body.Error!, cancellationToken);
         }
 
+        if (!TryDecodePathSegment(redemptionKey, out var decodedRedemptionKey))
+        {
+            return await HttpResponseWriter.WriteErrorAsync(
+                request,
+                new ApplicationError(
+                    RedemptionErrorCodes.InvalidRequest,
+                    "Redemption key is missing or malformed.",
+                    HttpStatusCode.BadRequest),
+                cancellationToken);
+        }
+
         var result = await _redemptions.VerifySmsAsync(
-            new VerifySmsCommand(Uri.UnescapeDataString(redemptionKey), body.Value?.Code),
+            new VerifySmsCommand(decodedRedemptionKey, body.Value?.Code),
             cancellationToken);
 
         return result.IsSuccess
@@ -117,4 +128,18 @@ public sealed class PublicRedemptionsFunction
             result.BarcodeFormat,
             result.ExpiresAt,
             result.TtlSeconds);
+
+    private static bool TryDecodePathSegment(string value, out string decodedValue)
+    {
+        try
+        {
+            decodedValue = Uri.UnescapeDataString(value);
+            return true;
+        }
+        catch (ArgumentException)
+        {
+            decodedValue = string.Empty;
+            return false;
+        }
+    }
 }

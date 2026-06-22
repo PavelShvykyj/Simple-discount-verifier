@@ -158,15 +158,17 @@ public sealed class PublicRedemptionService
         VerifySmsCommand command,
         CancellationToken cancellationToken)
     {
-        if (string.IsNullOrWhiteSpace(command.RedemptionKey))
+        var redemptionKey = command.RedemptionKey?.Trim();
+
+        if (!PhoneRuntimeKeyGenerator.IsValid(redemptionKey))
         {
             return Failure<SmsVerificationResult>(
                 RedemptionErrorCodes.InvalidRequest,
-                "Redemption key is required.",
+                "Redemption key is missing or malformed.",
                 HttpStatusCode.BadRequest);
         }
 
-        var runtime = await _runtime.GetCurrentAsync(command.RedemptionKey.Trim(), cancellationToken);
+        var runtime = await _runtime.GetCurrentAsync(redemptionKey!, cancellationToken);
 
         if (runtime is null)
         {
