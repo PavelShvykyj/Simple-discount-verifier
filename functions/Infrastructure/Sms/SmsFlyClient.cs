@@ -15,9 +15,6 @@ public sealed class SmsFlyClient : ISmsSender
     private const string SmsCodeTtlSecondsSettingName = "SmsCodeTtlSeconds";
     private const string SendMessageAction = "SENDMESSAGE";
     private const string SmsChannel = "sms";
-    private const int SecondsPerMinute = 60;
-    private const int MinSmsFlyTtlMinutes = 1;
-    private const int MaxSmsFlyTtlMinutes = 1440;
     private const int StandardSmsFlashMode = 0;
 
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
@@ -48,7 +45,7 @@ public sealed class SmsFlyClient : ISmsSender
                 [SmsChannel],
                 new SmsFlySmsData(
                     RequireSetting(_options.SmsFlySender, SmsFlySenderSettingName),
-                    ToSmsFlyTtlMinutes(_options.CodeTtlSeconds),
+                    RequirePositiveTtl(_options.CodeTtlSeconds),
                     StandardSmsFlashMode,
                     request.Message)));
 
@@ -222,7 +219,7 @@ public sealed class SmsFlyClient : ISmsSender
         return value;
     }
 
-    private static int ToSmsFlyTtlMinutes(int codeTtlSeconds)
+    private static int RequirePositiveTtl(int codeTtlSeconds)
     {
         if (codeTtlSeconds <= 0)
         {
@@ -230,15 +227,7 @@ public sealed class SmsFlyClient : ISmsSender
                 $"Application setting '{SmsCodeTtlSecondsSettingName}' must be a positive integer.");
         }
 
-        var ttlMinutes = (codeTtlSeconds + SecondsPerMinute - 1) / SecondsPerMinute;
-
-        if (ttlMinutes is < MinSmsFlyTtlMinutes or > MaxSmsFlyTtlMinutes)
-        {
-            throw new InvalidOperationException(
-                $"Application setting '{SmsCodeTtlSecondsSettingName}' must fit SMS-Fly ttl range from {MinSmsFlyTtlMinutes} to {MaxSmsFlyTtlMinutes} minutes.");
-        }
-
-        return ttlMinutes;
+        return codeTtlSeconds;
     }
 
     private sealed record SmsFlySendPayload(
