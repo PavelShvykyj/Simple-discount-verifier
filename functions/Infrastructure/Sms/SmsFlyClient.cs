@@ -12,8 +12,13 @@ public sealed class SmsFlyClient : ISmsSender
     private const string SmsFlyEndpoint = "https://sms-fly.ua/api/v2/api.php";
     private const string SmsFlyApiKeySettingName = "SmsFlyApiKey";
     private const string SmsFlySenderSettingName = "SmsFlySender";
+    private const string SmsCodeTtlSecondsSettingName = "SmsCodeTtlSeconds";
     private const string SendMessageAction = "SENDMESSAGE";
     private const string SmsChannel = "sms";
+    private const int SecondsPerMinute = 60;
+    private const int MinSmsFlyTtlMinutes = 1;
+    private const int MaxSmsFlyTtlMinutes = 1440;
+    private const int StandardSmsFlashMode = 0;
 
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
 
@@ -43,6 +48,8 @@ public sealed class SmsFlyClient : ISmsSender
                 [SmsChannel],
                 new SmsFlySmsData(
                     RequireSetting(_options.SmsFlySender, SmsFlySenderSettingName),
+                    ToSmsFlyTtlMinutes(_options.CodeTtlSeconds),
+                    StandardSmsFlashMode,
                     request.Message)));
 
         using var response = await _httpClient.PostAsJsonAsync(
@@ -87,12 +94,12 @@ public sealed class SmsFlyClient : ISmsSender
 
         var root = document.RootElement;
 
-        if (TryGetBoolean(root, "success", out var success))
+        if (TryGetSuccessFlag(root, "success", out var success))
         {
             return !success;
         }
 
-        if (TryGetBoolean(root, "accepted", out var accepted))
+        if (TryGetSuccessFlag(root, "accepted", out var accepted))
         {
             return !accepted;
         }
@@ -116,24 +123,47 @@ public sealed class SmsFlyClient : ISmsSender
 
         var root = document.RootElement;
 
-        return TryGetString(root, "messageId")
+        return TryGetNestedString(root, "data", "messageID")
+            ?? TryGetNestedString(root, "data", "messageId")
+            ?? TryGetNestedString(root, "data", "message_id")
+            ?? TryGetString(root, "messageID")
+            ?? TryGetString(root, "messageId")
             ?? TryGetString(root, "message_id")
             ?? TryGetString(root, "id");
     }
 
-    private static bool TryGetBoolean(JsonElement element, string propertyName, out bool value)
+    private static bool TryGetSuccessFlag(JsonElement element, string propertyName, out bool value)
     {
         value = false;
 
         if (element.ValueKind != JsonValueKind.Object
-            || !element.TryGetProperty(propertyName, out var property)
-            || property.ValueKind is not (JsonValueKind.True or JsonValueKind.False))
+            || !element.TryGetProperty(propertyName, out var property))
         {
             return false;
         }
 
-        value = property.GetBoolean();
-        return true;
+        switch (property.ValueKind)
+        {
+            case JsonValueKind.True:
+            case JsonValueKind.False:
+                value = property.GetBoolean();
+                return true;
+            case JsonValueKind.Number when property.TryGetInt32(out var numericValue):
+                value = numericValue == 1;
+                return numericValue is 0 or 1;
+            case JsonValueKind.String:
+                var stringValue = property.GetString();
+
+                if (stringValue is "1" or "0")
+                {
+                    value = stringValue == "1";
+                    return true;
+                }
+
+                return bool.TryParse(stringValue, out value);
+            default:
+                return false;
+        }
     }
 
     private static string? TryGetString(JsonElement element, string propertyName)
@@ -142,6 +172,14 @@ public sealed class SmsFlyClient : ISmsSender
             && element.TryGetProperty(propertyName, out var property)
             && property.ValueKind == JsonValueKind.String
             ? property.GetString()
+            : null;
+    }
+
+    private static string? TryGetNestedString(JsonElement element, string objectPropertyName, string valuePropertyName)
+    {
+        return element.ValueKind == JsonValueKind.Object
+            && element.TryGetProperty(objectPropertyName, out var nested)
+            ? TryGetString(nested, valuePropertyName)
             : null;
     }
 
@@ -184,6 +222,25 @@ public sealed class SmsFlyClient : ISmsSender
         return value;
     }
 
+    private static int ToSmsFlyTtlMinutes(int codeTtlSeconds)
+    {
+        if (codeTtlSeconds <= 0)
+        {
+            throw new InvalidOperationException(
+                $"Application setting '{SmsCodeTtlSecondsSettingName}' must be a positive integer.");
+        }
+
+        var ttlMinutes = (codeTtlSeconds + SecondsPerMinute - 1) / SecondsPerMinute;
+
+        if (ttlMinutes is < MinSmsFlyTtlMinutes or > MaxSmsFlyTtlMinutes)
+        {
+            throw new InvalidOperationException(
+                $"Application setting '{SmsCodeTtlSecondsSettingName}' must fit SMS-Fly ttl range from {MinSmsFlyTtlMinutes} to {MaxSmsFlyTtlMinutes} minutes.");
+        }
+
+        return ttlMinutes;
+    }
+
     private sealed record SmsFlySendPayload(
         SmsFlyAuth Auth,
         string Action,
@@ -198,5 +255,7 @@ public sealed class SmsFlyClient : ISmsSender
 
     private sealed record SmsFlySmsData(
         string Source,
+        int Ttl,
+        int Flash,
         string Text);
 }
