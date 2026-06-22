@@ -217,7 +217,7 @@ After deploy:
 
 Before merge:
 
-- Проверить route rule `/api/admin/*` в
+- Проверить route rule `/api/backoffice/*` в
   `frontend/public/staticwebapp.config.json` и в deployed Static Web Apps
   behavior.
 - Проверить, что в Static Web Apps Role Management есть пользователь с custom
@@ -228,7 +228,7 @@ Before merge:
 After deploy:
 
 - Под admin session проверить create/get/list/update customer profile.
-- Проверить, что не-admin/anonymous доступ к `/api/admin/*` запрещен SWA.
+- Проверить, что не-admin/anonymous доступ к `/api/backoffice/*` запрещен SWA.
 - Проверить строки в `CustomerProfiles`.
 - Проверить audit event для create/update в `AuditEvents`.
 
@@ -284,7 +284,7 @@ After deploy:
 Before merge:
 
 - Проверить POS HMAC settings остаются настроенными.
-- Проверить admin role для `/api/admin/*`.
+- Проверить admin role для `/api/backoffice/*`.
 - Проверить наличие `CustomerProfiles`, `DiscountRuntime`, `AuditEvents`.
 - Подготовить `correlationId` тестового redemption flow для inspect smoke.
 
@@ -293,9 +293,9 @@ After deploy:
 - С валидным POS HMAC проверить
   `POST /api/pos/customer-profiles/lookup` для существующего телефона.
 - Проверить not-found lookup.
-- Под admin session проверить `GET /api/admin/audit-events` by
+- Под admin session проверить `GET /api/backoffice/audit-events` by
   `correlationId`.
-- Под admin session проверить `POST /api/admin/redemptions/inspect` by
+- Под admin session проверить `POST /api/backoffice/redemptions/inspect` by
   `correlationId`.
 - Проверить, что inspect endpoint read-only и не меняет barcode/runtime state.
 

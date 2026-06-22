@@ -124,14 +124,14 @@ Functions:
 
 - `POST /api/public/redemptions`.
 - `POST /api/public/redemptions/{redemptionKey}/sms-verifications`.
-- `POST /api/admin/customer-profiles`.
-- `GET /api/admin/customer-profiles`.
-- `GET /api/admin/customer-profiles/by-phone/{phone}`.
-- `PATCH /api/admin/customer-profiles/by-phone/{phone}`.
-- `POST /api/admin/redemptions/inspect`.
+- `POST /api/backoffice/customer-profiles`.
+- `GET /api/backoffice/customer-profiles`.
+- `GET /api/backoffice/customer-profiles/by-phone/{phone}`.
+- `PATCH /api/backoffice/customer-profiles/by-phone/{phone}`.
+- `POST /api/backoffice/redemptions/inspect`.
 - `POST /api/pos/barcodes/validate`.
 - `POST /api/pos/customer-profiles/lookup`.
-- `GET /api/admin/audit-events`.
+- `GET /api/backoffice/audit-events`.
 - `GET /api/system/health`.
 
 Testing:
