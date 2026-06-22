@@ -13,7 +13,7 @@ Storage implementation details are fixed in
 - The Angular/Ionic SPA calls same-origin Azure Static Web Apps managed
   Functions under `/api`.
 - Public customer APIs live under `/api/public/*` and allow anonymous access.
-- Admin APIs live under `/api/admin/*` and require the Static Web Apps custom
+- Admin APIs live under `/api/backoffice/*` and require the Static Web Apps custom
   `admin` role.
 - POS server-to-server APIs live under `/api/pos/*`, allow anonymous edge
   access, and must validate HMAC authentication inside the Azure Function.
@@ -60,16 +60,16 @@ Storage implementation details are fixed in
 POST /api/public/redemptions
 POST /api/public/redemptions/{redemptionKey}/sms-verifications
 
-POST /api/admin/customer-profiles
-GET  /api/admin/customer-profiles
-GET  /api/admin/customer-profiles/by-phone/{phone}
-PATCH /api/admin/customer-profiles/by-phone/{phone}
-POST /api/admin/redemptions/inspect
+POST /api/backoffice/customer-profiles
+GET  /api/backoffice/customer-profiles
+GET  /api/backoffice/customer-profiles/by-phone/{phone}
+PATCH /api/backoffice/customer-profiles/by-phone/{phone}
+POST /api/backoffice/redemptions/inspect
 
 POST /api/pos/barcodes/validate
 POST /api/pos/customer-profiles/lookup
 
-GET  /api/admin/audit-events
+GET  /api/backoffice/audit-events
 GET  /api/system/health
 
 POST /api/scanner-survey
@@ -79,9 +79,9 @@ Endpoints intentionally not included in the MVP:
 
 - `POST /api/public/redemptions/{redemptionKey}/barcode`: a new barcode should
   not be issued without completing a new SMS verification flow.
-- `DELETE /api/admin/customer-profiles/by-phone/{phone}`: deleting profiles would
+- `DELETE /api/backoffice/customer-profiles/by-phone/{phone}`: deleting profiles would
   introduce an additional business state that is not yet specified.
-- `POST /api/admin/redemptions/force-approve`: manager force approval is a future
+- `POST /api/backoffice/redemptions/force-approve`: manager force approval is a future
   idea and is not implemented in the current scope.
 - `GET /api/system/config/public`: barcode TTL and format can be returned by
   the successful SMS verification response.
@@ -271,7 +271,7 @@ on the broad `authenticated` role.
 ### Create Customer Profile
 
 ```http
-POST /api/admin/customer-profiles
+POST /api/backoffice/customer-profiles
 Content-Type: application/json
 ```
 
@@ -361,7 +361,7 @@ Notes:
 ### List Customer Profiles
 
 ```http
-GET /api/admin/customer-profiles?phone=+380501234567&pageSize=50&continuationToken=...
+GET /api/backoffice/customer-profiles?phone=+380501234567&pageSize=50&continuationToken=...
 ```
 
 Lists customer profiles and supports lookup by phone.
@@ -409,7 +409,7 @@ Success response:
 ### Get Customer Profile
 
 ```http
-GET /api/admin/customer-profiles/by-phone/{phone}
+GET /api/backoffice/customer-profiles/by-phone/{phone}
 ```
 
 The `phone` path value must be URL-encoded when it contains `+`.
@@ -448,7 +448,7 @@ Expected error:
 ### Update Customer Profile
 
 ```http
-PATCH /api/admin/customer-profiles/by-phone/{phone}
+PATCH /api/backoffice/customer-profiles/by-phone/{phone}
 Content-Type: application/json
 ```
 
@@ -520,7 +520,7 @@ Expected errors:
 ### Inspect Redemption
 
 ```http
-POST /api/admin/redemptions/inspect
+POST /api/backoffice/redemptions/inspect
 Content-Type: application/json
 ```
 
@@ -948,7 +948,7 @@ Audit:
 ### List Audit Events
 
 ```http
-GET /api/admin/audit-events?correlationId=c_01hxyz&phone=+380501234567&pageSize=50&continuationToken=...
+GET /api/backoffice/audit-events?correlationId=c_01hxyz&phone=+380501234567&pageSize=50&continuationToken=...
 ```
 
 Returns fraud-relevant and support-relevant events. Admin-only.
@@ -1143,9 +1143,9 @@ Common HTTP meanings:
   issuance endpoint.
 - If the customer needs a new barcode after expiry or completion, start a new
   redemption flow.
-- Admin frontend should use `/api/admin/customer-profiles` for profile
-  management and `/api/admin/audit-events` for support/fraud investigation.
-- Admin frontend should use `/api/admin/redemptions/inspect` to show support
+- Admin frontend should use `/api/backoffice/customer-profiles` for profile
+  management and `/api/backoffice/audit-events` for support/fraud investigation.
+- Admin frontend should use `/api/backoffice/redemptions/inspect` to show support
   information for a redemption attempt by `correlationId`; `barcodeValue` is an
   optional input when a barcode already exists. This endpoint does not change
   barcode validity.

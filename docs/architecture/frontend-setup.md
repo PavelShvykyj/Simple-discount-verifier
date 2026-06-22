@@ -80,7 +80,7 @@ requirements.
       "rewrite": "/index.html"
     },
     {
-      "route": "/api/admin/*",
+      "route": "/api/backoffice/*",
       "allowedRoles": ["admin"]
     },
     {

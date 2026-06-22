@@ -148,7 +148,7 @@ Important route rules:
 
 - `/scanner-survey*` requires the Static Web Apps custom role `admin`.
 - `/admin*` requires the Static Web Apps custom role `admin`.
-- `/api/admin/*` requires the Static Web Apps custom role `admin`.
+- `/api/backoffice/*` requires the Static Web Apps custom role `admin`.
 - `/api/scanner-survey` requires the Static Web Apps custom role `admin`.
 - `/api/pos/*` allows `anonymous` at the Static Web Apps edge and must be
   authenticated inside Azure Functions with HMAC headers.

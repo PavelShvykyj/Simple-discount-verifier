@@ -28,7 +28,7 @@ public sealed class AdminCustomerProfilesFunction
 
     [Function(nameof(CreateCustomerProfile))]
     public async Task<HttpResponseData> CreateCustomerProfile(
-        [HttpTrigger(AuthorizationLevel.Anonymous, "post", Route = "admin/customer-profiles")]
+        [HttpTrigger(AuthorizationLevel.Anonymous, "post", Route = AdminApiRoutes.BackofficeCustomerProfiles)]
         HttpRequestData request,
         CancellationToken cancellationToken)
     {
@@ -49,7 +49,7 @@ public sealed class AdminCustomerProfilesFunction
 
     [Function(nameof(ListCustomerProfiles))]
     public async Task<HttpResponseData> ListCustomerProfiles(
-        [HttpTrigger(AuthorizationLevel.Anonymous, "get", Route = "admin/customer-profiles")]
+        [HttpTrigger(AuthorizationLevel.Anonymous, "get", Route = AdminApiRoutes.BackofficeCustomerProfiles)]
         HttpRequestData request,
         CancellationToken cancellationToken)
     {
@@ -83,7 +83,7 @@ public sealed class AdminCustomerProfilesFunction
 
     [Function(nameof(GetCustomerProfileByPhone))]
     public async Task<HttpResponseData> GetCustomerProfileByPhone(
-        [HttpTrigger(AuthorizationLevel.Anonymous, "get", Route = "admin/customer-profiles/by-phone/{phone}")]
+        [HttpTrigger(AuthorizationLevel.Anonymous, "get", Route = AdminApiRoutes.BackofficeCustomerProfileByPhone)]
         HttpRequestData request,
         string phone,
         CancellationToken cancellationToken)
@@ -97,7 +97,7 @@ public sealed class AdminCustomerProfilesFunction
 
     [Function(nameof(UpdateCustomerProfile))]
     public async Task<HttpResponseData> UpdateCustomerProfile(
-        [HttpTrigger(AuthorizationLevel.Anonymous, "patch", Route = "admin/customer-profiles/by-phone/{phone}")]
+        [HttpTrigger(AuthorizationLevel.Anonymous, "patch", Route = AdminApiRoutes.BackofficeCustomerProfileByPhone)]
         HttpRequestData request,
         string phone,
         CancellationToken cancellationToken)
