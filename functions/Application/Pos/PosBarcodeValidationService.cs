@@ -101,7 +101,17 @@ public sealed class PosBarcodeValidationService
                 cancellationToken);
         }
 
-        if (runtime.BarcodeExpiresAtUtc is null || now > runtime.BarcodeExpiresAtUtc.Value)
+        if (runtime.BarcodeExpiresAtUtc is null)
+        {
+            return await FailureWithAuditAsync(
+                runtime,
+                command,
+                PosBarcodeValidationReasons.Unknown,
+                now,
+                cancellationToken);
+        }
+
+        if (now > runtime.BarcodeExpiresAtUtc.Value)
         {
             await WriteAuditAsync(
                 runtime,
