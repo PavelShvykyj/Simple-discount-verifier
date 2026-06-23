@@ -7,6 +7,7 @@ namespace SimpleDiscountVerifier.Api.Domain.Redemptions;
 public static class PhoneRuntimeKeyGenerator
 {
     public const int RuntimeKeyLength = 10;
+    private const int RuntimeKeyBytesToEncode = (RuntimeKeyLength * 5 + 7) / 8;
 
     public static string Derive(NormalizedPhoneNumber phone, string secret)
     {
@@ -15,7 +16,7 @@ public static class PhoneRuntimeKeyGenerator
         using var hmac = new HMACSHA256(Encoding.UTF8.GetBytes(secret));
         var hash = hmac.ComputeHash(Encoding.UTF8.GetBytes(phone.Value));
 
-        return Base32NoPadding.Encode(hash)[..RuntimeKeyLength];
+        return Base32NoPadding.Encode(hash.AsSpan(0, RuntimeKeyBytesToEncode))[..RuntimeKeyLength];
     }
 
     public static bool IsValid(string? value) =>
