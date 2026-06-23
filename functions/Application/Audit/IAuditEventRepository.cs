@@ -13,4 +13,11 @@ public interface IAuditEventRepository
         int pageSize,
         string? continuationToken,
         CancellationToken cancellationToken);
+
+    Task<PagedResult<AuditEventRecord>> ListAsync(
+        string? correlationId,
+        string? phoneHash,
+        int pageSize,
+        string? continuationToken,
+        CancellationToken cancellationToken);
 }

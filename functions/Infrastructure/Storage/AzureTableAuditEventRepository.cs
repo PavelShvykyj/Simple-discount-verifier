@@ -62,9 +62,44 @@ public sealed class AzureTableAuditEventRepository : IAuditEventRepository
         return new PagedResult<AuditEventRecord>([], null);
     }
 
+    public async Task<PagedResult<AuditEventRecord>> ListAsync(
+        string? correlationId,
+        string? phoneHash,
+        int pageSize,
+        string? continuationToken,
+        CancellationToken cancellationToken)
+    {
+        var hasCorrelationId = !string.IsNullOrWhiteSpace(correlationId);
+        var hasPhoneHash = !string.IsNullOrWhiteSpace(phoneHash);
+        var filter = (hasCorrelationId, hasPhoneHash) switch
+        {
+            (true, true) => TableClient.CreateQueryFilter(
+                $"PartitionKey eq {correlationId} and PhoneHash eq {phoneHash}"),
+            (true, false) => TableClient.CreateQueryFilter($"PartitionKey eq {correlationId}"),
+            (false, true) => TableClient.CreateQueryFilter($"PhoneHash eq {phoneHash}"),
+            _ => null
+        };
+
+        var query = _tableClient
+            .QueryAsync<TableEntity>(
+                filter,
+                maxPerPage: pageSize,
+                cancellationToken: cancellationToken)
+            .AsPages(continuationToken, pageSize);
+
+        await foreach (var page in query.WithCancellation(cancellationToken))
+        {
+            return new PagedResult<AuditEventRecord>(
+                page.Values.Select(ToRecord).ToArray(),
+                page.ContinuationToken);
+        }
+
+        return new PagedResult<AuditEventRecord>([], null);
+    }
+
     private static TableEntity ToEntity(AuditEventRecord auditEvent)
     {
-        var entity = new TableEntity(auditEvent.CorrelationId, BuildRowKey(auditEvent.OccurredAtUtc))
+        var entity = new TableEntity(auditEvent.CorrelationId, auditEvent.Id ?? BuildRowKey(auditEvent.OccurredAtUtc))
         {
             [StorageConstants.Properties.EventType] = auditEvent.EventType,
             [StorageConstants.Properties.ActorType] = auditEvent.ActorType,
@@ -92,7 +127,8 @@ public sealed class AzureTableAuditEventRepository : IAuditEventRepository
             TableStorageMapper.GetRequiredString(entity, StorageConstants.Properties.ActorType),
             TableStorageMapper.GetOptionalString(entity, StorageConstants.Properties.ActorId),
             TableStorageMapper.GetOptionalString(entity, StorageConstants.Properties.PhoneHash),
-            metadata);
+            metadata,
+            entity.RowKey);
     }
 
     private static string BuildRowKey(DateTimeOffset occurredAtUtc)
