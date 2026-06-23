@@ -64,7 +64,7 @@
 - The `admin` role is a Static Web Apps custom role. It is not an Azure RBAC
   role and not a Microsoft Entra group.
 - Administrative UI routes under `/admin*` and administrative API routes under
-  `/api/admin/*` MUST allow only the `admin` role.
+  `/api/backoffice/*` MUST allow only the `admin` role.
 - For admin auth verification, `/scanner-survey*` and `/api/scanner-survey`
   require the custom Static Web Apps `admin` role while the home page remains
   public. The Angular `scanner-survey` route also uses `adminGuard`.

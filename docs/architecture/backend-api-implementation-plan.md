@@ -33,7 +33,7 @@ Angular/Ionic SPA
 Публичные, административные и POS API имеют разные границы доверия:
 
 - `/api/public/*` доступен клиенту без логина и управляет redemption flow.
-- `/api/admin/*` защищен Static Web Apps ролью `admin`.
+- `/api/backoffice/*` защищен Static Web Apps ролью `admin`.
 - `/api/pos/*` открыт на SWA edge как `anonymous`, но внутри Function обязан
   пройти HMAC-проверку.
 - `/api/scanner-survey` уже реализован и остается отдельным временным admin
@@ -232,10 +232,10 @@ Insights - для операций. Эти каналы не смешиваем.
 Реализовать:
 
 ```text
-POST /api/admin/customer-profiles
-GET  /api/admin/customer-profiles
-GET  /api/admin/customer-profiles/by-phone/{phone}
-PATCH /api/admin/customer-profiles/by-phone/{phone}
+POST /api/backoffice/customer-profiles
+GET  /api/backoffice/customer-profiles
+GET  /api/backoffice/customer-profiles/by-phone/{phone}
+PATCH /api/backoffice/customer-profiles/by-phone/{phone}
 ```
 
 Включить:
@@ -360,8 +360,8 @@ barcode validation.
 Реализовать:
 
 ```text
-GET  /api/admin/audit-events
-POST /api/admin/redemptions/inspect
+GET  /api/backoffice/audit-events
+POST /api/backoffice/redemptions/inspect
 ```
 
 Включить:
