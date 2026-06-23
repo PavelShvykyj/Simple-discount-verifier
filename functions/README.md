@@ -23,7 +23,7 @@ Example payload:
       "terminalName": "POS-01",
       "answers": [
         {
-          "barcodeId": "code128-web-prefix-short",
+          "barcodeId": "code128-web-20-fixed",
           "isReadable": true,
           "comment": ""
         },

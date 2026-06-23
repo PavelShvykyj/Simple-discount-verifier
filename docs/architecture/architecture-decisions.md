@@ -35,8 +35,13 @@
 - Frontend interface language: Ukrainian.
 - Frontend theme support: system, light, and dark modes.
 - Barcode generation for scanner compatibility testing: `@bwip-js/browser`.
-- Web barcode format: Code 128 with a prefix that distinguishes web codes from
-  EAN13 discount cards.
+- Web barcode format: Code 128 with exactly 20 uppercase base32 characters and
+  no prefix or separators.
+- POS routing distinguishes barcode families by length: EAN13 is 13
+  characters, ordinary card values are 18 characters, and the web discount
+  verifier code is 20 characters.
+- The web barcode value is `<phoneRuntimeKey10><correlationId10>`, containing
+  the full runtime lookup key and the full support/audit correlation id.
 - Frontend quality gates: ESLint and Prettier are required.
 - Frontend accessibility target: WCAG AA.
 - Hosting and API shell: Azure Static Web Apps.

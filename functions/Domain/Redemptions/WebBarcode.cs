@@ -1,20 +1,26 @@
-using System.Text.RegularExpressions;
-
 namespace SimpleDiscountVerifier.Api.Domain.Redemptions;
 
-public sealed partial record WebBarcode(string Value, string PhoneRuntimeKey, string CorrelationId)
+public sealed record WebBarcode(string Value, string PhoneRuntimeKey, string CorrelationId)
 {
-    public const string Prefix = "SDV";
     public const string Format = "code128";
-    private const string BarcodePatternValue =
-        "^" + Prefix + @"-(?<phoneRuntimeKey>p_[A-Z2-7]{16})-(?<correlationId>c_[A-Z2-7]{26})$";
+    public const int TotalLength = PhoneRuntimeKeyGenerator.RuntimeKeyLength + CorrelationIdGenerator.CorrelationIdLength;
 
     public static string Create(string phoneRuntimeKey, string correlationId)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(phoneRuntimeKey);
         ArgumentException.ThrowIfNullOrWhiteSpace(correlationId);
 
-        return $"{Prefix}-{phoneRuntimeKey}-{correlationId}";
+        if (!PhoneRuntimeKeyGenerator.IsValid(phoneRuntimeKey))
+        {
+            throw new ArgumentException("Phone runtime key is malformed.", nameof(phoneRuntimeKey));
+        }
+
+        if (!CorrelationIdGenerator.IsValid(correlationId))
+        {
+            throw new ArgumentException("Correlation id is malformed.", nameof(correlationId));
+        }
+
+        return string.Concat(phoneRuntimeKey, correlationId);
     }
 
     public static bool TryParse(string? value, out WebBarcode barcode)
@@ -26,21 +32,21 @@ public sealed partial record WebBarcode(string Value, string PhoneRuntimeKey, st
             return false;
         }
 
-        var match = BarcodePattern().Match(value.Trim());
+        var trimmed = value.Trim();
 
-        if (!match.Success)
+        if (trimmed.Length != TotalLength || !Base32NoPadding.IsEncodedValue(trimmed))
         {
             return false;
         }
 
+        var phoneRuntimeKey = trimmed[..PhoneRuntimeKeyGenerator.RuntimeKeyLength];
+        var correlationId = trimmed[PhoneRuntimeKeyGenerator.RuntimeKeyLength..];
+
         barcode = new WebBarcode(
-            match.Value,
-            match.Groups["phoneRuntimeKey"].Value,
-            match.Groups["correlationId"].Value);
+            trimmed,
+            phoneRuntimeKey,
+            correlationId);
 
         return true;
     }
-
-    [GeneratedRegex(BarcodePatternValue, RegexOptions.CultureInvariant)]
-    private static partial Regex BarcodePattern();
 }
