@@ -9,6 +9,5 @@ public sealed record LookupPosCustomerProfileCommand(
     PosClientIdentity Client);
 
 public sealed record PosCustomerProfileLookupResult(
-    bool Found,
-    CustomerProfileResponse? Profile,
+    CustomerProfileResponse Profile,
     DateTimeOffset ServedAt);

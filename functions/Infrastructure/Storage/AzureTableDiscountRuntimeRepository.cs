@@ -38,7 +38,8 @@ public sealed class AzureTableDiscountRuntimeRepository : IDiscountRuntimeReposi
         string correlationId,
         CancellationToken cancellationToken)
     {
-        var filter = TableClient.CreateQueryFilter($"CorrelationId eq {correlationId}");
+        var filter = TableClient.CreateQueryFilter(
+            $"RowKey eq {StorageConstants.CurrentRuntimeRowKey} and CorrelationId eq {correlationId}");
 
         await foreach (var entity in _tableClient.QueryAsync<TableEntity>(
                            filter,

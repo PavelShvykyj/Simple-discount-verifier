@@ -75,8 +75,8 @@ public sealed class PosCustomerProfileLookupFunction
                 request,
                 HttpStatusCode.OK,
                 new PosCustomerProfileLookupResponse(
-                    result.Value!.Found,
-                    result.Value.Profile!,
+                    Found: true,
+                    result.Value!.Profile,
                     result.Value.ServedAt),
                 cancellationToken)
             : await HttpResponseWriter.WriteErrorAsync(request, result.Error!, cancellationToken);

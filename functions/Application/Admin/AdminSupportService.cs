@@ -79,13 +79,6 @@ public sealed class AdminSupportService
         AdminInspectCommand command,
         CancellationToken cancellationToken)
     {
-        var barcode = TryParseBarcode(command.BarcodeValue, out var barcodeError);
-
-        if (barcodeError is not null)
-        {
-            return ApplicationResult<AdminInspectResult>.Failure(barcodeError);
-        }
-
         var suppliedCorrelationId = NormalizeCorrelationId(command.CorrelationId);
 
         if (suppliedCorrelationId is not null && !CorrelationIdGenerator.IsValid(suppliedCorrelationId))
@@ -96,11 +89,23 @@ public sealed class AdminSupportService
                 HttpStatusCode.BadRequest);
         }
 
-        if (suppliedCorrelationId is null && barcode is null)
+        var hasBarcodeValue = !string.IsNullOrWhiteSpace(command.BarcodeValue);
+        var barcode = TryParseBarcode(command.BarcodeValue);
+        var hasInvalidBarcodeValue = hasBarcodeValue && barcode is null;
+
+        if (suppliedCorrelationId is null && !hasBarcodeValue)
         {
             return Failure<AdminInspectResult>(
                 AdminSupportErrorCodes.InvalidRequest,
                 "Correlation id or barcode value is required.",
+                HttpStatusCode.BadRequest);
+        }
+
+        if (suppliedCorrelationId is null && hasInvalidBarcodeValue)
+        {
+            return Failure<AdminInspectResult>(
+                AdminSupportErrorCodes.InvalidRequest,
+                "Barcode value is malformed.",
                 HttpStatusCode.BadRequest);
         }
 
@@ -302,10 +307,8 @@ public sealed class AdminSupportService
             RequireSetting(_hashingOptions.AuditPhoneHashSecret, AuditPhoneHashSecretSettingName));
     }
 
-    private static WebBarcode? TryParseBarcode(string? barcodeValue, out ApplicationError? error)
+    private static WebBarcode? TryParseBarcode(string? barcodeValue)
     {
-        error = null;
-
         if (string.IsNullOrWhiteSpace(barcodeValue))
         {
             return null;
@@ -316,7 +319,6 @@ public sealed class AdminSupportService
             return barcode;
         }
 
-        error = null;
         return null;
     }
 

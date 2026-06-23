@@ -71,7 +71,6 @@ public sealed class PosCustomerProfileLookupService
 
         return ApplicationResult<PosCustomerProfileLookupResult>.Success(
             new PosCustomerProfileLookupResult(
-                Found: true,
                 ToCustomerProfileResponse(profile),
                 _clock.UtcNow));
     }
