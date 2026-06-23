@@ -7,4 +7,5 @@ public sealed record AuditEventRecord(
     string ActorType,
     string? ActorId,
     string? PhoneHash,
-    IReadOnlyDictionary<string, string?> Metadata);
+    IReadOnlyDictionary<string, string?> Metadata,
+    string? Id = null);

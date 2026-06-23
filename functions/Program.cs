@@ -1,6 +1,7 @@
 using Microsoft.Azure.Functions.Worker;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using SimpleDiscountVerifier.Api.Application.Admin;
 using SimpleDiscountVerifier.Api.Application.CustomerProfiles;
 using SimpleDiscountVerifier.Api.Application.Pos;
 using SimpleDiscountVerifier.Api.Application.Redemptions;
@@ -19,7 +20,9 @@ var host = new HostBuilder()
         services.AddBackendOptions(context.Configuration);
         services.AddBackendStorage();
         services.AddSingleton<AdminCustomerProfileService>();
+        services.AddSingleton<AdminSupportService>();
         services.AddSingleton<PosBarcodeValidationService>();
+        services.AddSingleton<PosCustomerProfileLookupService>();
         services.AddSingleton<PosHmacAuthenticationService>();
         services.AddSingleton<PublicRedemptionService>();
         services.AddSingleton<HttpClient>();

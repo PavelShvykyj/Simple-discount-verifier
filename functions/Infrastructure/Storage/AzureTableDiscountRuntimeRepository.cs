@@ -34,6 +34,24 @@ public sealed class AzureTableDiscountRuntimeRepository : IDiscountRuntimeReposi
         }
     }
 
+    public async Task<DiscountRuntimeRecord?> GetByCorrelationIdAsync(
+        string correlationId,
+        CancellationToken cancellationToken)
+    {
+        var filter = TableClient.CreateQueryFilter(
+            $"RowKey eq {StorageConstants.CurrentRuntimeRowKey} and CorrelationId eq {correlationId}");
+
+        await foreach (var entity in _tableClient.QueryAsync<TableEntity>(
+                           filter,
+                           maxPerPage: 1,
+                           cancellationToken: cancellationToken))
+        {
+            return ToRecord(entity);
+        }
+
+        return null;
+    }
+
     public async Task<StorageWriteResult> UpsertCurrentAsync(
         DiscountRuntimeRecord record,
         CancellationToken cancellationToken)

@@ -8,6 +8,10 @@ public interface IDiscountRuntimeRepository
         string phoneRuntimeKey,
         CancellationToken cancellationToken);
 
+    Task<DiscountRuntimeRecord?> GetByCorrelationIdAsync(
+        string correlationId,
+        CancellationToken cancellationToken);
+
     Task<StorageWriteResult> UpsertCurrentAsync(
         DiscountRuntimeRecord record,
         CancellationToken cancellationToken);
