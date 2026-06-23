@@ -120,16 +120,20 @@ Backend читает `DiscountRuntime` по `redemptionKey`, проверяет 
 сравнивает hash SMS-кода и при успехе выпускает barcode:
 
 ```text
-SDV-<phoneRuntimeKey>-<correlationId>
+<phoneRuntimeKey10><correlationId10>
 ```
 
-В storage сохраняется только `BarcodeHash`.
+Barcode всегда состоит из 20 uppercase base32 символов: первые 10 символов -
+полный `phoneRuntimeKey`, последние 10 символов - полный `correlationId`.
+Префиксов и разделителей нет; POS отличает web-code по длине. В storage
+сохраняется только `BarcodeHash`.
 
 ### 3.4 POS Barcode Validation
 
 POS вызывает `/api/pos/barcodes/validate` с HMAC headers и `scanId`. Backend
-парсит barcode, читает текущий runtime row, проверяет TTL/hash и потребляет
-barcode через ETag-aware update.
+парсит barcode по фиксированным offsets, читает текущий runtime row по
+`phoneRuntimeKey`, проверяет `correlationId`, TTL/hash и потребляет barcode
+через ETag-aware update.
 
 Повтор с тем же `scanId` возвращает idempotent success. Повтор с другим
 `scanId` возвращает `already_used`.

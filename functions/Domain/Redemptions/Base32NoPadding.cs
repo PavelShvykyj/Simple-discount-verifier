@@ -4,6 +4,24 @@ internal static class Base32NoPadding
 {
     private const string Alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";
 
+    public static bool IsEncodedValue(ReadOnlySpan<char> value)
+    {
+        if (value.IsEmpty)
+        {
+            return false;
+        }
+
+        foreach (var character in value)
+        {
+            if (Alphabet.IndexOf(character) < 0)
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
     public static string Encode(ReadOnlySpan<byte> bytes)
     {
         if (bytes.IsEmpty)

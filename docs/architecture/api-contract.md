@@ -138,8 +138,8 @@ Content-Type: application/json
 
 ```json
 {
-  "redemptionKey": "p_7K3F9Q2M",
-  "correlationId": "c_01hxyz",
+  "redemptionKey": "EOBMCDRDRT",
+  "correlationId": "QPS7O7KCNM",
   "smsSent": true,
   "retryAfterSeconds": 5,
   "smsExpiresAt": "2026-06-16T14:03:00Z"
@@ -151,7 +151,7 @@ Response fields:
 | Field | Type | Description |
 | --- | --- | --- |
 | `redemptionKey` | string | Public flow key used by the frontend for the next SMS verification request. It is the opaque phone runtime key, not a raw phone number. A new flow for the same phone returns the same key but replaces the current runtime data. |
-| `correlationId` | string | Trace identifier for this redemption attempt. The public frontend must keep it immediately after the first response and use it for the admin-support QR button even before any barcode exists. |
+| `correlationId` | string | 10-character uppercase base32 trace identifier for this redemption attempt. The public frontend must keep it immediately after the first response and use it for the admin-support QR button even before any barcode exists. |
 | `smsSent` | boolean | `true` when the SMS send request was accepted. |
 | `retryAfterSeconds` | number | Minimum delay before another SMS request can be attempted for this flow. |
 | `smsExpiresAt` | string | ISO 8601 UTC timestamp when the SMS code expires. |
@@ -168,7 +168,7 @@ Content-Type: application/json
   "error": {
     "code": "profile_not_found",
     "message": "Profile was not found for this phone.",
-    "correlationId": "c_01hxyz"
+    "correlationId": "QPS7O7KCNM"
   }
 }
 ```
@@ -203,8 +203,8 @@ Backend behavior:
 3. Validate the submitted SMS code.
 4. Reject the challenge after 3 invalid attempts for one SMS code.
 5. If the code is valid, mark the phone verified for this redemption.
-6. Generate a new random one-time barcode value containing the opaque phone
-   runtime key.
+6. Generate a one-time barcode value by concatenating the full 10-character
+   phone runtime key and the full 10-character `correlationId`.
 7. Store only its `BarcodeHash` in the current runtime row with a default
    configurable TTL of 3 minutes.
 9. Store audit events for failed SMS validation, phone verification, barcode
@@ -233,8 +233,8 @@ Content-Type: application/json
 
 ```json
 {
-  "correlationId": "c_01hxyz",
-  "barcodeValue": "SDV-p_7K3F9Q2M-c_01hxyz",
+  "correlationId": "QPS7O7KCNM",
+  "barcodeValue": "EOBMCDRDRTQPS7O7KCNM",
   "barcodeFormat": "code128",
   "expiresAt": "2026-06-16T14:06:00Z",
   "ttlSeconds": 180
@@ -246,7 +246,7 @@ Response fields:
 | Field | Type | Description |
 | --- | --- | --- |
 | `correlationId` | string | Trace identifier for this redemption attempt. |
-| `barcodeValue` | string | Value to render as a barcode and later send by the POS to the validation API. Format: `SDV-<phoneRuntimeKey>-<correlationId>`. The value contains the opaque phone runtime key for runtime lookup and the correlation id for fast support/audit lookup. The backend stores only a hash of the full value. |
+| `barcodeValue` | string | 20-character value to render as a Code 128 barcode and later send by the POS to the validation API. Format: `<phoneRuntimeKey10><correlationId10>`, for example `EOBMCDRDRTQPS7O7KCNM`. POS routing distinguishes this web-code by length: EAN13 is 13 characters, ordinary card values are 18 characters, and this web-code is 20 characters. The backend stores only a hash of the full value. |
 | `barcodeFormat` | string | Barcode rendering format. MVP value: `code128`. |
 | `expiresAt` | string | ISO 8601 UTC timestamp when the barcode expires. |
 | `ttlSeconds` | number | Barcode lifetime in seconds. Default MVP value: `180`, configurable server-side. |
@@ -543,8 +543,8 @@ Request body:
 
 ```json
 {
-  "correlationId": "c_01hxyz",
-  "barcodeValue": "SDV-p_7K3F9Q2M-c_01hxyz"
+  "correlationId": "QPS7O7KCNM",
+  "barcodeValue": "EOBMCDRDRTQPS7O7KCNM"
 }
 ```
 
@@ -555,17 +555,17 @@ Response:
 
 ```json
 {
-  "correlationId": "c_01hxyz",
+  "correlationId": "QPS7O7KCNM",
   "redemption": {
     "status": "barcode_consumed",
     "startedAt": "2026-06-16T14:00:00Z",
     "lastEventAt": "2026-06-16T14:04:12Z"
   },
   "barcode": {
-    "value": "SDV-p_7K3F9Q2M-c_01hxyz",
+    "value": "EOBMCDRDRTQPS7O7KCNM",
     "formatValid": true,
-    "phoneRuntimeKey": "p_7K3F9Q2M",
-    "correlationId": "c_01hxyz",
+    "phoneRuntimeKey": "EOBMCDRDRT",
+    "correlationId": "QPS7O7KCNM",
     "status": "consumed",
     "expiresAt": "2026-06-16T14:06:00Z",
     "consumedAt": "2026-06-16T14:04:12Z",
@@ -660,8 +660,9 @@ x-signature: <base64-hmac-sha256>
 
 Validates a scanned web-generated barcode value for the main restaurant
 application. The POS should call this endpoint only for barcode values that
-match the agreed web-code prefix/pattern. Standard EAN13 discount cards must
-continue through the existing POS flow without calling this API.
+match the agreed web-code length/pattern. Standard EAN13 discount cards and
+ordinary card values must continue through the existing POS flow without
+calling this API.
 
 Authentication:
 
@@ -695,7 +696,7 @@ Request body:
 
 ```json
 {
-  "barcodeValue": "SDV-p_7K3F9Q2M-c_01hxyz",
+  "barcodeValue": "EOBMCDRDRTQPS7O7KCNM",
   "terminalId": "POS-01",
   "branchId": "kyiv-obolon",
   "scanId": "sale-20260616-000123"
@@ -706,7 +707,7 @@ Fields:
 
 | Field | Type | Required | Description |
 | --- | --- | --- | --- |
-| `barcodeValue` | string | yes | Scanned web-code value generated by the public redemption flow. |
+| `barcodeValue` | string | yes | Scanned 20-character web-code value generated by the public redemption flow. |
 | `terminalId` | string | no | POS terminal/workplace identifier for audit. |
 | `branchId` | string | no | Restaurant branch identifier for audit. |
 | `scanId` | string | yes | POS-side unique identifier of the scan/sale operation. POS must reuse the same `scanId` when retrying the same validation request. |
@@ -723,7 +724,7 @@ Content-Type: application/json
   "valid": true,
   "lookupKeyType": "phone",
   "lookupKey": "+380501234567",
-  "correlationId": "c_01hxyz",
+  "correlationId": "QPS7O7KCNM",
   "validatedAt": "2026-06-16T14:04:12Z",
   "idempotentReplay": false
 }
@@ -758,7 +759,7 @@ Content-Type: application/json
   "valid": true,
   "lookupKeyType": "phone",
   "lookupKey": "+380501234567",
-  "correlationId": "c_01hxyz",
+  "correlationId": "QPS7O7KCNM",
   "validatedAt": "2026-06-16T14:04:12Z",
   "idempotentReplay": true
 }
@@ -780,7 +781,7 @@ Content-Type: application/json
 {
   "valid": false,
   "reason": "expired",
-  "correlationId": "c_01hxyz",
+  "correlationId": "QPS7O7KCNM",
   "validatedAt": "2026-06-16T14:04:12Z"
 }
 ```
@@ -792,7 +793,7 @@ Content-Type: application/json
 | `unknown` | No active or known barcode record exists for this value. `correlationId` may be `null`. |
 | `expired` | The barcode existed but its TTL expired. |
 | `already_used` | The barcode was already consumed by a previous successful validation. |
-| `invalid_format` | The value does not match the agreed web-code prefix or format. |
+| `invalid_format` | The value does not match the agreed 20-character uppercase base32 web-code format. |
 
 Failure response type:
 
@@ -948,7 +949,7 @@ Audit:
 ### List Audit Events
 
 ```http
-GET /api/admin/audit-events?correlationId=c_01hxyz&phone=+380501234567&pageSize=50&continuationToken=...
+GET /api/admin/audit-events?correlationId=QPS7O7KCNM&phone=+380501234567&pageSize=50&continuationToken=...
 ```
 
 Returns fraud-relevant and support-relevant events. Admin-only.
@@ -969,7 +970,7 @@ Success response:
   "items": [
     {
       "id": "ae_01hxyz",
-      "correlationId": "c_01hxyz",
+      "correlationId": "QPS7O7KCNM",
       "eventType": "barcode_validation_succeeded",
       "phoneHash": "sha256:...",
       "occurredAt": "2026-06-16T14:04:12Z",
@@ -1060,7 +1061,7 @@ Request body:
       "terminalName": "POS-01",
       "answers": [
         {
-          "barcodeId": "code128-web-prefix-short",
+          "barcodeId": "code128-web-20-fixed",
           "isReadable": true,
           "comment": ""
         },
@@ -1091,8 +1092,8 @@ Suggested `barcodeId` values for the current survey:
 
 | `barcodeId` | Purpose |
 | --- | --- |
-| `code128-web-prefix-short` | Short Code 128 web-code sample with the `SDV-` prefix. |
-| `code128-web-prefix-current-format` | Code 128 sample using `SDV-<phoneRuntimeKey>-<correlationId>`. |
+| `code128-web-20-fixed` | Current 20-character Code 128 web-code sample using `<phoneRuntimeKey10><correlationId10>`. |
+| `code128-web-length-control-28` | Older long Code 128 control sample retained only for scanner-width comparison. |
 | `ean13-valid-discount-card` | Existing EAN13 discount-card control sample. |
 | `qr-admin-inspect-cross-instance-zxing` | QR shown in one app instance and read by another mobile browser instance through `@zxing-js/ngx-scanner`. |
 
@@ -1106,7 +1107,7 @@ use this shape:
   "error": {
     "code": "invalid_request",
     "message": "Human-readable message.",
-    "correlationId": "c_01hxyz"
+    "correlationId": "QPS7O7KCNM"
   }
 }
 ```
