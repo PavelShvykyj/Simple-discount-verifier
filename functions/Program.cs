@@ -2,6 +2,7 @@ using Microsoft.Azure.Functions.Worker;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using SimpleDiscountVerifier.Api.Application.CustomerProfiles;
+using SimpleDiscountVerifier.Api.Application.Pos;
 using SimpleDiscountVerifier.Api.Application.Redemptions;
 using SimpleDiscountVerifier.Api.Application.Sms;
 using SimpleDiscountVerifier.Api.Domain.Shared;
@@ -18,6 +19,8 @@ var host = new HostBuilder()
         services.AddBackendOptions(context.Configuration);
         services.AddBackendStorage();
         services.AddSingleton<AdminCustomerProfileService>();
+        services.AddSingleton<PosBarcodeValidationService>();
+        services.AddSingleton<PosHmacAuthenticationService>();
         services.AddSingleton<PublicRedemptionService>();
         services.AddSingleton<HttpClient>();
         services.AddSingleton<ISmsSender, SmsFlyClient>();

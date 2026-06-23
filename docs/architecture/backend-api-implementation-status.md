@@ -26,7 +26,7 @@ Git/GitHub стратегия выполнения задач зафиксиро
 | Existing implemented API | `POST /api/scanner-survey` |
 | Main storage | Azure Table Storage |
 | Required tables | `CustomerProfiles`, `DiscountRuntime`, `AuditEvents`, `ScannerSurveyResults` |
-| Current phase | PR-5 review |
+| Current phase | PR-6 review |
 
 ## Task Tracker
 
@@ -38,10 +38,10 @@ Git/GitHub стратегия выполнения задач зафиксиро
 | PR-3 | BE-04 | Storage Adapters | done | Azure Table repositories for `CustomerProfiles`, `DiscountRuntime`, and `AuditEvents` added with point reads/writes, continuation tokens, JSON serialization, conflict handling, and ETag-aware replace/delete operations. | `dotnet build functions\SimpleDiscountVerifier.Api.csproj` passed with 0 warnings, 0 errors on 2026-06-21. Merged to `develop` in PR-3. |
 | PR-3 | BE-05 | Audit Writer And Telemetry Correlation | done | Shared audit writer added for append-only `AuditEvents`, phone hashing, metadata sanitization, and `correlationId` telemetry tagging. | `dotnet build functions\SimpleDiscountVerifier.Api.csproj` passed with 0 warnings, 0 errors on 2026-06-21. Merged to `develop` in PR-3. |
 | PR-4 | BE-06 | Admin Customer Profile API | done | Admin create/list/get/update customer profile endpoints added with phone normalization, questionnaire validation, duplicate handling, ETag-safe updates and audit events. | `dotnet build functions\SimpleDiscountVerifier.Api.csproj` passed with 0 warnings, 0 errors on 2026-06-21. Merged to `develop` in PR-4. |
-| PR-5 | BE-07 | Public Start Redemption API | review | Public start endpoint added with early `correlationId`, audit chain, profile lookup, SMS retry throttle, SMS-Fly sender abstraction, runtime upsert after profile match and documented error responses. Requires real SMS-Fly Azure dev settings before merge smoke. | `dotnet build functions\SimpleDiscountVerifier.Api.csproj` passed with 0 warnings, 0 errors on 2026-06-22. |
-| PR-5 | BE-08 | Public SMS Verification API | review | SMS verification endpoint added with runtime lookup, expiry/max-attempt checks, failed-attempt persistence, barcode generation, `BarcodeHash` storage and audit events for verification/barcode issuance. Requires real SMS smoke before merge. | `dotnet build functions\SimpleDiscountVerifier.Api.csproj` passed with 0 warnings, 0 errors on 2026-06-22. |
-| PR-6 | BE-09 | POS Authentication | todo | HMAC validation for POS routes. | |
-| PR-6 | BE-10 | POS Barcode Validation API | todo | One-time barcode validation, ETag consumption, idempotent replay. | |
+| PR-5 | BE-07 | Public Start Redemption API | done | Public start endpoint added with early `correlationId`, audit chain, profile lookup, SMS retry throttle, SMS-Fly sender abstraction, runtime upsert after profile match and documented error responses. | `dotnet build functions\SimpleDiscountVerifier.Api.csproj` passed with 0 warnings, 0 errors on 2026-06-22. PR-5 marked complete on 2026-06-23. |
+| PR-5 | BE-08 | Public SMS Verification API | done | SMS verification endpoint added with runtime lookup, expiry/max-attempt checks, failed-attempt persistence, barcode generation, `BarcodeHash` storage and audit events for verification/barcode issuance. | `dotnet build functions\SimpleDiscountVerifier.Api.csproj` passed with 0 warnings, 0 errors on 2026-06-22. PR-5 marked complete on 2026-06-23. |
+| PR-6 | BE-09 | POS Authentication | review | Reusable POS HMAC authentication service added for `x-client-id`, `x-timestamp`, `x-signature`, configured client id/secret and freshness tolerance. | `dotnet build functions\SimpleDiscountVerifier.Api.csproj` passed with 0 warnings, 0 errors on 2026-06-23. |
+| PR-6 | BE-10 | POS Barcode Validation API | review | `POST /api/pos/barcodes/validate` added with request validation, barcode parsing, runtime lookup, hash/TTL checks, ETag-based consumption, idempotent replay for the same `scanId`, `already_used` for a different `scanId`, and POS audit events. | `dotnet build functions\SimpleDiscountVerifier.Api.csproj` passed with 0 warnings, 0 errors on 2026-06-23. |
 | PR-7 | BE-11 | POS Customer Profile Lookup API | todo | On-demand POS profile lookup by phone. | |
 | PR-7 | BE-12 | Admin Audit And Inspect API | todo | Audit list and read-only redemption inspect. | |
 | PR-8 | BE-13 | System Health And Runtime Cleanup | todo | Health endpoint and expired runtime cleanup. | |
