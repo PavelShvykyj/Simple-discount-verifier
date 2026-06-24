@@ -21,6 +21,8 @@
     "SmsCodeTtlSeconds": "180",
     "SmsRetryAfterSeconds": "5",
     "BarcodeTtlSeconds": "180",
-    "DiscountRuntimeRetentionHours": "24"
+    "DiscountRuntimeRetentionHours": "24",
+    "AuditEventsRetentionDays": "30",
+    "CleanupAutomationKey": "replace-local-cleanup-automation-key"
   }
 }

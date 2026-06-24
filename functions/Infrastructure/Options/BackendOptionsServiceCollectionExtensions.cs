@@ -45,6 +45,8 @@ public static class BackendOptionsServiceCollectionExtensions
         {
             options.BarcodeTtlSeconds = GetInt(configuration, "BarcodeTtlSeconds");
             options.DiscountRuntimeRetentionHours = GetInt(configuration, "DiscountRuntimeRetentionHours");
+            options.AuditEventsRetentionDays = GetInt(configuration, "AuditEventsRetentionDays");
+            options.CleanupAutomationKey = GetValue(configuration, "CleanupAutomationKey");
         });
 
         services.Configure<TelemetryOptions>(options =>

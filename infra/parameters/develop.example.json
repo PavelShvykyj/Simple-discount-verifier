@@ -67,6 +67,9 @@
     "manageStaticWebAppSettings": {
       "value": false
     },
+    "auditEventsRetentionDays": {
+      "value": 30
+    },
     "scannerSurveyTableName": {
       "value": "ScannerSurveyResults"
     },
@@ -81,6 +84,21 @@
     },
     "smsFlySender": {
       "value": ""
+    },
+    "deployCleanupScheduler": {
+      "value": false
+    },
+    "cleanupLogicAppName": {
+      "value": "la-sdv-cleanup-develop"
+    },
+    "cleanupEndpointUrl": {
+      "value": "https://swa-simple-discount-verifier.azurestaticapps.net/api/system/maintenance/cleanup"
+    },
+    "cleanupScheduleFrequency": {
+      "value": "Day"
+    },
+    "cleanupScheduleInterval": {
+      "value": 1
     },
     "alertEmailReceivers": {
       "value": []

@@ -31,6 +31,8 @@ resources described in `docs/architecture/azure-environments.md`.
   - elevated backend latency;
   - Azure Table dependency failures;
   - SMS provider dependency failures.
+- Optional Logic App cleanup scheduler for calling the maintenance cleanup
+  endpoint on a recurrence.
 
 ## What Stays Manual For Now
 
@@ -38,8 +40,9 @@ resources described in `docs/architecture/azure-environments.md`.
 - Static Web Apps `admin` role invitations.
 - GitHub Actions secrets.
 - Custom domains and DNS validation.
-- Availability/health alert wiring until `GET /api/system/health` exists and
-  the desired availability-test mechanism is chosen.
+- Availability/health alert wiring until `GET /api/system/health` exists.
+- Enabling the cleanup Logic App until the backend maintenance cleanup endpoint
+  exists and has been smoke-tested.
 
 ## Static Web Apps App Settings
 
@@ -123,6 +126,8 @@ When enabled, the template expects secure values for:
 - `smsCodeHashSecret`;
 - `barcodeHashSecret`;
 - `auditPhoneHashSecret`;
+- `cleanupAutomationKey`, when the maintenance cleanup endpoint or cleanup
+  scheduler is enabled;
 - `smsFlyApiKey`.
 
 It also writes non-secret table-name settings:
@@ -151,7 +156,8 @@ az staticwebapp appsettings set `
     SmsCodeTtlSeconds=180 `
     SmsRetryAfterSeconds=5 `
     BarcodeTtlSeconds=180 `
-    DiscountRuntimeRetentionHours=24
+    DiscountRuntimeRetentionHours=24 `
+    AuditEventsRetentionDays=30
 ```
 
 To create all planned setting names at once and reduce manual typing mistakes,
@@ -172,11 +178,13 @@ az staticwebapp appsettings set `
     SmsRetryAfterSeconds=5 `
     BarcodeTtlSeconds=180 `
     DiscountRuntimeRetentionHours=24 `
+    AuditEventsRetentionDays=30 `
     PosMainClientHmacSecret=CHANGE_ME_MANUALLY `
     PhoneRuntimeKeySecret=CHANGE_ME_MANUALLY `
     SmsCodeHashSecret=CHANGE_ME_MANUALLY `
     BarcodeHashSecret=CHANGE_ME_MANUALLY `
     AuditPhoneHashSecret=CHANGE_ME_MANUALLY `
+    CleanupAutomationKey=CHANGE_ME_MANUALLY `
     SmsFlyApiKey=CHANGE_ME_MANUALLY `
     SmsFlySender=CHANGE_ME_MANUALLY
 ```
@@ -226,6 +234,7 @@ committed or pasted into chat/logs:
 - `SmsCodeHashSecret`;
 - `BarcodeHashSecret`;
 - `AuditPhoneHashSecret`;
+- `CleanupAutomationKey`;
 - `SmsFlyApiKey`;
 - `SmsFlySender`, if the sender value is operationally sensitive.
 
@@ -244,6 +253,7 @@ Set these on the Azure Static Web App under
 | `SmsCodeHashSecret` | Hashes SMS codes so raw SMS codes are not stored. | Generate a long random backend-only secret per environment. |
 | `BarcodeHashSecret` | Hashes barcode values so raw active barcodes are not stored. | Generate a long random backend-only secret per environment. |
 | `AuditPhoneHashSecret` | Hashes phone values for `AuditEvents` diagnostics without storing raw phones. | Generate a long random backend-only secret per environment. |
+| `CleanupAutomationKey` | Authorizes the scheduled Logic App call to the maintenance cleanup endpoint. This is not a POS credential. | Generate a long random cleanup-only secret per environment. Store the same value in the Logic App secure workflow parameter. |
 | `SmsFlyApiKey` | Authenticates requests to SMS-Fly. | SMS-Fly account/API credentials. |
 | `SmsFlySender` | Sender id/name used for SMS messages. | SMS-Fly-approved sender value. Treat as sensitive if the provider or operations policy requires it. |
 
@@ -263,6 +273,7 @@ $phoneRuntimeSecret = "<secure-phone-runtime-key-secret>"
 $smsCodeSecret = "<secure-sms-code-hash-secret>"
 $barcodeSecret = "<secure-barcode-hash-secret>"
 $auditPhoneSecret = "<secure-audit-phone-hash-secret>"
+$cleanupAutomationKey = "<secure-cleanup-automation-key>"
 $smsFlyApiKey = "<secure-sms-fly-api-key>"
 $smsFlySender = "<sms-fly-sender>"
 ```
@@ -279,6 +290,7 @@ az staticwebapp appsettings set `
     SmsCodeHashSecret="$smsCodeSecret" `
     BarcodeHashSecret="$barcodeSecret" `
     AuditPhoneHashSecret="$auditPhoneSecret" `
+    CleanupAutomationKey="$cleanupAutomationKey" `
     SmsFlyApiKey="$smsFlyApiKey" `
     SmsFlySender="$smsFlySender"
 ```
@@ -296,6 +308,102 @@ $settings = az staticwebapp appsettings list `
 
 $settings.properties.PSObject.Properties.Name
 ```
+
+## Cleanup Scheduler
+
+The backend cleanup design has two entrypoints:
+
+- `POST /api/backoffice/system/cleanup` for manual admin use from the Angular
+  service page. This route is protected by the Static Web Apps `admin` role.
+- `POST /api/system/maintenance/cleanup` for scheduled automation. This route
+  is called by Logic App and authorized with `x-cleanup-key`.
+
+The cleanup endpoint must remain narrow: it should not accept table names,
+arbitrary cutoff dates, or "delete all" flags. Retention is controlled only by
+server-side app settings:
+
+- `DiscountRuntimeRetentionHours`;
+- `AuditEventsRetentionDays`.
+
+### Generate Cleanup Key
+
+Generate a separate key per environment. Do not reuse POS secrets.
+
+```powershell
+$cleanupAutomationKey = [Convert]::ToBase64String([System.Security.Cryptography.RandomNumberGenerator]::GetBytes(32))
+```
+
+Apply it to the Static Web App only after the backend cleanup endpoint exists:
+
+```powershell
+az staticwebapp appsettings set `
+  --name swa-simple-discount-verifier `
+  --resource-group rg-simple-discount-verifier `
+  --setting-names `
+    CleanupAutomationKey="$cleanupAutomationKey" `
+    AuditEventsRetentionDays=30 `
+    DiscountRuntimeRetentionHours=24
+```
+
+### Bicep Scheduler Resource
+
+`main.bicep` can create an optional Logic App Consumption workflow that calls
+the maintenance cleanup endpoint. It is disabled by default:
+
+```json
+"deployCleanupScheduler": {
+  "value": false
+}
+```
+
+Keep it disabled until:
+
+1. `POST /api/system/maintenance/cleanup` is deployed.
+2. `CleanupAutomationKey`, `AuditEventsRetentionDays`, and
+   `DiscountRuntimeRetentionHours` exist in Static Web Apps app settings.
+3. A manual call to the maintenance endpoint has been smoke-tested.
+
+When ready, run `what-if` with explicit secure parameters:
+
+```powershell
+az deployment group what-if `
+  --resource-group rg-simple-discount-verifier `
+  --template-file infra/main.bicep `
+  --parameters infra/parameters/develop.example.json `
+  --parameters `
+    deployCleanupScheduler=true `
+    cleanupAutomationKey="$cleanupAutomationKey" `
+    cleanupEndpointUrl="https://swa-simple-discount-verifier.azurestaticapps.net/api/system/maintenance/cleanup"
+```
+
+Apply after reviewing the diff:
+
+```powershell
+az deployment group create `
+  --resource-group rg-simple-discount-verifier `
+  --template-file infra/main.bicep `
+  --parameters infra/parameters/develop.example.json `
+  --parameters `
+    deployCleanupScheduler=true `
+    cleanupAutomationKey="$cleanupAutomationKey" `
+    cleanupEndpointUrl="https://swa-simple-discount-verifier.azurestaticapps.net/api/system/maintenance/cleanup"
+```
+
+### Portal Verification
+
+After the Logic App is created:
+
+1. Open the Logic App resource, for example `la-sdv-cleanup-develop`.
+2. Confirm the workflow is enabled only after the backend endpoint is ready.
+3. Open the HTTP action and verify the target URL points to the correct Static
+   Web Apps environment.
+4. Confirm the HTTP action uses header `x-cleanup-key`.
+5. Confirm secure inputs and secure outputs are enabled for the HTTP action so
+   the key does not appear in run history.
+6. Run the trigger manually once.
+7. Verify the run history returns success from the cleanup endpoint.
+8. Check Application Insights for the backend cleanup request and confirm logs
+   contain only aggregate cleanup counts, not secrets or customer payload.
 
 ## Apply To The Current Development Environment
 

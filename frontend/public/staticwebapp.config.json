@@ -23,6 +23,14 @@
       "allowedRoles": ["admin"]
     },
     {
+      "route": "/api/system/health",
+      "allowedRoles": ["anonymous"]
+    },
+    {
+      "route": "/api/system/maintenance/cleanup",
+      "allowedRoles": ["anonymous"]
+    },
+    {
       "route": "/api/pos/*",
       "allowedRoles": ["anonymous"]
     },

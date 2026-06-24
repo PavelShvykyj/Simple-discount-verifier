@@ -20,4 +20,15 @@ public interface IAuditEventRepository
         int pageSize,
         string? continuationToken,
         CancellationToken cancellationToken);
+
+    Task<PagedResult<AuditEventRecord>> ListOccurredBeforeAsync(
+        DateTimeOffset occurredBeforeUtc,
+        int pageSize,
+        string? continuationToken,
+        CancellationToken cancellationToken);
+
+    Task<StorageWriteResult> DeleteAsync(
+        string correlationId,
+        string id,
+        CancellationToken cancellationToken);
 }
