@@ -79,6 +79,9 @@ param appInsightsStopSendNotificationWhenHitCap bool = false
 @description('Whether to manage Static Web Apps app settings from this deployment. Keep false until all secure values are supplied.')
 param manageStaticWebAppSettings bool = false
 
+@description('AuditEvents retention in days for backend cleanup.')
+param auditEventsRetentionDays int = 30
+
 @secure()
 @description('Storage connection string for backend Azure Tables. Required only when manageStaticWebAppSettings is true.')
 param appStorageConnectionString string = ''
@@ -123,11 +126,37 @@ param auditPhoneHashSecret string = ''
 @description('SMS-Fly API key or token. Required only when manageStaticWebAppSettings is true and SMS sending is enabled.')
 param smsFlyApiKey string = ''
 
+@secure()
+@description('Shared secret for the Logic App maintenance cleanup endpoint. Required only when enabling the cleanup scheduler or managing related SWA app settings.')
+param cleanupAutomationKey string = ''
+
 @description('SMS-Fly sender name or id.')
 param smsFlySender string = ''
 
 @description('Additional non-secret Static Web Apps app settings to merge when manageStaticWebAppSettings is true.')
 param additionalAppSettings object = {}
+
+@description('Whether to create or update the Logic App scheduled cleanup workflow.')
+param deployCleanupScheduler bool = false
+
+@description('Logic App workflow name for scheduled cleanup. Leave empty to use a name derived from the Static Web App.')
+param cleanupLogicAppName string = ''
+
+@description('Full URL of the maintenance cleanup endpoint, for example https://<host>/api/system/maintenance/cleanup.')
+param cleanupEndpointUrl string = ''
+
+@description('Cleanup scheduler recurrence frequency.')
+@allowed([
+  'Minute'
+  'Hour'
+  'Day'
+  'Week'
+  'Month'
+])
+param cleanupScheduleFrequency string = 'Day'
+
+@description('Cleanup scheduler recurrence interval.')
+param cleanupScheduleInterval int = 1
 
 @description('Email receivers for production-pilot alert action group. Example item: { name: "ops", email: "ops@example.com" }.')
 param alertEmailReceivers array = []
@@ -240,6 +269,8 @@ var managedAppSettings = union({
   SmsCodeHashSecret: smsCodeHashSecret
   BarcodeHashSecret: barcodeHashSecret
   AuditPhoneHashSecret: auditPhoneHashSecret
+  AuditEventsRetentionDays: string(auditEventsRetentionDays)
+  CleanupAutomationKey: cleanupAutomationKey
   SmsFlyApiKey: smsFlyApiKey
   SmsFlySender: smsFlySender
 }, additionalAppSettings)
@@ -248,6 +279,65 @@ resource staticWebAppSettings 'Microsoft.Web/staticSites/config@2023-12-01' = if
   parent: staticWebApp
   name: 'appsettings'
   properties: managedAppSettings
+}
+
+var resolvedCleanupLogicAppName = empty(cleanupLogicAppName)
+  ? '${staticWebAppName}-cleanup-scheduler'
+  : cleanupLogicAppName
+
+resource cleanupScheduler 'Microsoft.Logic/workflows@2019-05-01' = if (deployCleanupScheduler) {
+  name: resolvedCleanupLogicAppName
+  location: location
+  properties: {
+    state: 'Enabled'
+    definition: {
+      '$schema': 'https://schema.management.azure.com/providers/Microsoft.Logic/schemas/2016-06-01/workflowdefinition.json#'
+      contentVersion: '1.0.0.0'
+      parameters: {
+        cleanupAutomationKey: {
+          type: 'SecureString'
+        }
+      }
+      triggers: {
+        schedule: {
+          type: 'Recurrence'
+          recurrence: {
+            frequency: cleanupScheduleFrequency
+            interval: cleanupScheduleInterval
+          }
+        }
+      }
+      actions: {
+        call_cleanup_endpoint: {
+          type: 'Http'
+          inputs: {
+            method: 'POST'
+            uri: cleanupEndpointUrl
+            headers: {
+              'Content-Type': 'application/json'
+              'x-cleanup-key': '@parameters(\'cleanupAutomationKey\')'
+            }
+            body: {}
+          }
+          runAfter: {}
+          runtimeConfiguration: {
+            secureData: {
+              properties: [
+                'inputs'
+                'outputs'
+              ]
+            }
+          }
+        }
+      }
+      outputs: {}
+    }
+    parameters: {
+      cleanupAutomationKey: {
+        value: cleanupAutomationKey
+      }
+    }
+  }
 }
 
 var emailReceivers = [for receiver in alertEmailReceivers: {
@@ -453,3 +543,4 @@ output storageAccountName string = storageAccount.name
 output tableNames array = tableNames
 output appInsightsName string = appInsights.name
 output logAnalyticsWorkspaceName string = logAnalyticsWorkspace.name
+output cleanupLogicAppName string = deployCleanupScheduler ? cleanupScheduler.name : ''

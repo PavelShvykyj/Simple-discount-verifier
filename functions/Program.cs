@@ -6,6 +6,7 @@ using SimpleDiscountVerifier.Api.Application.CustomerProfiles;
 using SimpleDiscountVerifier.Api.Application.Pos;
 using SimpleDiscountVerifier.Api.Application.Redemptions;
 using SimpleDiscountVerifier.Api.Application.Sms;
+using SimpleDiscountVerifier.Api.Application.System;
 using SimpleDiscountVerifier.Api.Domain.Shared;
 using SimpleDiscountVerifier.Api.Infrastructure;
 using SimpleDiscountVerifier.Api.Infrastructure.Options;
@@ -25,6 +26,7 @@ var host = new HostBuilder()
         services.AddSingleton<PosCustomerProfileLookupService>();
         services.AddSingleton<PosHmacAuthenticationService>();
         services.AddSingleton<PublicRedemptionService>();
+        services.AddSingleton<SystemCleanupService>();
         services.AddSingleton<HttpClient>();
         services.AddSingleton<ISmsSender, SmsFlyClient>();
         services.AddSingleton<IClock, SystemClock>();

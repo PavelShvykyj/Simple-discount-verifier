@@ -97,6 +97,51 @@ public sealed class AzureTableAuditEventRepository : IAuditEventRepository
         return new PagedResult<AuditEventRecord>([], null);
     }
 
+    public async Task<PagedResult<AuditEventRecord>> ListOccurredBeforeAsync(
+        DateTimeOffset occurredBeforeUtc,
+        int pageSize,
+        string? continuationToken,
+        CancellationToken cancellationToken)
+    {
+        var filter = TableClient.CreateQueryFilter($"OccurredAtUtc lt {occurredBeforeUtc}");
+        var query = _tableClient
+            .QueryAsync<TableEntity>(
+                filter,
+                maxPerPage: pageSize,
+                cancellationToken: cancellationToken)
+            .AsPages(continuationToken, pageSize);
+
+        await foreach (var page in query.WithCancellation(cancellationToken))
+        {
+            return new PagedResult<AuditEventRecord>(
+                page.Values.Select(ToRecord).ToArray(),
+                page.ContinuationToken);
+        }
+
+        return new PagedResult<AuditEventRecord>([], null);
+    }
+
+    public async Task<StorageWriteResult> DeleteAsync(
+        string correlationId,
+        string id,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            await _tableClient.DeleteEntityAsync(
+                correlationId,
+                id,
+                ETag.All,
+                cancellationToken);
+
+            return StorageWriteResult.Updated;
+        }
+        catch (RequestFailedException exception) when (TableStorageWriteResultMapper.IsNotFound(exception))
+        {
+            return StorageWriteResult.NotFound;
+        }
+    }
+
     private static TableEntity ToEntity(AuditEventRecord auditEvent)
     {
         var entity = new TableEntity(auditEvent.CorrelationId, auditEvent.Id ?? BuildRowKey(auditEvent.OccurredAtUtc))
