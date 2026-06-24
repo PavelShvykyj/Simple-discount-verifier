@@ -260,7 +260,11 @@ Set these on the Azure Static Web App under
 Recommended random secret generation from PowerShell:
 
 ```powershell
-[Convert]::ToBase64String([System.Security.Cryptography.RandomNumberGenerator]::GetBytes(32))
+$bytes = New-Object byte[] 32
+$rng = [System.Security.Cryptography.RandomNumberGenerator]::Create()
+$rng.GetBytes($bytes)
+$rng.Dispose()
+[Convert]::ToBase64String($bytes)
 ```
 
 For local one-time setting, store values in PowerShell variables first so the
@@ -330,7 +334,11 @@ server-side app settings:
 Generate a separate key per environment. Do not reuse POS secrets.
 
 ```powershell
-$cleanupAutomationKey = [Convert]::ToBase64String([System.Security.Cryptography.RandomNumberGenerator]::GetBytes(32))
+$bytes = New-Object byte[] 32
+$rng = [System.Security.Cryptography.RandomNumberGenerator]::Create()
+$rng.GetBytes($bytes)
+$rng.Dispose()
+$cleanupAutomationKey = [Convert]::ToBase64String($bytes)
 ```
 
 Apply it to the Static Web App only after the backend cleanup endpoint exists:
@@ -369,7 +377,7 @@ When ready, run `what-if` with explicit secure parameters:
 az deployment group what-if `
   --resource-group rg-simple-discount-verifier `
   --template-file infra/main.bicep `
-  --parameters infra/parameters/develop.example.json `
+  --parameters "@infra/parameters/develop.example.json" `
   --parameters `
     deployCleanupScheduler=true `
     cleanupAutomationKey="$cleanupAutomationKey" `
@@ -382,7 +390,7 @@ Apply after reviewing the diff:
 az deployment group create `
   --resource-group rg-simple-discount-verifier `
   --template-file infra/main.bicep `
-  --parameters infra/parameters/develop.example.json `
+  --parameters "@infra/parameters/develop.example.json" `
   --parameters `
     deployCleanupScheduler=true `
     cleanupAutomationKey="$cleanupAutomationKey" `
@@ -419,7 +427,7 @@ Preview the deployment:
 az deployment group what-if `
   --resource-group rg-simple-discount-verifier `
   --template-file infra/main.bicep `
-  --parameters infra/parameters/develop.example.json
+  --parameters "@infra/parameters/develop.example.json"
 ```
 
 Apply the deployment:
@@ -428,7 +436,7 @@ Apply the deployment:
 az deployment group create `
   --resource-group rg-simple-discount-verifier `
   --template-file infra/main.bicep `
-  --parameters infra/parameters/develop.example.json
+  --parameters "@infra/parameters/develop.example.json"
 ```
 
 Verify tables:
@@ -489,7 +497,7 @@ Preview production:
 az deployment group what-if `
   --resource-group <production-resource-group> `
   --template-file infra/main.bicep `
-  --parameters <local-production-parameters.json> `
+  --parameters "@<local-production-parameters.json>" `
   --parameters repositoryToken="<github-token>"
 ```
 
@@ -499,7 +507,7 @@ Apply production:
 az deployment group create `
   --resource-group <production-resource-group> `
   --template-file infra/main.bicep `
-  --parameters <local-production-parameters.json> `
+  --parameters "@<local-production-parameters.json>" `
   --parameters repositoryToken="<github-token>"
 ```
 
