@@ -92,7 +92,7 @@
       "value": "la-sdv-cleanup-develop"
     },
     "cleanupEndpointUrl": {
-      "value": "https://swa-simple-discount-verifier.azurestaticapps.net/api/system/maintenance/cleanup"
+      "value": "https://black-pond-085834203.7.azurestaticapps.net/api/system/maintenance/cleanup"
     },
     "cleanupScheduleFrequency": {
       "value": "Day"

@@ -371,6 +371,19 @@ Keep it disabled until:
    `DiscountRuntimeRetentionHours` exist in Static Web Apps app settings.
 3. A manual call to the maintenance endpoint has been smoke-tested.
 
+The current development Static Web Apps default hostname is documented in
+`docs/architecture/azure-environments.md` as
+`black-pond-085834203.7.azurestaticapps.net`. Confirm it before deploying a
+scheduled caller:
+
+```powershell
+az staticwebapp show `
+  --name swa-simple-discount-verifier `
+  --resource-group rg-simple-discount-verifier `
+  --query "defaultHostname" `
+  -o tsv
+```
+
 When ready, run `what-if` with explicit secure parameters:
 
 ```powershell
@@ -381,7 +394,7 @@ az deployment group what-if `
   --parameters `
     deployCleanupScheduler=true `
     cleanupAutomationKey="$cleanupAutomationKey" `
-    cleanupEndpointUrl="https://swa-simple-discount-verifier.azurestaticapps.net/api/system/maintenance/cleanup"
+    cleanupEndpointUrl="https://black-pond-085834203.7.azurestaticapps.net/api/system/maintenance/cleanup"
 ```
 
 Apply after reviewing the diff:
@@ -394,7 +407,7 @@ az deployment group create `
   --parameters `
     deployCleanupScheduler=true `
     cleanupAutomationKey="$cleanupAutomationKey" `
-    cleanupEndpointUrl="https://swa-simple-discount-verifier.azurestaticapps.net/api/system/maintenance/cleanup"
+    cleanupEndpointUrl="https://black-pond-085834203.7.azurestaticapps.net/api/system/maintenance/cleanup"
 ```
 
 ### Portal Verification
