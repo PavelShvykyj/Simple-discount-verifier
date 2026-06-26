@@ -532,8 +532,11 @@ The preferred lookup key is `correlationId`, because problems can happen before
 the barcode is created. The public frontend receives `correlationId` from the
 first `POST /api/public/redemptions` response whenever the backend can create
 one. A special frontend button should generate an admin/support QR from this
-`correlationId` so the administrator can open the troubleshooting view even if
-SMS sending, SMS verification, or barcode generation failed.
+`correlationId` so the administrator can inspect the attempt even if SMS
+sending, SMS verification, or barcode generation failed. The public QR must
+encode the neutral text payload `SDV-SUPPORT:v1:<correlationId10>`, not an
+admin URL. The admin frontend parses this payload and calls the protected
+backoffice inspect endpoint.
 
 If a barcode already exists, the admin frontend may also submit `barcodeValue`;
 the backend parses the embedded `correlationId` and uses the same inspection
@@ -1152,8 +1155,14 @@ Common HTTP meanings:
   barcode validity.
 - After the first `POST /api/public/redemptions` response, the public frontend
   should keep `correlationId` even on business errors and show a special
-  admin-support QR action. The QR should encode an admin route or payload based
-  on `correlationId`, not on a manually typed support code.
+  admin-support QR action. The QR should encode the neutral text payload
+  `SDV-SUPPORT:v1:<correlationId10>`, not an admin route and not a manually
+  typed support code.
+- The public redemption flow is one Angular route at `/`. It uses a
+  provider-scoped flow store and Ionic `ion-nav` as an internal stack for the
+  phone, SMS, and barcode screens.
+- Staff UI lives under `/admin`: customer-profile work under
+  `/admin/customers/*` and service tools under `/admin/service/*`.
 - Admin customer profile forms should render the current fixed questionnaire
   fields from a small frontend field definition list: phone, full name, birth
   date, and favorite dish.

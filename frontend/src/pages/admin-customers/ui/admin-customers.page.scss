@@ -1,0 +1,12 @@
+.admin-page {
+  --background: var(--app-page-background);
+}
+
+ion-card {
+  background: var(--app-surface);
+  box-shadow: var(--app-shadow);
+}
+
+ion-card-content {
+  color: var(--app-text-muted);
+}

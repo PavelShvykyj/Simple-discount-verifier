@@ -7,10 +7,6 @@
   align-content: center;
 }
 
-.theme-panel {
-  width: 100%;
-}
-
 .welcome {
   display: grid;
   gap: 1rem;
@@ -44,14 +40,8 @@ p {
   line-height: 1.55;
 }
 
-ion-button {
-  justify-self: start;
-  margin-top: 0.5rem;
-}
-
 @media (max-width: 420px) {
-  .theme-panel,
-  ion-button {
+  .welcome {
     width: 100%;
   }
 }

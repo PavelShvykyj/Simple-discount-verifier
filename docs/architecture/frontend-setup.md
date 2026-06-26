@@ -24,6 +24,9 @@ commands.
 - Browser camera barcode/QR reading on the admin scanner survey page:
   `@zxing-js/ngx-scanner`, the Angular integration recommended from the
   `@zxing/browser` package documentation.
+- Application shell, route groups, public `ion-nav` flow, support QR payload,
+  and frontend PR sequencing are fixed in
+  `docs/architecture/frontend-application-structure.md`.
 
 Capacitor is intentionally not installed. The Ionic CLI is used for web
 development commands such as `ionic serve`; Capacitor, Cordova, and native
@@ -208,11 +211,46 @@ Run commands from `frontend/`:
 npm install
 npx ionic serve --port 8001 --no-open
 npm start
+npm run start:local-api
 npm run build
 npm run lint
 npm run format:check
 npm test
 ```
+
+## Local API Development
+
+For local frontend review, run the Angular dev server with an API proxy so
+browser requests remain same-origin:
+
+```powershell
+cd C:\repos\Simple-discount-verifier\functions
+func start
+
+cd C:\repos\Simple-discount-verifier\frontend
+npm run start:local-api
+```
+
+`npm run start:local-api` starts `ng serve` with `frontend/proxy.conf.json`.
+The frontend still calls relative URLs such as `/api/public/redemptions`; the
+Angular dev server proxies `/api/*` to the local Functions host at
+`http://localhost:7071`.
+
+The current Azure portal resources are treated as the project test/dev
+environment. For this stage, local Functions may use those test Azure resources
+through values in `functions/local.settings.json`. The future production owner
+environment will be separate and must not be used for local development.
+
+Recommended local modes:
+
+- Primary local development: `func start` with `local.settings.json` pointing to
+  the current test Azure Storage/SMS/Application Insights resources as needed.
+- Isolated fallback: Azurite with `UseDevelopmentStorage=true`.
+- Production: deployed SWA/API in the future owner environment only, not local
+  `func start`.
+
+Do not commit `functions/local.settings.json`; keep real connection strings and
+secrets local.
 
 ## Structure
 
@@ -225,21 +263,27 @@ The frontend follows Feature-Sliced Design layers under `frontend/src`:
 - `entities`
 - `shared`
 
-The initial shell places the first route in `pages/home/ui` and keeps shared
-business logic out of `app`.
+The target shell places the public customer flow at `/` and the staff area under
+`/admin`. The public route owns an Ionic `ion-nav` internal flow stack for
+phone, SMS, and barcode screens. The staff shell uses Ionic tabs for
+`/admin/customers/*` and `/admin/service/*`. Shared business logic stays out of
+`app`.
 
-Temporary scanner compatibility testing lives in `pages/scanner-survey/ui` and
-posts results to the Static Web Apps protected API route `/api/scanner-survey`.
-The page must support two kinds of checks:
+Temporary scanner compatibility testing should move under the staff service area
+at `/admin/service/scanner-survey` and continue posting results to the Static
+Web Apps protected API route `/api/scanner-survey`. The page must support two
+kinds of checks:
 
 - POS/workplace compatibility checks for generated Code 128 samples.
 - Admin browser-camera checks where one app instance displays a QR code or test
   barcode and another mobile browser instance reads it through
   `@zxing-js/ngx-scanner`.
 
-The QR-code scenario is confirmed for admin/support navigation. The primary
+The support QR scenario is confirmed for admin troubleshooting. The primary
 support QR is generated from `correlationId` returned by the first
 `POST /api/public/redemptions` response, including business-error responses when
-the backend can create a correlation id. This lets an administrator inspect an
-attempt even if the problem happened before barcode generation. A separate
-manual support code is not part of the current scope.
+the backend can create a correlation id. It encodes
+`SDV-SUPPORT:v1:<correlationId10>`, not an admin URL. This lets an administrator
+inspect an attempt even if the problem happened before barcode generation while
+preventing accidental public navigation into the staff area. A separate manual
+support code is not part of the current scope.

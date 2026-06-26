@@ -10,6 +10,21 @@ describe('routes', () => {
           loadComponent: expect.any(Function),
         }),
         expect.objectContaining({
+          path: 'admin',
+          canActivate: [adminGuard],
+          loadComponent: expect.any(Function),
+          children: expect.arrayContaining([
+            expect.objectContaining({
+              path: 'customers',
+              loadChildren: expect.any(Function),
+            }),
+            expect.objectContaining({
+              path: 'service',
+              loadChildren: expect.any(Function),
+            }),
+          ]),
+        }),
+        expect.objectContaining({
           path: 'scanner-survey',
           canActivate: [adminGuard],
           loadComponent: expect.any(Function),
