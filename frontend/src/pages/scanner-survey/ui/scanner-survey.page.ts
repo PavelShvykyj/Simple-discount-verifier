@@ -25,7 +25,6 @@ import {
 } from '@ionic/angular/standalone';
 import * as bwipjs from '@bwip-js/browser';
 
-import { ThemeModeToggleComponent } from '../../../shared/theme/ui/theme-mode-toggle.component';
 import { SupportQrScannerComponent } from './support-qr-scanner.component';
 
 type BranchName = 'Люксор' | 'Дастор' | 'Вопак';
@@ -137,7 +136,6 @@ const BARCODE_SCENARIOS: readonly BarcodeScenario[] = [
     IonTitle,
     IonToolbar,
     SupportQrScannerComponent,
-    ThemeModeToggleComponent,
   ],
   templateUrl: './scanner-survey.page.html',
   styleUrl: './scanner-survey.page.scss',

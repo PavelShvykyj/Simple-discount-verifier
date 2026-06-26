@@ -1,0 +1,19 @@
+<ion-tabs>
+  <ion-router-outlet />
+
+  <ion-tab-bar slot="bottom">
+    <ion-tab-button tab="customers" href="/admin/customers">
+      <ion-icon name="people-outline" aria-hidden="true" />
+      <ion-label>Анкети</ion-label>
+    </ion-tab-button>
+
+    <ion-tab-button tab="service" href="/admin/service">
+      <ion-icon name="construct-outline" aria-hidden="true" />
+      <ion-label>Сервіс</ion-label>
+    </ion-tab-button>
+  </ion-tab-bar>
+</ion-tabs>
+
+<div class="admin-shell-actions ion-padding">
+  <app-theme-mode-selector />
+</div>

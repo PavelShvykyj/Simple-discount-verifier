@@ -1,29 +1,24 @@
 <ion-header>
   <ion-toolbar>
     <ion-title>Simple Discount Verifier</ion-title>
+    <ion-buttons slot="end">
+      <app-theme-mode-selector />
+    </ion-buttons>
   </ion-toolbar>
 </ion-header>
 
 <ion-content fullscreen class="home-page">
   <ion-grid fixed class="home-shell ion-padding">
-    <ion-row class="theme-row">
-      <ion-col size="12" size-md="7" offset-md="5" size-lg="5" offset-lg="7">
-        <div class="theme-panel" aria-label="Налаштування теми">
-          <app-theme-mode-toggle />
-        </div>
-      </ion-col>
-    </ion-row>
-
     <ion-row>
       <ion-col size="12">
         <section class="welcome">
-          <p class="eyebrow">Тестовий стенд</p>
+          <p class="eyebrow">Публічний сценарій</p>
           <h1>Вітаємо у Simple Discount Verifier</h1>
           <p>
-            Зараз ми перевіряємо сумісність робочих місць зі сканерами штрихкодів перед
-            підключенням основного сценарію знижок.
+            Тут буде швидкий мобільний процес підтвердження телефону та отримання
+            одноразового штрихкоду. Службові інструменти доступні тільки за прямим
+            захищеним посиланням.
           </p>
-          <ion-button (click)="openScannerSurvey()">Перейти до тесту сканера</ion-button>
         </section>
       </ion-col>
     </ion-row>

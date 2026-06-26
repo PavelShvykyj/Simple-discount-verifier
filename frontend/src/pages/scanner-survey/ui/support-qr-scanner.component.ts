@@ -13,42 +13,8 @@ import { ZXingScannerComponent, ZXingScannerModule } from '@zxing/ngx-scanner';
 @Component({
   selector: 'app-support-qr-scanner',
   imports: [IonNote, ZXingScannerModule],
-  template: `
-    <div class="scanner-frame">
-      <zxing-scanner
-        #scanner
-        [tryHarder]="true"
-        (scanSuccess)="handleScanSuccess($event)"
-        (permissionResponse)="handlePermissionResponse($event)"
-        (camerasFound)="handleCamerasFound($event)"
-        (camerasNotFound)="handleCamerasNotFound()"
-      />
-    </div>
-
-    @if (statusMessage(); as message) {
-      <ion-note [color]="lastScannedValue() ? 'success' : 'medium'">{{ message }}</ion-note>
-    }
-  `,
-  styles: [
-    `
-      :host {
-        display: grid;
-        gap: 0.75rem;
-      }
-
-      .scanner-frame {
-        overflow: hidden;
-        border: 1px solid var(--app-border);
-        border-radius: 8px;
-        background: #000000;
-      }
-
-      zxing-scanner {
-        display: block;
-        min-height: 16rem;
-      }
-    `,
-  ],
+  templateUrl: './support-qr-scanner.component.html',
+  styleUrl: './support-qr-scanner.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class SupportQrScannerComponent implements OnDestroy {

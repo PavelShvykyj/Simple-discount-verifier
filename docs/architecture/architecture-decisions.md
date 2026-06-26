@@ -15,6 +15,32 @@
   bindings, and Angular services over zone-dependent implicit state updates.
 - Frontend architecture: Feature-Sliced Design with `app`, `pages`, `widgets`,
   `features`, `entities`, and `shared` layers.
+- Frontend application structure: the public customer redemption flow and the
+  staff area are separated at the route-shell level. The public flow is the root
+  route `/`; the staff area lives under `/admin`.
+- Public redemption shell: the root route renders one mobile-first public page
+  that owns a provider-scoped redemption flow store and uses Ionic `ion-nav` as
+  an internal screen stack for the phone, SMS, and barcode steps. These steps do
+  not get separate Angular routes.
+- Public redemption screen loading: the phone-entry screen is part of the first
+  route load. Later redemption screens and heavy rendering helpers are loaded
+  dynamically when the flow reaches them.
+- Public support QR: the public page shows a quiet always-available support
+  icon action. Before a `correlationId` exists it explains that the support code
+  is not ready. After a `correlationId` exists it opens a lazy-loaded dialog
+  with a QR code and text value.
+- Public support QR payload: the QR MUST encode the neutral text payload
+  `SDV-SUPPORT:v1:<correlationId10>`, not an admin URL. The admin UI parses the
+  payload and performs authorized inspection through `/api/backoffice/*`.
+- Staff shell: `/admin` uses an Ionic top-level navigation shell with tabs for
+  customer-profile work and service tools. A side menu is deferred until the
+  staff area grows beyond the current top-level groups.
+- Staff route groups: customer-profile work lives under `/admin/customers/*`;
+  service tools live under `/admin/service/*`.
+- Scanner survey placement: scanner compatibility testing is a temporary staff
+  service tool and should move under `/admin/service/scanner-survey`. Any legacy
+  `/scanner-survey*` route must remain protected while it exists and should be
+  removed or redirected after migration.
 - Angular-first implementation rule: when Angular provides an appropriate tool,
   use it before browser-level or third-party alternatives. Examples:
   `HttpClient` over `fetch`, Angular forms/signals over ad hoc mutable form
