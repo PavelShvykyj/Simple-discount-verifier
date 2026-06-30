@@ -1,0 +1,69 @@
+<app-mobile-flow-screen>
+  @if (flow.barcodeResult(); as result) {
+    <ion-card>
+      <ion-card-header>
+        <ion-card-subtitle>Код готовий</ion-card-subtitle>
+        <ion-card-title>Покажіть код працівнику</ion-card-title>
+      </ion-card-header>
+
+      <ion-card-content>
+        <ion-item class="ion-margin-vertical" lines="full">
+          <ion-label class="ion-text-wrap">{{ result.barcodeValue }}</ion-label>
+        </ion-item>
+
+        <ion-text color="medium">
+          <p class="ion-no-margin">Код активний до {{ result.expiresAt }}.</p>
+        </ion-text>
+
+        <ion-button
+          class="ion-margin-top"
+          color="secondary"
+          expand="block"
+          style="text-transform: none"
+          (click)="restart()"
+        >
+          Отримати новий код
+        </ion-button>
+      </ion-card-content>
+    </ion-card>
+  } @else {
+    <ion-card>
+      <ion-card-header>
+        <ion-card-subtitle>Код недоступний</ion-card-subtitle>
+        <ion-card-title>Почніть перевірку знову</ion-card-title>
+      </ion-card-header>
+
+      <ion-card-content>
+        <ion-text color="medium">
+          <p class="ion-no-margin">Поверніться до початку перевірки, щоб отримати новий код.</p>
+        </ion-text>
+
+        <ion-button
+          class="ion-margin-top"
+          expand="block"
+          size="large"
+          style="text-transform: none"
+          (click)="restart()"
+        >
+          Почати перевірку знову
+        </ion-button>
+      </ion-card-content>
+    </ion-card>
+  }
+  <ion-buttons app-slot="footer" slot="start">
+    <ion-button
+      fill="clear"
+      style="text-transform: none"
+      [disabled]="!nav.canGoBack()"
+      (click)="goBack()"
+    >
+      Назад
+    </ion-button>
+  </ion-buttons>
+
+  <div app-slot="footer">
+    <ion-button size="small" (click)="nav.resetToPhone()">tel</ion-button>
+    <ion-button size="small" (click)="nav.pushSms()">sms</ion-button>
+    <ion-button size="small" (click)="nav.pushBarcode()">res</ion-button>
+  </div>
+</app-mobile-flow-screen>

@@ -1,0 +1,12 @@
+<ion-header>
+  <ion-toolbar>
+    <ion-title>Simple Discount</ion-title>
+    <ion-buttons slot="end">
+      <app-theme-mode-selector />
+    </ion-buttons>
+  </ion-toolbar>
+</ion-header>
+
+<ion-content class="public-redemption-page">
+  <ion-nav #flowNav [root]="phoneEntryScreen" [swipeGesture]="false" />
+</ion-content>

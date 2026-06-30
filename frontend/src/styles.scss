@@ -18,6 +18,12 @@
 }
 
 :root.ion-palette-dark {
+  --ion-color-primary: #225a9a;
+  --ion-color-primary-rgb: 34, 90, 154;
+  --ion-color-primary-contrast: #ffffff;
+  --ion-color-primary-contrast-rgb: 255, 255, 255;
+  --ion-color-primary-shade: #1e4f88;
+  --ion-color-primary-tint: #386ba4;
   --app-page-background: #101418;
   --app-surface: #1a2027;
   --app-surface-strong: #232b34;
@@ -42,7 +48,7 @@ ion-header {
   background: var(--app-header-background);
 }
 
-ion-toolbar {
+ion-header ion-toolbar {
   --background: var(--app-header-background);
   --border-color: transparent;
   --color: var(--app-header-contrast);

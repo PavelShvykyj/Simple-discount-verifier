@@ -1,0 +1,103 @@
+<app-mobile-flow-screen>
+  <ion-card>
+    <ion-card-header>
+      <ion-card-subtitle>SMS-підтвердження</ion-card-subtitle>
+      <ion-card-title>Введіть код</ion-card-title>
+    </ion-card-header>
+
+    <ion-card-content>
+      <ion-text color="medium">
+        <p class="ion-no-margin">Код відправлено на {{ displayPhone() }}.</p>
+      </ion-text>
+
+      <form class="ion-margin-top" [formGroup]="smsCodeForm">
+        <ion-input-otp
+          aria-label="SMS-код"
+          fill="outline"
+          shape="soft"
+          required
+          [length]="smsCodeLength"
+          [disabled]="isSmsBusy()"
+          formControlName="smsCode"
+        >
+            <ion-note
+              id="sms-code-error"
+              class="ion-no-margin ion-text-center"
+              color="danger"
+              role="alert"
+              aria-live="polite"
+            >
+              {{ smsCodeErrorText() }}
+            </ion-note>
+        </ion-input-otp>
+
+        @if (flow.error(); as error) {
+          <ion-note class="ion-margin-bottom" color="danger" role="alert" aria-live="polite">
+            {{ error.message }}
+          </ion-note>
+        }
+
+        <ion-button
+          class="ion-margin-top"
+          expand="block"
+          size="large"
+          style="text-transform: none"
+          [disabled]="!canVerifySms()"
+          [attr.aria-busy]="isSmsBusy()"
+          aria-label="Підтвердити SMS-код"
+          (click)="verifySms()"
+        >
+          @if (isSmsBusy()) {
+            <ion-spinner name="crescent" aria-hidden="true" />
+            <span class="ion-margin-start">Перевіряємо...</span>
+          } @else {
+            Підтвердити код
+          }
+        </ion-button>
+
+        <div class="ion-margin-top ion-padding-top">
+          <p id="sms-resend-hint" class="ion-no-margin ion-text-center" aria-live="polite">
+            <ion-note color="medium">
+              {{ resendHintText() }}
+            </ion-note>
+          </p>
+
+          <ion-button
+            color="secondary"
+            expand="block"
+            style="text-transform: none"
+            [disabled]="!canResendSms()"
+            [attr.aria-busy]="isResendBusy()"
+            [attr.aria-label]="resendButtonText()"
+            aria-describedby="sms-resend-hint"
+            (click)="resendSms()"
+          >
+            @if (isResendBusy()) {
+              <ion-spinner name="crescent" aria-hidden="true" />
+              <span class="ion-margin-start">{{ resendButtonText() }}</span>
+            } @else {
+              {{ resendButtonText() }}
+            }
+          </ion-button>
+        </div>
+      </form>
+    </ion-card-content>
+  </ion-card>
+  <ion-buttons app-slot="footer" slot="start">
+    <ion-button fill="clear" style="text-transform: none" (click)="restart()">Назад</ion-button>
+    <ion-button
+      fill="clear"
+      style="text-transform: none"
+      [disabled]="!canGoNext()"
+      (click)="goNext()"
+    >
+      Далі
+    </ion-button>
+  </ion-buttons>
+
+  <div app-slot="footer">
+    <ion-button size="small" (click)="nav.resetToPhone()">tel</ion-button>
+    <ion-button size="small" (click)="nav.pushSms()">sms</ion-button>
+    <ion-button size="small" (click)="nav.pushBarcode()">res</ion-button>
+  </div>
+</app-mobile-flow-screen>

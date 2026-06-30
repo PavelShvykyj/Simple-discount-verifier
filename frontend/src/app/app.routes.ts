@@ -5,7 +5,10 @@ import { adminGuard } from '../shared/auth/admin.guard';
 export const routes: Routes = [
   {
     path: '',
-    loadComponent: () => import('../pages/home/ui/home.page').then((m) => m.HomePage),
+    loadComponent: () =>
+      import('../pages/public-redemption/ui/public-redemption.page').then(
+        (m) => m.PublicRedemptionPage,
+      ),
   },
   {
     path: 'admin',

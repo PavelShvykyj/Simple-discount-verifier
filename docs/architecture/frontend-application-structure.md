@@ -12,6 +12,32 @@ support QR behavior, and frontend implementation PR sequence.
 - Keep scanner, QR, and barcode libraries out of the public first-load bundle
   unless a user action or flow state needs them.
 
+## Page Design Review
+
+Every new page, and every material change to an existing page, must start with a
+short page design review before implementation. The review must check the page
+against mobile UX/UI best practices for the primary mobile task:
+
+- task priority and whether the most common action is obvious;
+- one-handed reach, touch target size, and spacing;
+- mobile keyboard behavior, input mode, autocomplete, labels, and validation;
+- navigation clarity, including back/restart behavior and route boundaries;
+- loading, error, retry, empty, disabled, and success states;
+- readable visual hierarchy on narrow screens without horizontal scrolling;
+- light and dark theme behavior and WCAG AA accessibility concerns.
+
+The same review must identify whether parts of the page should become reusable
+components under Feature-Sliced Design. Reusable UI primitives belong in
+`shared/ui`; larger cross-page composed blocks belong in `widgets`; business
+actions and flow-specific screens remain in `features` or `pages`.
+
+Reusable components must be dumb and independent by default. They may receive
+data through signal-based Angular inputs, expose user actions through
+signal-based outputs, and project content, but they must not call APIs,
+navigate with the router, read auth state, own business workflow decisions,
+access stores, or depend on higher FSD layers. Pages, features, entities, or
+services own that behavior and compose the dumb components.
+
 ## Route Shells
 
 The application has two route shells:
@@ -48,6 +74,11 @@ separate Angular routes for phone, SMS, and barcode screens.
 - the flow-level lifetime for `correlationId`, `redemptionKey`, barcode data,
   error state, retry timers, and expiry state.
 
+The public route shell must follow the standard Ionic page structure:
+`ion-header`, one non-fullscreen `ion-content`, and the optional shell footer.
+Do not set `fullscreen` on the public shell content because the internal
+`ion-nav` screens must start below the header, not behind it.
+
 The initial `ion-nav` root is the phone-entry screen. Later screens are pushed
 onto the stack only after the business flow allows them:
 
@@ -69,14 +100,13 @@ Errors remain state inside the current screen or in small Ionic overlays. Error
 states are not separate routes and are not separate `ion-nav` screens unless a
 future UX decision explicitly needs a dedicated recovery screen.
 
-The browser back behavior must be documented during implementation. The default
-target behavior is:
+Browser back must not control the internal public redemption steps. Target
+behavior:
 
 - in-flow back controls are explicit UI actions such as "change phone" or
   "start again";
-- browser back is not used as the primary flow stepper;
-- if implementation adds browser-back-to-previous-step behavior, it must be
-  tested on mobile browsers and documented in this file.
+- browser back leaves the current route according to normal browser history and
+  does not pop the phone/SMS/barcode `ion-nav` stack.
 
 ## Public Performance Rules
 
@@ -173,9 +203,42 @@ Angular components must keep markup and styles in separate files. Do not use
 inline `template` or `styles` in the component decorator for application
 components.
 
-Component styles should avoid hard-coded measurements and colors. Prefer Ionic
-components, Ionic utility classes, Ionic CSS variables, and the small set of
-existing application CSS variables before adding new custom variables.
+Angular templates must use modern control flow blocks: `@if`, `@for`, and
+`@switch`. Do not use legacy `*ngIf` or `*ngFor`. The only allowed exception is
+a library directive that has no Angular block equivalent, such as Angular CDK
+virtual scroll's `*cdkVirtualFor`.
+
+Components must use signal-based Angular APIs for component contracts and view
+queries: `input()`, `output()`, `model()`, `viewChild()`, `viewChildren()`,
+`contentChild()`, and `contentChildren()`. Do not use decorator APIs such as
+`@Input`, `@Output`, `@ViewChild`, `@ViewChildren`, `@ContentChild`, or
+`@ContentChildren` in new frontend code.
+
+Templates must not call component methods or arbitrary functions to compute
+bound values. Put derived display state, validation state, CSS class flags,
+labels, disabled flags, and similar values into signal-based properties such as
+`computed`, `linkedSignal`, Angular forms state, or equivalent Angular
+reactive primitives. Templates may read signals/computed signals and may call
+event-handler commands for user actions.
+
+Page and component UI must be Ionic-first. Use Ionic components, Ionic utility
+classes, Ionic CSS variables, and the small set of existing application CSS
+variables before adding custom CSS.
+
+Do not create new custom CSS classes, custom layout primitives, or new
+app-specific CSS variables by default. If a page appears to require custom CSS,
+pause and ask for confirmation. The confirmation request must explain:
+
+- why Ionic components, Ionic utility classes, or existing variables are not
+  sufficient;
+- which custom class, primitive, or variable would be added;
+- the trade-off introduced by the custom styling;
+- how WCAG AA behavior and light/dark theme behavior will be verified.
+
+Every new or changed page must be checked in both light and dark themes before
+completion. The check must include contrast, focus visibility, labels,
+validation messages, touch targets, loading/error states, and non-color-only
+state communication.
 
 ## Admin Shell
 
@@ -247,13 +310,17 @@ public support QR does not contain an admin URL. When the admin scanner reads
 
 to `POST /api/backoffice/redemptions/inspect`.
 
-## State Management Decision Point
+## Public Flow State Management
 
-The accepted implementation shape is a provider-scoped flow store owned by the
-route page or route shell. The store may be implemented with Angular signals
-first. Adding `@ngrx/signals` is a separate dependency decision and should be
-made before the public flow PR if the team wants the external Signal Store API
-instead of a small project-local signal store.
+The public redemption flow uses a provider-scoped store owned by
+`PublicRedemptionPage`. The PR-2 implementation uses Angular signals without
+adding `@ngrx/signals`.
+
+Components must depend on a public store interface exposed through an Angular
+`InjectionToken`, not directly on the concrete service class. This keeps the
+phone, SMS, and barcode screens independent from the implementation and leaves a
+clear migration path to `@ngrx/signals` later if multiple frontend stores need a
+shared store framework.
 
 ## PR Plan
 
@@ -291,6 +358,58 @@ Scope:
 - implement `ion-nav` phone, SMS, and barcode screen stack;
 - add typed API client contracts for the two public endpoints;
 - implement loading, retry, and error state surfaces without barcode rendering.
+
+Phone confirmation page design review:
+
+- Primary mobile task: enter a Ukrainian phone number and request an SMS code
+  while standing at payment time.
+- Mobile UX/UI: use one short form with a local Angular `FormControl`,
+  `type="text"`, `inputmode="numeric"`, `enterkeyhint="next"`,
+  `autocomplete="tel-national"`, and a visible example `501234567`. The user
+  enters only the nine digits after `+380`, while `+380` remains visible in the
+  Ionic input start slot; the flow normalizes to E.164 before calling the API.
+  Keep a full-width primary Ionic button inside the form card under the input.
+  Keep the card aligned near the top under the header using the same standard
+  grid padding as the horizontal screen edges, and keep an empty Ionic toolbar
+  footer available for safe-area balance without duplicating the primary action
+  there.
+- Validation: block incomplete or incorrectly formatted Ukrainian phone numbers
+  before calling `/api/public/redemptions`; show the Ionic input error only when
+  the phone control is touched and invalid, and preserve backend/business errors
+  as alert text.
+- Loading and disabled states: the primary button remains present, communicates
+  disabled state through the native Ionic disabled state, and shows readable
+  loading text with the spinner during submit.
+- Reusable component analysis: the route page composes the provider-scoped flow
+  store and screen stack; reusable layout remains in `shared/ui`, while phone
+  validation and flow transitions stay in `features/redemption-flow`.
+- Theme/accessibility: verify the screen in dark and light modes for contrast,
+  readable helper/error text, focus visibility, touch targets, and non-color-only
+  error communication.
+
+SMS confirmation page design review:
+
+- Primary mobile task: enter the six-digit SMS code and move to the barcode
+  screen without restarting the customer flow.
+- Mobile UX/UI: use Ionic `ion-input-otp` with numeric input mode, six boxes,
+  one full-width primary confirmation button, a secondary resend action, and a
+  clear "change number" action. The screen must keep the phone number visible in
+  normalized display form so the customer can confirm where the SMS was sent.
+- Validation: keep a local Angular control for the SMS code. Block submit until
+  six digits are entered, show the local validation error only after the SMS
+  control is touched and invalid, and keep backend verification errors as alert
+  text separate from local validation.
+- Resend: use the existing public redemption start endpoint for the current
+  phone through the provider-scoped flow store. The resend action must respect
+  `retryAfterSeconds`, show a countdown while disabled, clear the entered SMS
+  code after a successful resend, and keep the current `ion-nav` SMS screen open
+  even if resend returns a retryable business error.
+- Loading and disabled states: SMS verification and SMS resend must expose
+  separate busy states using Ionic disabled buttons, spinner text, and
+  `aria-busy`.
+- Theme/accessibility: verify the SMS code boxes, validation note, resend
+  countdown, backend error note, and all actions in light and dark themes with
+  WCAG AA contrast and non-color-only state communication.
 
 Verification:
 
@@ -360,7 +479,7 @@ Scope:
 - verify no admin/scanner/barcode helpers are in the public first-load path;
 - polish mobile focus behavior, keyboard behavior, safe-area spacing, and
   one-handed operation;
-- document final browser back behavior.
+- verify that browser back does not drive the public phone/SMS/barcode steps.
 
 Verification:
 

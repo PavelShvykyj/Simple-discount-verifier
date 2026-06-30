@@ -202,6 +202,27 @@ effects that only refresh UI because Zone.js patched the browser API.
   responsive layout should use `ion-grid`, `ion-row`, and `ion-col` instead of
   ad hoc CSS grid/flex containers. Keep content inside `ion-col`, matching the
   Ionic grid model.
+- Build new pages and page sections from Ionic components, Ionic CSS utility
+  classes, and Ionic CSS variables first.
+- Do not add custom CSS classes, custom layout primitives, or new app-specific
+  CSS variables by default. If custom CSS appears necessary, ask for
+  confirmation before implementing it and describe the need, the Ionic
+  alternative considered, the trade-off, and the planned accessibility and
+  light/dark theme verification.
+- Every new or changed page must be checked against WCAG AA expectations and in
+  both light and dark theme modes before completion. At minimum verify contrast,
+  focus visibility, labels, validation messages, touch targets, loading/error
+  states, and that important state does not rely only on color.
+- Before implementing a new page or materially changing an existing page,
+  perform a page design review against mobile UX/UI best practices: primary
+  mobile task clarity, one-handed use, touch targets, input ergonomics, mobile
+  keyboard behavior, navigation clarity, loading/error/empty/success states,
+  narrow-screen readability, and no horizontal scrolling.
+- The same review must decide whether any page parts should become reusable
+  components. Reusable UI components must be dumb and independent: data in
+  through Angular inputs, user actions out through outputs or projected content,
+  no API calls, router navigation, auth checks, stores, business workflow
+  decisions, or dependencies on higher FSD layers.
 
 ## Commands
 
