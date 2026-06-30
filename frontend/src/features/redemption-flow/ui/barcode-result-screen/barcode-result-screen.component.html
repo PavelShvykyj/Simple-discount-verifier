@@ -7,22 +7,33 @@
       </ion-card-header>
 
       <ion-card-content>
-        <ion-item class="ion-margin-vertical" lines="full">
-          <ion-label class="ion-text-wrap">{{ result.barcodeValue }}</ion-label>
-        </ion-item>
+        @defer (when result.barcodeValue) {
+          <app-barcode-renderer [value]="result.barcodeValue" [format]="result.barcodeFormat" />
+        } @placeholder {
+          <ion-text color="medium">
+            <p class="ion-no-margin ion-text-center">Готуємо штрихкод...</p>
+          </ion-text>
+        }
 
-        <ion-text color="medium">
-          <p class="ion-no-margin">Код активний до {{ result.expiresAt }}.</p>
+        <ion-text>
+          <p class="ion-no-margin ion-text-center" style="margin-block-start: -0.25rem">
+            {{ result.barcodeValue }}
+          </p>
+        </ion-text>
+
+        <ion-text color="medium" aria-live="polite">
+          <p class="ion-text-center" style="margin-block: 1rem 0.25rem">
+            Код активний ще <app-countdown-timer [targetAt]="result.expiresAt" />
+          </p>
         </ion-text>
 
         <ion-button
-          class="ion-margin-top"
           color="secondary"
           expand="block"
           style="text-transform: none"
-          (click)="restart()"
+          (click)="requestNewCode(result.expiresAt)"
         >
-          Отримати новий код
+          Отримати повторний код
         </ion-button>
       </ion-card-content>
     </ion-card>
@@ -52,6 +63,7 @@
   }
   <ion-buttons app-slot="footer" slot="start">
     <ion-button
+      [appDisabledButtonColor]="!nav.canGoBack()"
       fill="clear"
       style="text-transform: none"
       [disabled]="!nav.canGoBack()"
@@ -65,5 +77,21 @@
     <ion-button size="small" (click)="nav.resetToPhone()">tel</ion-button>
     <ion-button size="small" (click)="nav.pushSms()">sms</ion-button>
     <ion-button size="small" (click)="nav.pushBarcode()">res</ion-button>
+    <ion-button
+      size="small"
+      [color]="flow.isMockCorrelationIdActive() ? 'primary' : 'medium'"
+      aria-label="Перемкнути моковий correlationId"
+      (click)="flow.toggleMockCorrelationId()"
+    >
+      cid
+    </ion-button>
+    <ion-button
+      size="small"
+      [color]="flow.isMockBarcodeActive() ? 'primary' : 'medium'"
+      aria-label="Перемкнути моковий barcode"
+      (click)="flow.toggleMockBarcode()"
+    >
+      bar
+    </ion-button>
   </div>
 </app-mobile-flow-screen>

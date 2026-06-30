@@ -1,0 +1,26 @@
+@if (qrImage(); as image) {
+  <ion-text>
+    <p class="ion-no-margin ion-text-center">
+      <img
+        style="display: block; inline-size: 100%; max-inline-size: 18rem; margin-inline: auto"
+        [src]="image"
+        alt="QR-код підтримки для адміністратора"
+      />
+    </p>
+  </ion-text>
+} @else if (isRendering()) {
+  <p class="ion-no-margin ion-text-center" aria-live="polite">
+    <ion-spinner name="crescent" aria-hidden="true" />
+    <ion-note class="ion-margin-start" color="medium">Готуємо QR...</ion-note>
+  </p>
+} @else if (hasRenderError()) {
+  <ion-note color="danger" role="alert" aria-live="polite">
+    Не вдалося показати QR. Назвіть працівнику код нижче.
+  </ion-note>
+}
+
+<ion-text>
+  <p class="ion-margin-top ion-text-center" style="font-size: 1.35rem; letter-spacing: 0">
+    <strong>{{ correlationId() }}</strong>
+  </p>
+</ion-text>

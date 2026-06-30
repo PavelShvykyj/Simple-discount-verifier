@@ -1,51 +1,28 @@
-/* eslint-disable @angular-eslint/directive-selector */
-import { Directive, DoCheck, ElementRef, Renderer2, inject } from '@angular/core';
+import { Directive, ElementRef, Renderer2, booleanAttribute, effect, inject, input } from '@angular/core';
 
 @Directive({
-  selector: 'ion-button',
+  selector: 'ion-button[appDisabledButtonColor]',
   standalone: true,
 })
-export class DisabledButtonColorDirective implements DoCheck {
+export class DisabledButtonColorDirective {
   private readonly host = inject<ElementRef<HTMLElement>>(ElementRef).nativeElement;
   private readonly renderer = inject(Renderer2);
-  private mediumApplied = false;
-  private originalColor: string | null = null;
+  private readonly initialColor = this.host.getAttribute('color');
+  readonly appDisabledButtonColor = input(false, { transform: booleanAttribute });
 
-  ngDoCheck(): void {
-    const currentColor = this.host.getAttribute('color');
-
-    if (this.isDisabled()) {
-      if (!this.mediumApplied || currentColor !== 'medium') {
-        this.originalColor =
-          currentColor === 'medium' && this.mediumApplied ? this.originalColor : currentColor;
-      }
-
-      this.mediumApplied = true;
-
-      if (currentColor !== 'medium') {
+  constructor() {
+    effect(() => {
+      if (this.appDisabledButtonColor()) {
         this.renderer.setAttribute(this.host, 'color', 'medium');
+        return;
       }
 
-      return;
-    }
+      if (this.initialColor === null) {
+        this.renderer.removeAttribute(this.host, 'color');
+        return;
+      }
 
-    if (!this.mediumApplied) {
-      return;
-    }
-
-    this.mediumApplied = false;
-
-    if (this.originalColor === null) {
-      this.renderer.removeAttribute(this.host, 'color');
-      return;
-    }
-
-    this.renderer.setAttribute(this.host, 'color', this.originalColor);
-  }
-
-  private isDisabled(): boolean {
-    const disabled = (this.host as HTMLElement & { disabled?: unknown }).disabled;
-
-    return typeof disabled === 'boolean' ? disabled : this.host.hasAttribute('disabled');
+      this.renderer.setAttribute(this.host, 'color', this.initialColor);
+    });
   }
 }

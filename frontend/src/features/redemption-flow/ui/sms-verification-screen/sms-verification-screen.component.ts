@@ -1,4 +1,4 @@
-import { Component, DestroyRef, computed, inject, signal } from '@angular/core';
+import { Component, DestroyRef, computed, effect, inject, signal } from '@angular/core';
 import { takeUntilDestroyed, toSignal } from '@angular/core/rxjs-interop';
 import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import {
@@ -21,6 +21,7 @@ import { PUBLIC_REDEMPTION_FLOW_STORE } from '../../model/redemption-flow.store'
 import { SMS_CODE_LENGTH } from '../../model/redemption-flow.types';
 import { MobileFlowScreenComponent } from '../../../../shared/ui/mobile-flow-screen/mobile-flow-screen.component';
 import { DisabledButtonColorDirective } from '../../../../shared/ui/disabled-button-color/disabled-button-color.directive';
+import { CountdownTimerComponent } from '../../../../shared/ui/countdown-timer/countdown-timer.component';
 
 const SMS_REQUIRED_MESSAGE = 'Введіть SMS-код.';
 const SMS_INVALID_MESSAGE = `Введіть ${SMS_CODE_LENGTH} цифр SMS-коду.`;
@@ -40,6 +41,7 @@ const COUNTDOWN_TICK_MS = 1000;
     IonNote,
     IonSpinner,
     IonText,
+    CountdownTimerComponent,
     DisabledButtonColorDirective,
     MobileFlowScreenComponent,
     ReactiveFormsModule,
@@ -52,8 +54,8 @@ export class SmsVerificationScreenComponent {
 
   protected readonly nav = inject(PublicRedemptionNavService);
   private readonly destroyRef = inject(DestroyRef);
-  private readonly now = signal(Date.now());
   private readonly lastSmsRequestAt = signal(Date.now());
+  private readonly resendRemainingSecondsState = signal(0);
 
   protected readonly smsCodeControl = new FormControl(this.flow.smsCode(), {
     nonNullable: true,
@@ -111,13 +113,12 @@ export class SmsVerificationScreenComponent {
     return this.flow.phone().trim().length > 0 ? this.flow.phone() : 'вказаний номер';
   });
 
-  protected readonly resendRemainingSeconds = computed(() => {
+  protected readonly resendAvailableAt = computed(() => {
     const retryAfterSeconds = this.flow.retryAfterSeconds() ?? 0;
-    const availableAt = this.lastSmsRequestAt() + retryAfterSeconds * COUNTDOWN_TICK_MS;
-    const remainingMs = availableAt - this.now();
 
-    return Math.max(0, Math.ceil(remainingMs / COUNTDOWN_TICK_MS));
+    return this.lastSmsRequestAt() + retryAfterSeconds * COUNTDOWN_TICK_MS;
   });
+  protected readonly resendRemainingSeconds = this.resendRemainingSecondsState.asReadonly();
 
   protected readonly canResendSms = computed(() => {
     return (
@@ -127,14 +128,6 @@ export class SmsVerificationScreenComponent {
     );
   });
   protected readonly canGoNext = computed(() => this.flow.canAccessBarcodeStep());
-
-  protected readonly resendRemainingTimeText = computed(() => {
-    const remainingSeconds = this.resendRemainingSeconds();
-    const minutes = Math.floor(remainingSeconds / 60);
-    const seconds = String(remainingSeconds % 60).padStart(2, '0');
-
-    return `${minutes}:${seconds}`;
-  });
 
   protected readonly resendButtonText = computed(() => {
     if (this.flow.phoneStatus() === 'submitting') {
@@ -148,13 +141,17 @@ export class SmsVerificationScreenComponent {
     const remainingSeconds = this.resendRemainingSeconds();
 
     if (remainingSeconds > 0) {
-      return `Повторний запит буде доступний через ${this.resendRemainingTimeText()}`;
+      return 'Повторний запит буде доступний через';
     }
 
     return 'Повторна відправка коду доступна';
   });
 
   constructor() {
+    effect(() => {
+      this.resendRemainingSecondsState.set(secondsUntil(this.resendAvailableAt()));
+    });
+
     this.smsCodeControl.valueChanges.pipe(takeUntilDestroyed(this.destroyRef)).subscribe((code) => {
       const normalizedCode = toSmsCode(code);
 
@@ -164,9 +161,6 @@ export class SmsVerificationScreenComponent {
 
       this.flow.setSmsCode(normalizedCode);
     });
-
-    const tick = window.setInterval(() => this.now.set(Date.now()), COUNTDOWN_TICK_MS);
-    this.destroyRef.onDestroy(() => window.clearInterval(tick));
   }
 
   protected markSmsCodeTouched(): void {
@@ -204,9 +198,12 @@ export class SmsVerificationScreenComponent {
         if (result === 'advanced') {
           this.smsCodeControl.reset('', { emitEvent: true });
           this.lastSmsRequestAt.set(Date.now());
-          this.now.set(Date.now());
         }
       });
+  }
+
+  protected updateResendRemainingSeconds(remainingSeconds: number): void {
+    this.resendRemainingSecondsState.set(remainingSeconds);
   }
 
   protected goNext(): void {
@@ -225,4 +222,8 @@ export class SmsVerificationScreenComponent {
 
 function toSmsCode(value: string): string {
   return value.replace(/\D/g, '').slice(0, SMS_CODE_LENGTH);
+}
+
+function secondsUntil(targetAt: number): number {
+  return Math.max(0, Math.ceil((targetAt - Date.now()) / COUNTDOWN_TICK_MS));
 }

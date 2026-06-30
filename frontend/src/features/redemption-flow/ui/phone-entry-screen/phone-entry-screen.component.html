@@ -41,6 +41,7 @@
         }
 
         <ion-button
+          [appDisabledButtonColor]="!canSubmitPhone()"
           class="ion-margin-top"
           expand="block"
           size="large"
@@ -65,12 +66,30 @@
     </ion-card-content>
   </ion-card>
   <ion-buttons app-slot="footer" slot="start">
-    <ion-button fill="clear" style="text-transform: none" disabled>Далі</ion-button>
+    <ion-button appDisabledButtonColor fill="clear" style="text-transform: none" disabled>
+      Далі
+    </ion-button>
   </ion-buttons>
 
   <div app-slot="footer">
     <ion-button size="small" (click)="nav.resetToPhone()">tel</ion-button>
     <ion-button size="small" (click)="nav.pushSms()">sms</ion-button>
     <ion-button size="small" (click)="nav.pushBarcode()">res</ion-button>
+    <ion-button
+      size="small"
+      [color]="flow.isMockCorrelationIdActive() ? 'primary' : 'medium'"
+      aria-label="Перемкнути моковий correlationId"
+      (click)="flow.toggleMockCorrelationId()"
+    >
+      cid
+    </ion-button>
+    <ion-button
+      size="small"
+      [color]="flow.isMockBarcodeActive() ? 'primary' : 'medium'"
+      aria-label="Перемкнути моковий barcode"
+      (click)="flow.toggleMockBarcode()"
+    >
+      bar
+    </ion-button>
   </div>
 </app-mobile-flow-screen>

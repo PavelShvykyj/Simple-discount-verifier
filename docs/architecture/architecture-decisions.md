@@ -13,6 +13,9 @@
   implementation, but application code must be written so it can move toward a
   zoneless setup. Prefer signals, explicit reactive state, Angular event
   bindings, and Angular services over zone-dependent implicit state updates.
+- Angular lifecycle rule: do not use `ngDoCheck`. If a future implementation
+  appears to need `ngDoCheck`, document the trade-off and ask the user for
+  explicit confirmation before adding it.
 - Frontend architecture: Feature-Sliced Design with `app`, `pages`, `widgets`,
   `features`, `entities`, and `shared` layers.
 - Page design rule: before implementing a new page or materially changing an

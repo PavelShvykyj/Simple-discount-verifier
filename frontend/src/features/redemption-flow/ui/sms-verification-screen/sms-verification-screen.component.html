@@ -38,6 +38,7 @@
         }
 
         <ion-button
+          [appDisabledButtonColor]="!canVerifySms()"
           class="ion-margin-top"
           expand="block"
           size="large"
@@ -59,10 +60,17 @@
           <p id="sms-resend-hint" class="ion-no-margin ion-text-center" aria-live="polite">
             <ion-note color="medium">
               {{ resendHintText() }}
+              @if (resendRemainingSeconds() > 0) {
+                <app-countdown-timer
+                  [targetAt]="resendAvailableAt()"
+                  (remainingSecondsChange)="updateResendRemainingSeconds($event)"
+                />
+              }
             </ion-note>
           </p>
 
           <ion-button
+            [appDisabledButtonColor]="!canResendSms()"
             color="secondary"
             expand="block"
             style="text-transform: none"
@@ -86,6 +94,7 @@
   <ion-buttons app-slot="footer" slot="start">
     <ion-button fill="clear" style="text-transform: none" (click)="restart()">Назад</ion-button>
     <ion-button
+      [appDisabledButtonColor]="!canGoNext()"
       fill="clear"
       style="text-transform: none"
       [disabled]="!canGoNext()"
@@ -99,5 +108,21 @@
     <ion-button size="small" (click)="nav.resetToPhone()">tel</ion-button>
     <ion-button size="small" (click)="nav.pushSms()">sms</ion-button>
     <ion-button size="small" (click)="nav.pushBarcode()">res</ion-button>
+    <ion-button
+      size="small"
+      [color]="flow.isMockCorrelationIdActive() ? 'primary' : 'medium'"
+      aria-label="Перемкнути моковий correlationId"
+      (click)="flow.toggleMockCorrelationId()"
+    >
+      cid
+    </ion-button>
+    <ion-button
+      size="small"
+      [color]="flow.isMockBarcodeActive() ? 'primary' : 'medium'"
+      aria-label="Перемкнути моковий barcode"
+      (click)="flow.toggleMockBarcode()"
+    >
+      bar
+    </ion-button>
   </div>
 </app-mobile-flow-screen>

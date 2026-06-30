@@ -1,0 +1,41 @@
+ion-action-sheet.sdv-confirm-action-sheet {
+  --button-background: var(--sdv-confirm-action-sheet-background);
+  --button-color: var(--sdv-confirm-action-sheet-contrast);
+  --button-color-activated: var(--sdv-confirm-action-sheet-contrast);
+  --button-color-focused: var(--sdv-confirm-action-sheet-contrast);
+  --button-color-hover: var(--sdv-confirm-action-sheet-contrast);
+  --color: var(--sdv-confirm-action-sheet-contrast);
+  --background: var(--sdv-confirm-action-sheet-background);
+}
+
+ion-action-sheet.sdv-confirm-action-sheet .action-sheet-title {
+  background: rgba(255, 255, 255, 0.18);
+  border-bottom: 1px solid rgba(0, 0, 0, 0.16);
+  color: var(--sdv-confirm-action-sheet-contrast);
+  font-weight: 700;
+}
+
+ion-action-sheet.sdv-confirm-action-sheet .action-sheet-sub-title {
+  color: var(--sdv-confirm-action-sheet-contrast);
+  font-weight: 400;
+  opacity: 0.78;
+}
+
+ion-action-sheet.sdv-confirm-action-sheet .action-sheet-button {
+  font-weight: 500;
+}
+
+ion-action-sheet.sdv-confirm-action-sheet.sdv-confirm-action-sheet--info {
+  --sdv-confirm-action-sheet-background: var(--ion-color-primary);
+  --sdv-confirm-action-sheet-contrast: var(--ion-color-primary-contrast);
+}
+
+ion-action-sheet.sdv-confirm-action-sheet.sdv-confirm-action-sheet--warning {
+  --sdv-confirm-action-sheet-background: var(--ion-color-warning);
+  --sdv-confirm-action-sheet-contrast: var(--ion-color-warning-contrast);
+}
+
+ion-action-sheet.sdv-confirm-action-sheet.sdv-confirm-action-sheet--critical {
+  --sdv-confirm-action-sheet-background: var(--ion-color-danger);
+  --sdv-confirm-action-sheet-contrast: var(--ion-color-danger-contrast);
+}

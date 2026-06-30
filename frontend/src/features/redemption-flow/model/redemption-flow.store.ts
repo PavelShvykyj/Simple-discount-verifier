@@ -32,11 +32,15 @@ export interface PublicRedemptionFlowStore {
   readonly canSubmitSms: Signal<boolean>;
   readonly canAccessSmsStep: Signal<boolean>;
   readonly canAccessBarcodeStep: Signal<boolean>;
+  readonly isMockCorrelationIdActive: Signal<boolean>;
+  readonly isMockBarcodeActive: Signal<boolean>;
   setPhone(phone: string): void;
   setSmsCode(code: string): void;
   startRedemption(): Observable<RedemptionTransitionResult>;
   resendSms(): Observable<RedemptionTransitionResult>;
   verifySms(): Observable<RedemptionTransitionResult>;
+  toggleMockCorrelationId(): void;
+  toggleMockBarcode(): void;
   restart(): void;
 }
 
@@ -52,6 +56,10 @@ const UKRAINIAN_LOCAL_PREFIX = '0';
 const UKRAINIAN_E164_DIGITS_LENGTH = 12;
 const UKRAINIAN_LOCAL_DIGITS_LENGTH = 10;
 const UKRAINIAN_NATIONAL_SIGNIFICANT_DIGITS_LENGTH = 9;
+const MOCK_CORRELATION_ID = 'QPS7O7KCNM';
+const MOCK_PHONE_RUNTIME_KEY = 'EOBMCDRDRT';
+const MOCK_BARCODE_VALUE = `${MOCK_PHONE_RUNTIME_KEY}${MOCK_CORRELATION_ID}`;
+const MOCK_BARCODE_TTL_SECONDS = 300;
 
 @Injectable()
 export class PublicRedemptionSignalStore implements PublicRedemptionFlowStore {
@@ -115,6 +123,12 @@ export class PublicRedemptionSignalStore implements PublicRedemptionFlowStore {
   });
 
   readonly canAccessBarcodeStep = computed(() => this.barcodeResult() !== null);
+  readonly isMockCorrelationIdActive = computed(
+    () => this.correlationId() === MOCK_CORRELATION_ID,
+  );
+  readonly isMockBarcodeActive = computed(
+    () => this.barcodeResult()?.barcodeValue === MOCK_BARCODE_VALUE,
+  );
 
   setPhone(phone: string): void {
     this.phoneTouchedState.set(true);
@@ -193,6 +207,35 @@ export class PublicRedemptionSignalStore implements PublicRedemptionFlowStore {
         return of('blocked' as const);
       }),
     );
+  }
+
+  toggleMockCorrelationId(): void {
+    if (this.isMockCorrelationIdActive()) {
+      this.correlationIdState.set(null);
+      return;
+    }
+
+    this.correlationIdState.set(MOCK_CORRELATION_ID);
+    this.clearError();
+  }
+
+  toggleMockBarcode(): void {
+    if (this.isMockBarcodeActive()) {
+      this.barcodeResultState.set(null);
+      return;
+    }
+
+    const expiresAt = new Date(Date.now() + MOCK_BARCODE_TTL_SECONDS * 1000).toISOString();
+
+    this.correlationIdState.set(MOCK_CORRELATION_ID);
+    this.barcodeResultState.set({
+      correlationId: MOCK_CORRELATION_ID,
+      barcodeValue: MOCK_BARCODE_VALUE,
+      barcodeFormat: 'code128',
+      expiresAt,
+      ttlSeconds: MOCK_BARCODE_TTL_SECONDS,
+    });
+    this.clearError();
   }
 
   restart(): void {

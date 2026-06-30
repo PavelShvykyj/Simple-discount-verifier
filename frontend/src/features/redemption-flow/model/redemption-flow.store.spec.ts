@@ -236,6 +236,44 @@ describe('PublicRedemptionSignalStore', () => {
     expect(store.barcodeResult()?.barcodeValue).toBe('6R2V2FZ9AK');
   });
 
+  it('toggles a mock correlation id for support QR testing', () => {
+    expect(store.correlationId()).toBeNull();
+    expect(store.isMockCorrelationIdActive()).toBe(false);
+
+    store.toggleMockCorrelationId();
+
+    expect(store.correlationId()).toBe('QPS7O7KCNM');
+    expect(store.isMockCorrelationIdActive()).toBe(true);
+
+    store.toggleMockCorrelationId();
+
+    expect(store.correlationId()).toBeNull();
+    expect(store.isMockCorrelationIdActive()).toBe(false);
+  });
+
+  it('toggles a mock barcode result for the result screen', () => {
+    expect(store.barcodeResult()).toBeNull();
+    expect(store.isMockBarcodeActive()).toBe(false);
+
+    store.toggleMockBarcode();
+
+    expect(store.correlationId()).toBe('QPS7O7KCNM');
+    expect(store.barcodeResult()).toEqual(
+      expect.objectContaining({
+        correlationId: 'QPS7O7KCNM',
+        barcodeValue: 'EOBMCDRDRTQPS7O7KCNM',
+        barcodeFormat: 'code128',
+        ttlSeconds: 300,
+      }),
+    );
+    expect(store.isMockBarcodeActive()).toBe(true);
+
+    store.toggleMockBarcode();
+
+    expect(store.barcodeResult()).toBeNull();
+    expect(store.isMockBarcodeActive()).toBe(false);
+  });
+
   async function arrangeStartedRedemption(): Promise<void> {
     api.startRedemption.mockReturnValue(
       of({
