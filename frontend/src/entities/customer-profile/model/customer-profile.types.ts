@@ -4,11 +4,21 @@ export interface CustomerProfileAnswer {
   readonly value: string | null;
 }
 
+export interface CustomerProfileAnswerInput {
+  readonly code: string;
+  readonly value: string | null;
+}
+
 export interface CustomerProfile {
   readonly phone: string;
   readonly answers: readonly CustomerProfileAnswer[];
   readonly createdAt: string;
   readonly updatedAt: string;
+}
+
+export interface CustomerProfileUpsertRequest {
+  readonly phone: string;
+  readonly answers: readonly CustomerProfileAnswerInput[];
 }
 
 export interface CustomerProfileListResponse {

@@ -19,7 +19,14 @@ export const routes: Routes = [
       {
         path: '',
         pathMatch: 'full',
-        redirectTo: 'customers',
+        redirectTo: 'customer-create',
+      },
+      {
+        path: 'customer-create',
+        loadComponent: () =>
+          import('../features/customer-profile-form/ui/customer-profile-form.component').then(
+            (m) => m.CustomerProfileFormComponent,
+          ),
       },
       {
         path: 'customers',

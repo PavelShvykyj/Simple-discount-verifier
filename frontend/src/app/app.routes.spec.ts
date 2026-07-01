@@ -15,6 +15,15 @@ describe('routes', () => {
           loadComponent: expect.any(Function),
           children: expect.arrayContaining([
             expect.objectContaining({
+              path: '',
+              pathMatch: 'full',
+              redirectTo: 'customer-create',
+            }),
+            expect.objectContaining({
+              path: 'customer-create',
+              loadComponent: expect.any(Function),
+            }),
+            expect.objectContaining({
               path: 'customers',
               loadChildren: expect.any(Function),
             }),

@@ -7,7 +7,7 @@ import {
   IonTabs,
 } from '@ionic/angular/standalone';
 import { addIcons } from 'ionicons';
-import { constructOutline, peopleOutline } from 'ionicons/icons';
+import { addCircleOutline, constructOutline, peopleOutline } from 'ionicons/icons';
 
 @Component({
   selector: 'app-admin-shell',
@@ -17,6 +17,6 @@ import { constructOutline, peopleOutline } from 'ionicons/icons';
 })
 export class AdminShellComponent {
   constructor() {
-    addIcons({ constructOutline, peopleOutline });
+    addIcons({ addCircleOutline, constructOutline, peopleOutline });
   }
 }

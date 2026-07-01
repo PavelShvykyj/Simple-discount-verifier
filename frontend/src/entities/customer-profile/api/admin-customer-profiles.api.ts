@@ -5,6 +5,8 @@ import { Observable } from 'rxjs';
 import {
   AdminCustomerProfileListRequest,
   CustomerProfileListResponse,
+  CustomerProfile,
+  CustomerProfileUpsertRequest,
 } from '../model/customer-profile.types';
 
 @Injectable({ providedIn: 'root' })
@@ -29,5 +31,25 @@ export class AdminCustomerProfilesApi {
     return this.http.get<CustomerProfileListResponse>('/api/backoffice/customer-profiles', {
       params,
     });
+  }
+
+  getByPhone(phone: string): Observable<CustomerProfile> {
+    return this.http.get<CustomerProfile>(
+      `/api/backoffice/customer-profiles/by-phone/${encodeURIComponent(phone)}`,
+    );
+  }
+
+  create(request: CustomerProfileUpsertRequest): Observable<CustomerProfile> {
+    return this.http.post<CustomerProfile>('/api/backoffice/customer-profiles', request);
+  }
+
+  updateByPhone(
+    phone: string,
+    request: CustomerProfileUpsertRequest,
+  ): Observable<CustomerProfile> {
+    return this.http.patch<CustomerProfile>(
+      `/api/backoffice/customer-profiles/by-phone/${encodeURIComponent(phone)}`,
+      request,
+    );
   }
 }

@@ -17,6 +17,7 @@ import {
   IonItemSliding,
   IonLabel,
   IonList,
+  ModalController,
   IonRefresher,
   IonRefresherContent,
   IonRow,
@@ -32,6 +33,11 @@ import { AdminCustomerProfilesApi } from '../../../entities/customer-profile/api
 import { CUSTOMER_PROFILE_FORM_CONFIG } from '../../../entities/customer-profile/model/customer-profile-form.config';
 import { toCustomerProfileListItem } from '../../../entities/customer-profile/model/customer-profile-list.mapper';
 import {
+  CustomerProfile,
+  CustomerProfileListItem,
+} from '../../../entities/customer-profile/model/customer-profile.types';
+import { CustomerProfileFormComponent } from '../../../features/customer-profile-form/ui/customer-profile-form.component';
+import {
   CustomerProfileListQuery,
   createCustomerProfileListDataSource,
 } from '../../../features/customer-profile-list/model/customer-profile-list.datasource';
@@ -44,6 +50,10 @@ import {
   SubmitSearchFieldValidator,
 } from '../../../shared/ui/submit-search-field/submit-search-field.component';
 import { ThemeModeSelectorComponent } from '../../../shared/theme/ui/theme-mode-selector.component';
+
+interface AdminCustomerProfileListItem extends CustomerProfileListItem {
+  readonly profile: CustomerProfile;
+}
 
 @Component({
   selector: 'app-admin-customers-page',
@@ -80,6 +90,7 @@ import { ThemeModeSelectorComponent } from '../../../shared/theme/ui/theme-mode-
 export class AdminCustomersPage {
   private readonly api = inject(AdminCustomerProfilesApi);
   private readonly destroyRef = inject(DestroyRef);
+  private readonly modalController = inject(ModalController);
   private readonly dataSource = createCustomerProfileListDataSource(this.api);
   private activeRefresher: HTMLIonRefresherElement | null = null;
 
@@ -93,19 +104,12 @@ export class AdminCustomersPage {
   ];
   protected readonly listView = this.dataSource.connect();
   protected readonly isSearchVisible = signal(false);
-  protected readonly profileItems = computed(() =>
-    this.listView().items.map(toCustomerProfileListItem),
+  protected readonly profileItems = computed<readonly AdminCustomerProfileListItem[]>(() =>
+    this.listView().items.map((profile) => ({
+      ...toCustomerProfileListItem(profile),
+      profile,
+    })),
   );
-
-  protected readonly listSummary = computed(() => {
-    const query = this.listView().query;
-
-    if (query?.kind === 'phone') {
-      return `Точний пошук за номером ${query.phone}`;
-    }
-
-    return 'Список анкет';
-  });
   protected readonly emptyMessage = computed(() => {
     if (this.listView().query?.kind === 'phone') {
       return 'Анкету з таким номером не знайдено.';
@@ -179,6 +183,14 @@ export class AdminCustomersPage {
     this.loadAllProfiles();
   }
 
+  protected async openCreateProfileModal(): Promise<void> {
+    await this.openProfileModal({ mode: 'create', profile: null });
+  }
+
+  protected async openEditProfileModal(profile: CustomerProfile): Promise<void> {
+    await this.openProfileModal({ mode: 'edit', profile });
+  }
+
   private toPhoneQuery(phone: string): CustomerProfileListQuery | null {
     const normalizedPhone = normalizeUkrainianPhone(phone);
 
@@ -188,6 +200,27 @@ export class AdminCustomersPage {
           kind: 'phone',
           phone: normalizedPhone,
         };
+  }
+
+  private async openProfileModal(options: {
+    readonly mode: 'create' | 'edit';
+    readonly profile: CustomerProfile | null;
+  }): Promise<void> {
+    const modal = await this.modalController.create({
+      component: CustomerProfileFormComponent,
+      componentProps: {
+        ...options,
+        presentation: 'modal',
+      },
+    });
+
+    await modal.present();
+
+    const result = await modal.onDidDismiss<{ saved?: boolean }>();
+
+    if (result.data?.saved) {
+      this.loadAllProfiles();
+    }
   }
 }
 

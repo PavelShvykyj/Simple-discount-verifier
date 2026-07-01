@@ -1,0 +1,382 @@
+import { HttpErrorResponse } from '@angular/common/http';
+import { Component, DestroyRef, computed, inject, signal } from '@angular/core';
+import { takeUntilDestroyed, toSignal } from '@angular/core/rxjs-interop';
+import {
+  AbstractControl,
+  FormControl,
+  FormGroup,
+  ReactiveFormsModule,
+  ValidationErrors,
+  ValidatorFn,
+  Validators,
+} from '@angular/forms';
+import {
+  IonButton,
+  IonButtons,
+  IonContent,
+  IonHeader,
+  IonInput,
+  IonList,
+  IonSpinner,
+  IonTextarea,
+  IonText,
+  IonTitle,
+  IonToolbar,
+  ModalController,
+} from '@ionic/angular/standalone';
+import { take } from 'rxjs';
+
+import { AdminCustomerProfilesApi } from '../../../entities/customer-profile/api/admin-customer-profiles.api';
+import { CUSTOMER_PROFILE_FORM_CONFIG } from '../../../entities/customer-profile/model/customer-profile-form.config';
+import {
+  CustomerProfile,
+  CustomerProfileFieldConfig,
+  CustomerProfileUpsertRequest,
+} from '../../../entities/customer-profile/model/customer-profile.types';
+import {
+  EMPTY_PHONE_MESSAGE,
+  INVALID_UKRAINIAN_PHONE_MESSAGE,
+  normalizeUkrainianPhone,
+} from '../../../shared/lib/phone/ukrainian-phone';
+import { DisabledButtonColorDirective } from '../../../shared/ui/disabled-button-color/disabled-button-color.directive';
+import { AppToastService } from '../../../shared/ui/toast/app-toast.service';
+
+type CustomerProfileFormMode = 'create' | 'edit';
+type CustomerProfileFormPresentation = 'page' | 'modal';
+const UKRAINIAN_PHONE_BODY_LENGTH = 9;
+const PHONE_BODY_INVALID_MESSAGE = 'Введіть 9 цифр номера після +380.';
+
+interface CustomerProfileFormFieldView {
+  readonly config: CustomerProfileFieldConfig;
+  readonly control: FormControl<string>;
+  readonly isTouched: () => boolean;
+  readonly shouldShowError: () => boolean;
+  readonly errorText: () => string;
+}
+
+@Component({
+  selector: 'app-customer-profile-form',
+  imports: [
+    DisabledButtonColorDirective,
+    IonButton,
+    IonButtons,
+    IonContent,
+    IonHeader,
+    IonInput,
+    IonList,
+    IonSpinner,
+    IonTextarea,
+    IonText,
+    IonTitle,
+    IonToolbar,
+    ReactiveFormsModule,
+  ],
+  templateUrl: './customer-profile-form.component.html',
+  styleUrl: './customer-profile-form.component.scss',
+})
+export class CustomerProfileFormComponent {
+  private readonly api = inject(AdminCustomerProfilesApi);
+  private readonly destroyRef = inject(DestroyRef);
+  private readonly modalController = inject(ModalController);
+  private readonly toast = inject(AppToastService);
+  private readonly modeState = signal<CustomerProfileFormMode>('create');
+  private readonly presentationState = signal<CustomerProfileFormPresentation>('page');
+  private readonly profileState = signal<CustomerProfile | null>(null);
+  private hasSavedChanges = false;
+
+  protected readonly title = computed(() =>
+    this.modeState() === 'create' ? 'Нова анкета' : 'Редагування анкети',
+  );
+  protected readonly submitText = computed(() =>
+    this.modeState() === 'create' ? 'Створити' : 'Зберегти',
+  );
+  protected readonly isModalPresentation = computed(
+    () => this.presentationState() === 'modal',
+  );
+  protected readonly isSaving = signal(false);
+
+  protected readonly phoneControl = new FormControl('', {
+    nonNullable: true,
+    validators: [requiredTrimmedValidator, ukrainianPhoneValidator],
+  });
+  private readonly phoneControlEvent = toSignal(
+    this.phoneControl.events.pipe(takeUntilDestroyed(this.destroyRef)),
+  );
+  private readonly answerControls = createAnswerControls();
+
+  protected readonly answerForm = new FormGroup(this.answerControls);
+  protected readonly profileForm = new FormGroup({
+    phone: this.phoneControl,
+    answers: this.answerForm,
+  });
+  private readonly profileFormEvent = toSignal(
+    this.profileForm.events.pipe(takeUntilDestroyed(this.destroyRef)),
+  );
+
+  protected readonly fieldViews: readonly CustomerProfileFormFieldView[] =
+    CUSTOMER_PROFILE_FORM_CONFIG.questionnaire.fields.map((config) => {
+      const control = this.answerControls[config.code];
+      const controlEvent = toSignal(control.events.pipe(takeUntilDestroyed(this.destroyRef)));
+
+      return {
+        config,
+        control,
+        isTouched: computed(() => controlEvent()?.source.touched ?? control.touched),
+        shouldShowError: computed(
+          () => (controlEvent()?.source.touched ?? control.touched) && control.invalid,
+        ),
+        errorText: computed(() => {
+          controlEvent();
+
+          return getFieldErrorText(config, control);
+        }),
+      };
+    });
+
+  protected readonly isPhoneTouched = computed(
+    () => this.phoneControlEvent()?.source.touched ?? this.phoneControl.touched,
+  );
+  protected readonly shouldShowPhoneError = computed(
+    () => this.isPhoneTouched() && this.phoneControl.invalid,
+  );
+  protected readonly phoneErrorText = computed(() => {
+    this.phoneControlEvent();
+
+    return getPhoneErrorText(this.phoneControl);
+  });
+  protected readonly canSubmit = computed(() => {
+    this.profileFormEvent();
+
+    return this.profileForm.valid && !this.isSaving();
+  });
+
+  set mode(value: CustomerProfileFormMode) {
+    this.modeState.set(value);
+  }
+
+  set presentation(value: CustomerProfileFormPresentation) {
+    this.presentationState.set(value);
+  }
+
+  set profile(value: CustomerProfile | null) {
+    this.profileState.set(value);
+
+    if (value !== null) {
+      this.patchProfile(value);
+    }
+  }
+
+  protected close(): void {
+    if (!this.isModalPresentation()) {
+      return;
+    }
+
+    void this.modalController.dismiss({ saved: this.hasSavedChanges });
+  }
+
+  protected submit(event: Event): void {
+    event.preventDefault();
+    this.profileForm.markAllAsTouched();
+    this.profileForm.updateValueAndValidity();
+
+    if (this.profileForm.invalid) {
+      return;
+    }
+
+    const request = this.toRequest();
+    if (request === null) {
+      void this.toast.showError(INVALID_UKRAINIAN_PHONE_MESSAGE);
+      return;
+    }
+
+    this.isSaving.set(true);
+    const saveRequest =
+      this.modeState() === 'create'
+        ? this.api.create(request)
+        : this.api.updateByPhone(this.profileState()?.phone ?? request.phone, request);
+
+    saveRequest.pipe(take(1), takeUntilDestroyed(this.destroyRef)).subscribe({
+      next: (profile) => {
+        this.isSaving.set(false);
+        this.hasSavedChanges = true;
+
+        if (this.modeState() === 'create') {
+          void this.toast.showSuccess('Анкету створено.');
+          this.resetForm();
+          return;
+        }
+
+        void this.toast.showSuccess('Анкету збережено.');
+        void this.modalController.dismiss({ saved: true, profile });
+      },
+      error: (error: unknown) => {
+        this.isSaving.set(false);
+        void this.toast.showError(getSaveErrorMessage(error));
+      },
+    });
+  }
+
+  private patchProfile(profile: CustomerProfile): void {
+    this.phoneControl.setValue(toUkrainianPhoneBody(profile.phone), { emitEvent: false });
+
+    for (const field of CUSTOMER_PROFILE_FORM_CONFIG.questionnaire.fields) {
+      const answerValue =
+        profile.answers.find((answer) => answer.code === field.code)?.value ?? '';
+      this.answerControls[field.code].setValue(answerValue, { emitEvent: false });
+    }
+
+    this.profileForm.markAsPristine();
+  }
+
+  private resetForm(): void {
+    this.profileForm.reset({
+      phone: '',
+      answers: CUSTOMER_PROFILE_FORM_CONFIG.questionnaire.fields.reduce<Record<string, string>>(
+        (answers, field) => {
+          answers[field.code] = '';
+
+          return answers;
+        },
+        {},
+      ),
+    });
+    this.profileForm.markAsPristine();
+    this.profileForm.markAsUntouched();
+  }
+
+  private toRequest(): CustomerProfileUpsertRequest | null {
+    const phone = normalizeUkrainianPhone(this.phoneControl.value);
+
+    if (phone === null) {
+      return null;
+    }
+
+    return {
+      phone,
+      answers: CUSTOMER_PROFILE_FORM_CONFIG.questionnaire.fields.map((field) => ({
+        code: field.code,
+        value: toAnswerValue(this.answerControls[field.code].value),
+      })),
+    };
+  }
+}
+
+function createAnswerControls(): Record<string, FormControl<string>> {
+  return CUSTOMER_PROFILE_FORM_CONFIG.questionnaire.fields.reduce<
+    Record<string, FormControl<string>>
+  >((controls, field) => {
+    controls[field.code] = new FormControl('', {
+      nonNullable: true,
+      validators: createFieldValidators(field),
+    });
+
+    return controls;
+  }, {});
+}
+
+function createFieldValidators(field: CustomerProfileFieldConfig): ValidatorFn[] {
+  const validators: ValidatorFn[] = [];
+
+  if (field.required) {
+    validators.push(requiredTrimmedValidator);
+  }
+
+  if (field.minLength !== undefined) {
+    validators.push(Validators.minLength(field.minLength));
+  }
+
+  if (field.maxLength !== undefined) {
+    validators.push(Validators.maxLength(field.maxLength));
+  }
+
+  if (field.type === 'date') {
+    validators.push(dateValueValidator);
+  }
+
+  return validators;
+}
+
+function requiredTrimmedValidator(control: AbstractControl): ValidationErrors | null {
+  const value = String(control.value ?? '');
+
+  return value.trim().length === 0 ? { required: true } : null;
+}
+
+function ukrainianPhoneValidator(control: AbstractControl): ValidationErrors | null {
+  const value = String(control.value ?? '');
+
+  if (value.trim().length === 0) {
+    return null;
+  }
+
+  return /^\d{9}$/.test(value) ? null : { ukrainianPhone: true };
+}
+
+function dateValueValidator(control: AbstractControl): ValidationErrors | null {
+  const value = String(control.value ?? '').trim();
+
+  if (value.length === 0) {
+    return null;
+  }
+
+  return /^\d{4}-\d{2}-\d{2}$/.test(value) ? null : { date: true };
+}
+
+function getPhoneErrorText(control: AbstractControl): string {
+  if (control.hasError('required')) {
+    return EMPTY_PHONE_MESSAGE;
+  }
+
+  if (control.hasError('ukrainianPhone')) {
+    return PHONE_BODY_INVALID_MESSAGE;
+  }
+
+  return '';
+}
+
+function getFieldErrorText(
+  field: CustomerProfileFieldConfig,
+  control: AbstractControl,
+): string {
+  if (control.hasError('required')) {
+    return `${field.label} обов'язкове поле.`;
+  }
+
+  if (control.hasError('minlength')) {
+    return `Мінімальна довжина: ${field.minLength}.`;
+  }
+
+  if (control.hasError('maxlength')) {
+    return `Максимальна довжина: ${field.maxLength}.`;
+  }
+
+  if (control.hasError('date')) {
+    return 'Вкажіть дату у форматі РРРР-ММ-ДД.';
+  }
+
+  return '';
+}
+
+function toAnswerValue(value: string): string | null {
+  const trimmedValue = value.trim();
+
+  return trimmedValue.length > 0 ? trimmedValue : null;
+}
+
+function toUkrainianPhoneBody(phone: string): string {
+  const normalizedPhone = normalizeUkrainianPhone(phone);
+
+  return normalizedPhone?.slice(-UKRAINIAN_PHONE_BODY_LENGTH) ?? '';
+}
+
+function getSaveErrorMessage(error: unknown): string {
+  if (error instanceof HttpErrorResponse) {
+    const apiError = (error.error as { error?: { message?: string } } | null)?.error;
+
+    if (apiError?.message) {
+      return apiError.message;
+    }
+  }
+
+  return 'Не вдалося зберегти анкету.';
+}

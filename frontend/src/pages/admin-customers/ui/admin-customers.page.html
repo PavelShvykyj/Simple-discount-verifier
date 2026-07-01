@@ -65,7 +65,12 @@
                 </ion-item>
 
                 <ion-item-options side="end">
-                  <ion-item-option color="primary">Редагувати</ion-item-option>
+                  <ion-item-option
+                    color="primary"
+                    (click)="openEditProfileModal(profile.profile)"
+                  >
+                    Редагувати
+                  </ion-item-option>
                 </ion-item-options>
               </ion-item-sliding>
             }
@@ -98,7 +103,11 @@
   </ion-grid>
 
   <ion-fab slot="fixed" vertical="bottom" horizontal="end">
-    <ion-fab-button color="secondary" aria-label="Додати анкету">
+    <ion-fab-button
+      color="secondary"
+      aria-label="Додати анкету"
+      (click)="openCreateProfileModal()"
+    >
       <ion-icon name="add-outline" aria-hidden="true" />
     </ion-fab-button>
   </ion-fab>
