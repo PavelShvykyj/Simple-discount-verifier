@@ -30,7 +30,6 @@
         <ion-button
           color="secondary"
           expand="block"
-          style="text-transform: none"
           (click)="requestNewCode(result.expiresAt)"
         >
           Отримати повторний код
@@ -53,7 +52,6 @@
           class="ion-margin-top"
           expand="block"
           size="large"
-          style="text-transform: none"
           (click)="restart()"
         >
           Почати перевірку знову
@@ -65,7 +63,6 @@
     <ion-button
       [appDisabledButtonColor]="!nav.canGoBack()"
       fill="clear"
-      style="text-transform: none"
       [disabled]="!nav.canGoBack()"
       (click)="goBack()"
     >

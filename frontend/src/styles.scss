@@ -55,3 +55,7 @@ ion-header ion-toolbar {
   --border-color: transparent;
   --color: var(--app-header-contrast);
 }
+
+ion-button {
+  text-transform: none;
+}

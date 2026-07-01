@@ -14,6 +14,11 @@ import {
   StartRedemptionResponse,
   VerifySmsResponse,
 } from './redemption-flow.types';
+import {
+  EMPTY_PHONE_MESSAGE,
+  INVALID_UKRAINIAN_PHONE_MESSAGE,
+  normalizeUkrainianPhone,
+} from '../../../shared/lib/phone/ukrainian-phone';
 
 export interface PublicRedemptionFlowStore {
   readonly currentStep: Signal<RedemptionStep>;
@@ -49,13 +54,6 @@ export const PUBLIC_REDEMPTION_FLOW_STORE = new InjectionToken<PublicRedemptionF
 );
 
 const FALLBACK_ERROR_MESSAGE = 'Не вдалося виконати запит. Спробуйте ще раз.';
-const EMPTY_PHONE_MESSAGE = 'Введіть номер телефону.';
-const INVALID_UKRAINIAN_PHONE_MESSAGE = 'Введіть український номер у форматі +380501234567.';
-const UKRAINIAN_COUNTRY_CODE = '380';
-const UKRAINIAN_LOCAL_PREFIX = '0';
-const UKRAINIAN_E164_DIGITS_LENGTH = 12;
-const UKRAINIAN_LOCAL_DIGITS_LENGTH = 10;
-const UKRAINIAN_NATIONAL_SIGNIFICANT_DIGITS_LENGTH = 9;
 const MOCK_CORRELATION_ID = 'QPS7O7KCNM';
 const MOCK_PHONE_RUNTIME_KEY = 'EOBMCDRDRT';
 const MOCK_BARCODE_VALUE = `${MOCK_PHONE_RUNTIME_KEY}${MOCK_CORRELATION_ID}`;
@@ -360,22 +358,4 @@ export class PublicRedemptionSignalStore implements PublicRedemptionFlowStore {
   private clearError(): void {
     this.errorState.set(null);
   }
-}
-
-function normalizeUkrainianPhone(phone: string): string | null {
-  const digits = phone.replace(/\D/g, '');
-
-  if (digits.length === UKRAINIAN_E164_DIGITS_LENGTH && digits.startsWith(UKRAINIAN_COUNTRY_CODE)) {
-    return `+${digits}`;
-  }
-
-  if (digits.length === UKRAINIAN_LOCAL_DIGITS_LENGTH && digits.startsWith(UKRAINIAN_LOCAL_PREFIX)) {
-    return `+38${digits}`;
-  }
-
-  if (digits.length === UKRAINIAN_NATIONAL_SIGNIFICANT_DIGITS_LENGTH) {
-    return `+${UKRAINIAN_COUNTRY_CODE}${digits}`;
-  }
-
-  return null;
 }

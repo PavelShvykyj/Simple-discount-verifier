@@ -1,7 +1,7 @@
 import { Directive, ElementRef, Renderer2, booleanAttribute, effect, inject, input } from '@angular/core';
 
 @Directive({
-  selector: 'ion-button[appDisabledButtonColor]',
+  selector: '[appDisabledButtonColor]',
   standalone: true,
 })
 export class DisabledButtonColorDirective {

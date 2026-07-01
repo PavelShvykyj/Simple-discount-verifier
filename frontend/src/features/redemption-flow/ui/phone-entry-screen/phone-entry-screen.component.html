@@ -45,7 +45,6 @@
           class="ion-margin-top"
           expand="block"
           size="large"
-          style="text-transform: none"
           type="submit"
           [disabled]="!canSubmitPhone()"
           [attr.aria-busy]="flow.phoneStatus() === 'submitting'"
@@ -66,7 +65,7 @@
     </ion-card-content>
   </ion-card>
   <ion-buttons app-slot="footer" slot="start">
-    <ion-button appDisabledButtonColor fill="clear" style="text-transform: none" disabled>
+    <ion-button appDisabledButtonColor fill="clear" disabled>
       Далі
     </ion-button>
   </ion-buttons>

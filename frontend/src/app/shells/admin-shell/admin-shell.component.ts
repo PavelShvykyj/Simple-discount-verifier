@@ -2,7 +2,6 @@ import { Component } from '@angular/core';
 import {
   IonIcon,
   IonLabel,
-  IonRouterOutlet,
   IonTabBar,
   IonTabButton,
   IonTabs,
@@ -10,19 +9,9 @@ import {
 import { addIcons } from 'ionicons';
 import { constructOutline, peopleOutline } from 'ionicons/icons';
 
-import { ThemeModeSelectorComponent } from '../../../shared/theme/ui/theme-mode-selector.component';
-
 @Component({
   selector: 'app-admin-shell',
-  imports: [
-    IonIcon,
-    IonLabel,
-    IonRouterOutlet,
-    IonTabBar,
-    IonTabButton,
-    IonTabs,
-    ThemeModeSelectorComponent,
-  ],
+  imports: [IonIcon, IonLabel, IonTabBar, IonTabButton, IonTabs],
   templateUrl: './admin-shell.component.html',
   styleUrl: './admin-shell.component.scss',
 })

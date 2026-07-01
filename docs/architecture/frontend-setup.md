@@ -204,6 +204,10 @@ effects that only refresh UI because Zone.js patched the browser API.
   Ionic grid model.
 - Build new pages and page sections from Ionic components, Ionic CSS utility
   classes, and Ionic CSS variables first.
+- Button labels must use normal sentence/title text casing in the product
+  language and must not be transformed to all-uppercase. Keep icon-only buttons
+  icon-only with accessible labels; when a button has visible text, write and
+  display the text in normal case, for example `Показати ще`.
 - Do not add custom CSS classes, custom layout primitives, or new app-specific
   CSS variables by default. If custom CSS appears necessary, ask for
   confirmation before implementing it and describe the need, the Ionic

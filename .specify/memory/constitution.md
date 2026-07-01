@@ -1,14 +1,14 @@
 <!--
 Sync Impact Report
-Version change: 1.2.0 -> 1.3.0
-Modified principles: II. Angular and Ionic Only; III. Feature-Sliced Design Boundaries; V. Quality and Accessibility Gates; VII. Page Design Review And Dumb Reusable Components
+Version change: 1.3.0 -> 1.3.1
+Modified principles: VI. Ionic-First UI Composition
 Added principles: none
 Added sections: none
 Removed sections: none
 Templates requiring updates:
-- .specify/templates/plan-template.md: updated for Angular control flow, signal API, and template binding gates
-- .specify/templates/spec-template.md: updated for Angular control flow, signal API, and template binding requirements
-- .specify/templates/tasks-template.md: updated for Angular control flow, signal API, and template binding tasks
+- .specify/templates/plan-template.md: reviewed, no update required
+- .specify/templates/spec-template.md: reviewed, no update required
+- .specify/templates/tasks-template.md: reviewed, no update required
 - .specify/templates/checklist-template.md: reviewed, no update required
 Follow-up TODOs: none
 -->
@@ -99,6 +99,10 @@ and light/dark theme behavior will be verified. Existing custom CSS may be
 maintained when necessary, but new work MUST prefer Ionic composition and the
 existing application variables before expanding the styling surface.
 
+Visible button labels MUST be written and displayed in normal product-language
+case, not forced to all-uppercase. Icon-only buttons MUST remain icon-only and
+provide accessible labels.
+
 ### VII. Page Design Review And Dumb Reusable Components
 
 Before implementing any new page or materially changing an existing page, the
@@ -149,4 +153,4 @@ MAJOR for incompatible governance or principle redefinitions, MINOR for new or
 materially expanded principles or sections, and PATCH for clarifications that do
 not change meaning.
 
-**Version**: 1.3.0 | **Ratified**: 2026-05-27 | **Last Amended**: 2026-06-30
+**Version**: 1.3.1 | **Ratified**: 2026-05-27 | **Last Amended**: 2026-07-01

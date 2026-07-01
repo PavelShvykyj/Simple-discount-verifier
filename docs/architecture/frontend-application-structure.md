@@ -225,6 +225,10 @@ Page and component UI must be Ionic-first. Use Ionic components, Ionic utility
 classes, Ionic CSS variables, and the small set of existing application CSS
 variables before adding custom CSS.
 
+Visible button labels must be written and displayed in normal case, not forced
+to uppercase. Icon-only buttons remain icon-only and must provide accessible
+labels.
+
 Do not create new custom CSS classes, custom layout primitives, or new
 app-specific CSS variables by default. If a page appears to require custom CSS,
 pause and ask for confirmation. The confirmation request must explain:
