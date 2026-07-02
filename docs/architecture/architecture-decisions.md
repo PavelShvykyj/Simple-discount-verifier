@@ -13,8 +13,19 @@
   implementation, but application code must be written so it can move toward a
   zoneless setup. Prefer signals, explicit reactive state, Angular event
   bindings, and Angular services over zone-dependent implicit state updates.
+- Angular lifecycle rule: do not use `ngDoCheck`. If a future implementation
+  appears to need `ngDoCheck`, document the trade-off and ask the user for
+  explicit confirmation before adding it.
 - Frontend architecture: Feature-Sliced Design with `app`, `pages`, `widgets`,
   `features`, `entities`, and `shared` layers.
+- Page design rule: before implementing a new page or materially changing an
+  existing page, perform a mobile UX/UI best-practice review and a reusable
+  component analysis.
+- Reusable component rule: shared reusable UI components are dumb and
+  independent by default. They receive data through signal-based inputs, expose
+  user actions through signal-based outputs or projected content, use
+  Ionic-first composition, and do not call APIs, navigate, read auth state,
+  access stores, own business workflow, or depend on higher FSD layers.
 - Frontend application structure: the public customer redemption flow and the
   staff area are separated at the route-shell level. The public flow is the root
   route `/`; the staff area lives under `/admin`.
@@ -46,9 +57,28 @@
   `HttpClient` over `fetch`, Angular forms/signals over ad hoc mutable form
   state, Angular router over manual navigation, and Angular DI services over
   module-level singletons.
+- Angular template control flow rule: use modern Angular control flow blocks
+  (`@if`, `@for`, `@switch`) instead of legacy `*ngIf`/`*ngFor`. The only
+  allowed exception is a library directive without a block equivalent, such as
+  Angular CDK virtual scroll's `*cdkVirtualFor`.
+- Angular signal API rule: use signal-based component APIs (`input()`,
+  `output()`, `model()`, `viewChild()`, `viewChildren()`, `contentChild()`,
+  `contentChildren()`) instead of decorator APIs (`@Input`, `@Output`,
+  `@ViewChild`, `@ViewChildren`, `@ContentChild`, `@ContentChildren`).
+- Template binding rule: do not call component methods or arbitrary functions
+  from templates to compute bound values. Expose derived display state,
+  validation state, classes, labels, disabled flags, and similar values through
+  `computed`, `linkedSignal`, Angular forms state, or equivalent reactive
+  properties. Templates may read signals/computed signals and call event-handler
+  commands for user actions.
 - Ionic layout rule: page-level responsive layout uses Ionic grid primitives
   (`ion-grid`, `ion-row`, `ion-col`) before custom CSS grid/flex containers.
   Content is placed inside `ion-col`, following Ionic's grid structure.
+- Ionic-first UI rule: new pages and page sections use Ionic components, Ionic
+  CSS utility classes, Ionic CSS variables, and existing application CSS
+  variables before custom CSS. New custom CSS classes, custom layout primitives,
+  or app-specific CSS variables require prior confirmation with the need,
+  Ionic alternative considered, trade-off, and verification plan documented.
 - Reactive programming rule: frontend async workflows should use Observables,
   signals, and Angular reactive primitives. Avoid `async`/`await` in Angular
   application code unless an API cannot be represented cleanly through Angular
@@ -70,6 +100,9 @@
   the full runtime lookup key and the full support/audit correlation id.
 - Frontend quality gates: ESLint and Prettier are required.
 - Frontend accessibility target: WCAG AA.
+- New or changed frontend pages must be checked in both light and dark theme
+  modes for contrast, focus visibility, labels, validation messages, touch
+  targets, loading/error states, and non-color-only state communication.
 - Hosting and API shell: Azure Static Web Apps.
 - Frontend delivery: Angular SPA served by Azure Static Web Apps.
 - API hosting for MVP: Azure Static Web Apps managed Azure Functions exposed

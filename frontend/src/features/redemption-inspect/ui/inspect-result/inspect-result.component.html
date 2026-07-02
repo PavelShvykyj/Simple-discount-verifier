@@ -1,0 +1,77 @@
+<ion-list inset>
+  <ion-item lines="full">
+    <ion-label>
+      <h2>Звернення клієнта</h2>
+      <p>Код звернення: {{ result().correlationId }}</p>
+      <p>Початок: {{ result().redemption.startedAt | date: 'dd.MM.yyyy HH:mm:ss' }}</p>
+      <p>Остання подія: {{ result().redemption.lastEventAt | date: 'dd.MM.yyyy HH:mm:ss' }}</p>
+    </ion-label>
+    <ion-badge slot="end" color="primary">{{ redemptionStatusText() }}</ion-badge>
+  </ion-item>
+
+  @if (result().barcode; as barcode) {
+    <ion-item lines="full">
+      <ion-label>
+        <h2>Штрихкод</h2>
+        @if (barcode.value) {
+          <p>{{ barcode.value }}</p>
+        }
+        <p>Дійсний до: {{ barcode.expiresAt | date: 'dd.MM.yyyy HH:mm:ss' }}</p>
+        <p>Операція на касі: {{ barcode.consumedByScanId ?? 'немає' }}</p>
+      </ion-label>
+      <ion-badge slot="end" [color]="barcode.formatValid ? 'success' : 'danger'">
+        {{ barcodeStatusText() }}
+      </ion-badge>
+    </ion-item>
+  } @else {
+    <ion-item lines="full">
+      <ion-label>
+        <h2>Штрихкод</h2>
+        <p>Немає даних про штрихкод.</p>
+      </ion-label>
+    </ion-item>
+  }
+
+  <ion-item lines="full">
+    <ion-label>
+      <h2>Анкета</h2>
+      <p>{{ profileTitle() }}</p>
+      @if (result().profile; as profile) {
+        <p>{{ profile.phone }}</p>
+        @for (answer of profile.answers; track answer.code) {
+          <p>{{ answer.name }}: {{ answer.value ?? 'не вказано' }}</p>
+        }
+      }
+    </ion-label>
+  </ion-item>
+
+  @if (result().scan; as scan) {
+    <ion-item lines="full">
+      <ion-label>
+        <h2>Дані касової операції</h2>
+        <p>Номер операції: {{ scan.scanId ?? 'немає' }}</p>
+      </ion-label>
+    </ion-item>
+  }
+</ion-list>
+
+<ion-list inset>
+  <ion-item lines="none">
+    <ion-label>
+      <h2>Історія подій</h2>
+      @if (!hasAuditEvents()) {
+        <p>Подій поки немає.</p>
+      }
+    </ion-label>
+  </ion-item>
+
+  @for (event of auditEventViews(); track event.eventType + event.occurredAt) {
+    <ion-item lines="full">
+      <ion-label>
+        <h3>{{ event.eventType }}</h3>
+        <p>{{ event.occurredAt | date: 'dd.MM.yyyy HH:mm:ss' }}</p>
+        <ion-note>{{ event.actorText }}</ion-note>
+      </ion-label>
+    </ion-item>
+  }
+</ion-list>

@@ -1,7 +1,8 @@
 <!--
 Sync Impact Report
-Version change: 1.0.0 -> 1.0.1
-Modified principles: II. Angular and Ionic Only
+Version change: 1.3.0 -> 1.3.1
+Modified principles: VI. Ionic-First UI Composition
+Added principles: none
 Added sections: none
 Removed sections: none
 Templates requiring updates:
@@ -34,6 +35,22 @@ explicitly amended. Backend and hosting context MUST remain aligned with the
 accepted architecture decisions: Azure Static Web Apps for hosting context and
 managed Azure Functions under `/api` for backend context.
 
+Angular templates MUST use modern Angular control flow blocks (`@if`, `@for`,
+`@switch`) instead of legacy structural directives such as `*ngIf` and `*ngFor`.
+The only allowed exception is a library directive that has no Angular control
+flow equivalent, such as Angular CDK virtual scroll's `*cdkVirtualFor`.
+Components MUST use signal-based Angular APIs such as `input()`, `output()`,
+`model()`, `viewChild()`, `viewChildren()`, `contentChild()`, and
+`contentChildren()` instead of decorator APIs such as `@Input`, `@Output`,
+`@ViewChild`, `@ViewChildren`, `@ContentChild`, and `@ContentChildren`.
+
+Templates MUST NOT call component methods or arbitrary functions to derive
+display state, validation state, classes, labels, disabled flags, or other bound
+values. Derived template state MUST be exposed as signal-based properties using
+`computed`, `linkedSignal`, Angular forms state, or equivalent Angular reactive
+primitives. Templates MAY read signals/computed signals using Angular signal
+syntax and MAY call event-handler commands for user actions.
+
 ### III. Feature-Sliced Design Boundaries
 
 Frontend code MUST follow Feature-Sliced Design. The required layers are:
@@ -44,7 +61,10 @@ business domain models and entity-specific UI/API logic; and `shared` for
 reusable infrastructure, UI primitives, utilities, API client, constants, and
 low-level helpers. Shared code MUST be genuinely reusable and MUST NOT depend on
 higher FSD layers. Cross-feature coupling MUST go through entities or shared
-contracts.
+contracts. Reusable UI components MUST be independent presentational components
+unless explicitly justified otherwise: they MUST NOT own business flow, API
+calls, routing, global store access, feature-specific state, or dependencies on
+higher FSD layers.
 
 ### IV. Flow Separation and Logic Placement
 
@@ -61,8 +81,47 @@ All frontend code MUST pass ESLint and Prettier checks before it is considered
 complete. The frontend MUST target WCAG AA accessibility: interactive controls
 MUST be keyboard accessible, forms MUST have clear labels, validation messages,
 and focus behavior, color contrast MUST meet WCAG AA, touch targets MUST be
-suitable for mobile use, and important state MUST NOT rely on color alone. SMS
-verification and barcode display flows MUST remain usable on mobile screens.
+suitable for mobile use, and important state MUST NOT rely on color alone.
+Every new or changed page MUST be checked in both light and dark theme modes
+before completion, including contrast, focus visibility, validation messages,
+loading/error states, and readable interactive controls. SMS verification and
+barcode display flows MUST remain usable on mobile screens.
+
+### VI. Ionic-First UI Composition
+
+Frontend pages and UI flows MUST prioritize Ionic components, Ionic CSS utility
+classes, and Ionic CSS variables. Custom CSS classes, custom layout primitives,
+or new app-specific CSS variables MUST NOT be introduced by default. If a task
+appears to require custom CSS or a custom UI primitive, the implementer MUST
+ask for confirmation first and describe why Ionic components/utilities are not
+sufficient, what trade-off the custom styling introduces, and how accessibility
+and light/dark theme behavior will be verified. Existing custom CSS may be
+maintained when necessary, but new work MUST prefer Ionic composition and the
+existing application variables before expanding the styling surface.
+
+Visible button labels MUST be written and displayed in normal product-language
+case, not forced to all-uppercase. Icon-only buttons MUST remain icon-only and
+provide accessible labels.
+
+### VII. Page Design Review And Dumb Reusable Components
+
+Before implementing any new page or materially changing an existing page, the
+work MUST include a page design review. The review MUST analyze compliance with
+mobile UX/UI best practices for the page's primary mobile scenario, including
+task priority, one-handed use, touch target size, input ergonomics, keyboard
+behavior, navigation clarity, loading/error/empty states, readability, and
+visual hierarchy. The review MUST also analyze whether any parts of the page
+should become reusable components according to the Feature-Sliced Design
+boundaries.
+
+Reusable UI components MUST be "dumb" and absolutely independent by default:
+they receive data and configuration through signal-based Angular inputs, expose
+user actions through signal-based outputs or content projection, use
+Ionic-first composition, and contain no domain decisions, API calls, router
+navigation, auth checks, stores, or feature-specific side effects. Business
+flow stays in pages, features, entities, or services that compose those
+components. If a reusable component needs more responsibility than this, the
+exception MUST be documented and approved before implementation.
 
 ## Frontend Scope and Product Areas
 
@@ -78,12 +137,15 @@ MUST NOT be silently converted into implementation assumptions.
 
 ## Governance
 
-This constitution governs frontend architecture, mobile-first UX, accessibility,
-and quality gates for this project. Frontend specs, plans, tasks, and reviews
-MUST verify compliance with the principles above. If frontend architecture,
-folder structure, mobile-first behavior, accessibility rules, or quality rules
-change, the relevant files in `docs/architecture` or `docs/product` MUST be
-updated in the same task.
+This constitution governs frontend architecture, mobile-first UX, page design
+review, reusable component boundaries, Ionic-first composition, accessibility,
+theme verification, and quality gates for this project. Frontend specs, plans,
+tasks, and reviews MUST verify compliance with the principles above. If
+frontend architecture, folder structure, mobile-first behavior, page design
+review rules, reusable component boundaries, Ionic composition rules,
+accessibility rules, theme verification, or quality rules change, the relevant
+files in `docs/architecture` or `docs/product` MUST be updated in the same
+task.
 
 Amendments require an explicit constitution update, a Sync Impact Report, and
 review of affected Spec Kit templates. Versioning follows semantic versioning:
@@ -91,4 +153,4 @@ MAJOR for incompatible governance or principle redefinitions, MINOR for new or
 materially expanded principles or sections, and PATCH for clarifications that do
 not change meaning.
 
-**Version**: 1.0.1 | **Ratified**: 2026-05-27 | **Last Amended**: 2026-06-15
+**Version**: 1.3.1 | **Ratified**: 2026-05-27 | **Last Amended**: 2026-07-01

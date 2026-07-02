@@ -5,6 +5,8 @@ import {
   IonContent,
   IonGrid,
   IonHeader,
+  IonButtons,
+  IonIcon,
   IonItem,
   IonLabel,
   IonList,
@@ -12,6 +14,9 @@ import {
   IonTitle,
   IonToolbar,
 } from '@ionic/angular/standalone';
+import { addIcons } from 'ionicons';
+import { barcodeOutline, pulseOutline, qrCodeOutline } from 'ionicons/icons';
+import { ThemeModeSelectorComponent } from '../../../shared/theme/ui/theme-mode-selector.component';
 
 @Component({
   selector: 'app-admin-service-page',
@@ -20,6 +25,8 @@ import {
     IonContent,
     IonGrid,
     IonHeader,
+    IonButtons,
+    IonIcon,
     IonItem,
     IonLabel,
     IonList,
@@ -27,8 +34,13 @@ import {
     IonTitle,
     IonToolbar,
     RouterLink,
+    ThemeModeSelectorComponent,
   ],
   templateUrl: './admin-service.page.html',
   styleUrl: './admin-service.page.scss',
 })
-export class AdminServicePage {}
+export class AdminServicePage {
+  constructor() {
+    addIcons({ barcodeOutline, pulseOutline, qrCodeOutline });
+  }
+}

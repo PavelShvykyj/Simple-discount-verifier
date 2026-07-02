@@ -76,7 +76,12 @@ Examples of foundational tasks (adjust based on your project):
 For frontend work, foundational tasks MUST include Angular + Ionic setup,
 Feature-Sliced Design layer structure, shared API client foundation, reusable UI
 primitives, mobile-first layout foundation, WCAG AA accessibility defaults, and
-lint/format commands.
+lint/format commands. Frontend foundational work MUST also define how new pages
+will use Ionic components, Ionic CSS utility classes, and Ionic CSS variables
+before any custom CSS is considered. It MUST also define the Angular template
+and component API baseline: modern control flow blocks instead of legacy
+`*ngIf`/`*ngFor`, signal-based component contract/query APIs instead of
+decorators, and reactive derived state instead of template method calls.
 
 **Checkpoint**: Foundation ready - user story implementation can now begin in parallel
 
@@ -108,7 +113,24 @@ For frontend stories, implementation tasks MUST place code in the correct FSD
 layer, keep public customer redemption and administrator profile management
 flows separated, keep business logic out of Ionic components, and include
 mobile-first states for loading, error, retry, validation, and expiration where
-applicable.
+applicable. Tasks MUST NOT introduce new custom CSS classes, custom layout
+primitives, or app-specific CSS variables unless a prior task records user
+confirmation with necessity, Ionic alternatives considered, trade-off, and
+WCAG AA plus light/dark theme verification. For every new or materially changed
+page, tasks MUST include a page design review against mobile UX/UI best
+practices and a reusable component analysis. Any reusable UI component task MUST
+state that the component is dumb and independent, with data through
+signal-based inputs, actions through signal-based outputs or content
+projection, and no API calls, routing, auth checks, stores, business workflow
+decisions, or higher-layer dependencies.
+Frontend story tasks MUST also require modern Angular control flow (`@if`,
+`@for`, `@switch`, with `*cdkVirtualFor` allowed only for CDK virtual scroll),
+signal-based component APIs (`input()`, `output()`, `model()`, `viewChild()`,
+`viewChildren()`, `contentChild()`, `contentChildren()`), and no component
+method/function calls in templates for derived bound values. Derived values must
+be exposed through `computed`, `linkedSignal`, Angular forms state, or
+equivalent reactive properties; event-handler commands for user actions are
+allowed.
 
 **Checkpoint**: At this point, User Story 1 should be fully functional and testable independently
 
@@ -171,7 +193,10 @@ applicable.
 - [ ] TXXX [P] Additional unit tests (if requested) in tests/unit/
 - [ ] TXXX Security hardening
 - [ ] TXXX Run ESLint and Prettier checks
-- [ ] TXXX Verify WCAG AA accessibility and mobile touch target behavior
+- [ ] TXXX Verify page design review covered mobile UX/UI best practices and reusable component opportunities
+- [ ] TXXX Confirm reusable UI components are dumb and independent with no API, routing, auth, store, business workflow, or higher-layer dependencies
+- [ ] TXXX Verify WCAG AA accessibility, mobile touch target behavior, and both light and dark theme modes
+- [ ] TXXX Confirm no new custom CSS classes, custom layout primitives, or app-specific CSS variables were added without documented approval
 - [ ] TXXX Run quickstart.md validation
 
 ---

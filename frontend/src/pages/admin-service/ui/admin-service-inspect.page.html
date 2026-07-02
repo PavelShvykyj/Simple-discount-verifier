@@ -1,0 +1,83 @@
+<ion-header>
+  <ion-toolbar>
+    <ion-buttons slot="start">
+      <ion-back-button defaultHref="/admin/service" />
+    </ion-buttons>
+    <ion-title>Інформація про звернення</ion-title>
+    <ion-buttons slot="end">
+      <app-theme-mode-selector />
+    </ion-buttons>
+  </ion-toolbar>
+</ion-header>
+
+<ion-content class="admin-page">
+  <ion-grid fixed class="ion-padding">
+    <ion-row class="ion-justify-content-center">
+      <ion-col size="12" size-lg="8">
+        <form novalidate (submit)="submit($event)">
+          <ion-card>
+            <ion-card-header>
+              <ion-card-title>Зчитайте код підтримки з екрана клієнта.</ion-card-title>
+            </ion-card-header>
+
+            <ion-card-content>
+              <ion-input
+                label="Код підтримки"
+                labelPlacement="stacked"
+                fill="outline"
+                autocomplete="off"
+                inputmode="text"
+                enterkeyhint="search"
+                placeholder="Введіть або відскануйте код"
+                [errorText]="inputErrorText()"
+                [class.ion-touched]="isInputTouched()"
+                [attr.aria-invalid]="shouldShowInputError()"
+                [formControl]="inputControl"
+              />
+
+              <ion-button
+                class="ion-margin-top"
+                color="secondary"
+                expand="block"
+                type="button"
+                [disabled]="isLoading()"
+                (click)="openScanner()"
+              >
+                <ion-icon slot="start" name="qr-code-outline" aria-hidden="true" />
+                Сканувати код
+              </ion-button>
+
+              <ion-button
+                [appDisabledButtonColor]="!canSubmit()"
+                class="ion-margin-top"
+                expand="block"
+                size="large"
+                type="submit"
+                [disabled]="!canSubmit()"
+                [attr.aria-busy]="isLoading()"
+              >
+                @if (isLoading()) {
+                  <ion-spinner name="crescent" aria-hidden="true" />
+                  <span class="ion-margin-start">Перевіряємо...</span>
+                } @else {
+                  <ion-icon slot="start" name="search-outline" aria-hidden="true" />
+                  Отримати інформацію
+                }
+              </ion-button>
+            </ion-card-content>
+          </ion-card>
+        </form>
+
+        @if (errorMessage(); as message) {
+          <ion-text color="danger">
+            <p>{{ message }}</p>
+          </ion-text>
+        }
+
+        @if (result(); as currentResult) {
+          <app-inspect-result [result]="currentResult" />
+        }
+      </ion-col>
+    </ion-row>
+  </ion-grid>
+</ion-content>

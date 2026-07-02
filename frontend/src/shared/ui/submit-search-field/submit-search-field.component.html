@@ -1,0 +1,19 @@
+<form action="#" (submit)="submit($event)">
+  <ion-searchbar
+    [formControl]="control"
+    [type]="inputType()"
+    [attr.inputmode]="inputMode()"
+    [attr.autocomplete]="autocomplete()"
+    [attr.enterkeyhint]="enterKeyHint()"
+    [attr.aria-label]="label()"
+    [placeholder]="placeholder()"
+    [appDisabledButtonColor]="disabled() || busy()"
+    show-clear-button="always"
+  ></ion-searchbar>
+
+  @if (errorText(); as message) {
+    <ion-text color="danger">
+      <p class="ion-text-center ion-no-margin">{{ message }}</p>
+    </ion-text>
+  }
+</form>

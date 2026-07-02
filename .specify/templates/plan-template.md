@@ -48,18 +48,41 @@ again after Phase 1 design:
 - Mobile-first UX: primary flows are designed for mobile screens first,
   one-handed customer redemption, no horizontal scrolling, readable barcode, and
   small-screen loading/error/retry/expired-code states.
+- Page design review: every new or materially changed page has a documented
+  mobile UX/UI best-practice review covering primary task clarity, one-handed
+  use, touch targets, input ergonomics, mobile keyboard behavior, navigation,
+  loading/error/empty/success states, readability, and no horizontal scrolling.
 - Technology stack: Angular + Ionic are used consistently with no additional
   frontend frameworks, state managers, or UI kits introduced by default.
+- Angular modern syntax: templates use `@if`, `@for`, and `@switch` instead of
+  `*ngIf`/`*ngFor` except for library directives with no block equivalent, such
+  as Angular CDK virtual scroll's `*cdkVirtualFor`.
+- Angular signal APIs: component contracts and queries use `input()`,
+  `output()`, `model()`, `viewChild()`, `viewChildren()`, `contentChild()`, and
+  `contentChildren()` instead of decorator APIs such as `@Input`, `@Output`,
+  and `@ViewChild`.
+- Template bindings: templates do not call component methods or arbitrary
+  functions to derive bound values; derived state is exposed through `computed`,
+  `linkedSignal`, Angular forms state, or equivalent reactive properties.
+- Ionic-first UI: pages are composed from Ionic components, Ionic CSS utility
+  classes, and Ionic CSS variables first; any new custom CSS class, custom
+  layout primitive, or app-specific CSS variable is pre-approved with necessity
+  and trade-off documented.
 - Feature-Sliced Design: source layout uses `app`, `pages`, `widgets`,
   `features`, `entities`, and `shared`, with dependencies flowing only from
   higher layers toward lower layers.
+- Reusable component analysis: page design identifies reusable candidates and
+  places them in the correct FSD layer. Reusable UI components are dumb and
+  independent by default: signal-based inputs, signal-based outputs, or content
+  projection only, with no API calls, routing, auth checks, store access,
+  business workflow, or higher-layer dependencies.
 - Flow separation: public redemption and administrator profile management remain
   separated unless integration is explicitly justified through entities or
   shared contracts.
 - Quality gates: ESLint and Prettier checks are part of completion criteria.
 - Accessibility: WCAG AA, keyboard accessibility, mobile-sized touch targets,
   labels, validation messages, focus behavior, and non-color-only states are
-  planned.
+  planned and checked in both light and dark theme modes.
 
 ## Project Structure
 
