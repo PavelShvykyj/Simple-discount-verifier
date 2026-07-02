@@ -34,12 +34,13 @@ describe('createCustomerProfileListDataSource', () => {
       pageSize: CUSTOMER_PROFILE_PAGE_SIZE,
       continuationToken: null,
     });
-    expect(view().status).toBe('success');
-    expect(view().items).toHaveLength(CUSTOMER_PROFILE_PAGE_SIZE);
-    expect(view().continuationToken).toBe('20');
+    expect(view().status).toBe('error');
+    expect(view().items).toEqual([]);
+    expect(view().continuationToken).toBeNull();
+    expect(view().error?.message).toBe('Не вдалося завантажити анкети.');
   });
 
-  it('loads the next mock page when the local backend is unavailable', () => {
+  it('does not load more items after the first page request fails', () => {
     const dataSource = createCustomerProfileListDataSource(
       api as unknown as AdminCustomerProfilesApi,
     );
@@ -48,16 +49,12 @@ describe('createCustomerProfileListDataSource', () => {
     dataSource.load({ kind: 'all' });
     dataSource.loadMore();
 
-    expect(api.list).toHaveBeenLastCalledWith({
-      phone: undefined,
-      pageSize: CUSTOMER_PROFILE_PAGE_SIZE,
-      continuationToken: '20',
-    });
-    expect(view().items).toHaveLength(25);
+    expect(api.list).toHaveBeenCalledTimes(1);
+    expect(view().items).toEqual([]);
     expect(view().continuationToken).toBeNull();
   });
 
-  it('uses exact phone lookup queries and returns the matching mock profile', () => {
+  it('uses exact phone lookup queries and keeps the error state when the request fails', () => {
     const dataSource = createCustomerProfileListDataSource(
       api as unknown as AdminCustomerProfilesApi,
     );
@@ -70,8 +67,8 @@ describe('createCustomerProfileListDataSource', () => {
       pageSize: CUSTOMER_PROFILE_PAGE_SIZE,
       continuationToken: null,
     });
-    expect(view().items).toHaveLength(1);
-    expect(view().items[0].phone).toBe('+380501234567');
+    expect(view().status).toBe('error');
+    expect(view().items).toEqual([]);
     expect(view().continuationToken).toBeNull();
   });
 

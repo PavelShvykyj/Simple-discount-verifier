@@ -2,7 +2,9 @@
   <ion-toolbar>
     <ion-title>Код підтримки</ion-title>
     <ion-buttons slot="end">
-      <ion-button fill="clear" (click)="close()">Закрити</ion-button>
+      <ion-button fill="clear" aria-label="Закрити" (click)="close()">
+        <ion-icon slot="icon-only" name="close-outline" aria-hidden="true" />
+      </ion-button>
     </ion-buttons>
   </ion-toolbar>
 </ion-header>

@@ -12,7 +12,7 @@ import {
   IonToolbar,
 } from '@ionic/angular/standalone';
 import { addIcons } from 'ionicons';
-import { qrCodeOutline } from 'ionicons/icons';
+import { helpCircleOutline } from 'ionicons/icons';
 
 import { PublicRedemptionApi } from '../../../features/redemption-flow/api/public-redemption.api';
 import { PublicRedemptionNavService } from '../../../features/redemption-flow/navigation/public-redemption-nav.service';
@@ -65,7 +65,7 @@ export class PublicRedemptionPage implements AfterViewInit {
   private readonly modalController = inject(ModalController);
 
   constructor() {
-    addIcons({ qrCodeOutline });
+    addIcons({ helpCircleOutline });
   }
 
   ngAfterViewInit(): void {

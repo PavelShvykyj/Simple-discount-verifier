@@ -1,5 +1,4 @@
 import { HttpErrorResponse } from '@angular/common/http';
-import { catchError, of } from 'rxjs';
 
 import { AdminCustomerProfilesApi } from '../../../entities/customer-profile/api/admin-customer-profiles.api';
 import {
@@ -8,7 +7,6 @@ import {
   CustomerProfileListError,
 } from '../../../entities/customer-profile/model/customer-profile.types';
 import { PagedDataSource } from '../../../shared/lib/data-source/paged-data-source';
-import { createMockCustomerProfilePage } from './customer-profile-list.mock';
 
 export type CustomerProfileListQuery =
   | {
@@ -30,11 +28,7 @@ export function createCustomerProfileListDataSource(
           phone: request.query.kind === 'phone' ? request.query.phone : undefined,
           pageSize: request.pageSize,
           continuationToken: request.continuationToken,
-        })
-        .pipe(
-          // Temporary local fallback while the backend is not running.
-          catchError(() => of(createMockCustomerProfilePage(request))),
-        ),
+        }),
     mapError: toCustomerProfileListError,
   });
 }

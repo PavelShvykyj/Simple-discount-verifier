@@ -46,13 +46,6 @@
               <ion-spinner slot="start" name="crescent" aria-hidden="true" />
               <ion-label>Завантажуємо анкети...</ion-label>
             </ion-item>
-          } @else if (listView().error; as currentError) {
-            <ion-item lines="full">
-              <ion-label color="danger">
-                <h2>Не вдалося завантажити дані</h2>
-                <p>{{ currentError.message }}</p>
-              </ion-label>
-            </ion-item>
           } @else if (hasProfiles()) {
             @for (profile of profileItems(); track profile.phone) {
               <ion-item-sliding>
@@ -75,12 +68,12 @@
               </ion-item-sliding>
             }
           } @else {
-            <ion-item lines="none">
-              <ion-label>
+            <div class="empty-state">
+              <ion-icon name="document-text-outline" aria-hidden="true" />
+              <ion-text>
                 <h2>Немає результатів</h2>
-                <p>{{ emptyMessage() }}</p>
-              </ion-label>
-            </ion-item>
+              </ion-text>
+            </div>
           }
         </ion-list>
 

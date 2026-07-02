@@ -91,6 +91,8 @@
   </ion-card>
   <ion-buttons app-slot="footer" slot="start">
     <ion-button fill="clear" (click)="restart()">Назад</ion-button>
+  </ion-buttons>
+  <ion-buttons app-slot="footer" slot="end">
     <ion-button
       [appDisabledButtonColor]="!canGoNext()"
       fill="clear"
@@ -101,7 +103,7 @@
     </ion-button>
   </ion-buttons>
 
-  <div app-slot="footer">
+  <div app-slot="footer" hidden>
     <ion-button size="small" (click)="nav.resetToPhone()">tel</ion-button>
     <ion-button size="small" (click)="nav.pushSms()">sms</ion-button>
     <ion-button size="small" (click)="nav.pushBarcode()">res</ion-button>

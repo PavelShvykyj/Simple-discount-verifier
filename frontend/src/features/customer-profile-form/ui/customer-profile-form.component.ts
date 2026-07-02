@@ -15,6 +15,7 @@ import {
   IonButtons,
   IonContent,
   IonHeader,
+  IonIcon,
   IonInput,
   IonList,
   IonSpinner,
@@ -24,6 +25,8 @@ import {
   IonToolbar,
   ModalController,
 } from '@ionic/angular/standalone';
+import { addIcons } from 'ionicons';
+import { closeOutline } from 'ionicons/icons';
 import { take } from 'rxjs';
 
 import { AdminCustomerProfilesApi } from '../../../entities/customer-profile/api/admin-customer-profiles.api';
@@ -38,11 +41,14 @@ import {
   INVALID_UKRAINIAN_PHONE_MESSAGE,
   normalizeUkrainianPhone,
 } from '../../../shared/lib/phone/ukrainian-phone';
+import { ThemeModeSelectorComponent } from '../../../shared/theme/ui/theme-mode-selector.component';
+import { ConfirmActionSheetService } from '../../../shared/ui/confirm-action-sheet/confirm-action-sheet.service';
 import { DisabledButtonColorDirective } from '../../../shared/ui/disabled-button-color/disabled-button-color.directive';
 import { AppToastService } from '../../../shared/ui/toast/app-toast.service';
 
 type CustomerProfileFormMode = 'create' | 'edit';
 type CustomerProfileFormPresentation = 'page' | 'modal';
+type CustomerProfileFormCanDismissRegister = (handler: () => Promise<boolean>) => void;
 const UKRAINIAN_PHONE_BODY_LENGTH = 9;
 const PHONE_BODY_INVALID_MESSAGE = 'Введіть 9 цифр номера після +380.';
 
@@ -62,6 +68,7 @@ interface CustomerProfileFormFieldView {
     IonButtons,
     IonContent,
     IonHeader,
+    IonIcon,
     IonInput,
     IonList,
     IonSpinner,
@@ -70,6 +77,7 @@ interface CustomerProfileFormFieldView {
     IonTitle,
     IonToolbar,
     ReactiveFormsModule,
+    ThemeModeSelectorComponent,
   ],
   templateUrl: './customer-profile-form.component.html',
   styleUrl: './customer-profile-form.component.scss',
@@ -78,11 +86,17 @@ export class CustomerProfileFormComponent {
   private readonly api = inject(AdminCustomerProfilesApi);
   private readonly destroyRef = inject(DestroyRef);
   private readonly modalController = inject(ModalController);
+  private readonly confirmActionSheet = inject(ConfirmActionSheetService);
   private readonly toast = inject(AppToastService);
   private readonly modeState = signal<CustomerProfileFormMode>('create');
   private readonly presentationState = signal<CustomerProfileFormPresentation>('page');
   private readonly profileState = signal<CustomerProfile | null>(null);
   private hasSavedChanges = false;
+  private hasCanDismissHost = false;
+
+  constructor() {
+    addIcons({ closeOutline });
+  }
 
   protected readonly title = computed(() =>
     this.modeState() === 'create' ? 'Нова анкета' : 'Редагування анкети',
@@ -166,12 +180,39 @@ export class CustomerProfileFormComponent {
     }
   }
 
-  protected close(): void {
+  set registerCanDismiss(value: CustomerProfileFormCanDismissRegister | undefined) {
+    this.hasCanDismissHost = value !== undefined;
+    value?.(() => this.canLeave());
+  }
+
+  protected async close(): Promise<void> {
     if (!this.isModalPresentation()) {
       return;
     }
 
+    if (!this.hasCanDismissHost && !(await this.canLeave())) {
+      return;
+    }
+
     void this.modalController.dismiss({ saved: this.hasSavedChanges });
+  }
+
+  async canLeave(): Promise<boolean> {
+    if (this.isSaving()) {
+      return false;
+    }
+
+    if (!this.profileForm.dirty) {
+      return true;
+    }
+
+    return this.confirmActionSheet.confirm({
+      header: 'Закрити без збереження?',
+      message: 'Внесені дані буде втрачено.',
+      confirmText: 'Закрити',
+      cancelText: 'Продовжити заповнення',
+      importance: 'warning',
+    });
   }
 
   protected submit(event: Event): void {

@@ -24,6 +24,7 @@ describe('CustomerProfileFormComponent', () => {
     dismiss: ReturnType<typeof vi.fn>;
   };
   let AdminCustomerProfilesApi: new () => unknown;
+  let ConfirmActionSheetService: new () => unknown;
   let CustomerProfileFormComponent: new () => unknown;
   let AppToastService: new () => unknown;
   let component: unknown;
@@ -71,6 +72,20 @@ describe('CustomerProfileFormComponent', () => {
         template: '<ng-content />',
       })
       class IonHeader {}
+
+      @Component({
+        selector: 'ion-action-sheet',
+        standalone: true,
+        template: '',
+      })
+      class IonActionSheet {}
+
+      @Component({
+        selector: 'ion-icon',
+        standalone: true,
+        template: '',
+      })
+      class IonIcon {}
 
       @Component({
         selector: 'ion-input',
@@ -132,10 +147,12 @@ describe('CustomerProfileFormComponent', () => {
       class ModalController {}
 
       return {
+        IonActionSheet,
         IonButton,
         IonButtons,
         IonContent,
         IonHeader,
+        IonIcon,
         IonInput,
         IonList,
         IonSpinner,
@@ -152,6 +169,9 @@ describe('CustomerProfileFormComponent', () => {
     ({ AdminCustomerProfilesApi } = await import(
       '../../../entities/customer-profile/api/admin-customer-profiles.api'
     ));
+    ({ ConfirmActionSheetService } = await import(
+      '../../../shared/ui/confirm-action-sheet/confirm-action-sheet.service'
+    ));
     ({ AppToastService } = await import('../../../shared/ui/toast/app-toast.service'));
     ({ CustomerProfileFormComponent } = await import('./customer-profile-form.component'));
 
@@ -164,6 +184,12 @@ describe('CustomerProfileFormComponent', () => {
         {
           provide: AppToastService,
           useValue: toast,
+        },
+        {
+          provide: ConfirmActionSheetService,
+          useValue: {
+            confirm: vi.fn(() => Promise.resolve(true)),
+          },
         },
         {
           provide: ModalController,

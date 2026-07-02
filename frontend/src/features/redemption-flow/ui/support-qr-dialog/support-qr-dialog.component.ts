@@ -9,11 +9,14 @@ import {
   IonCardTitle,
   IonContent,
   IonHeader,
+  IonIcon,
   IonNote,
   ModalController,
   IonTitle,
   IonToolbar,
 } from '@ionic/angular/standalone';
+import { addIcons } from 'ionicons';
+import { closeOutline } from 'ionicons/icons';
 
 import { PublicRedemptionFlowStore } from '../../model/redemption-flow.store';
 import { SupportQrCodeComponent } from '../support-qr-code/support-qr-code.component';
@@ -30,6 +33,7 @@ import { SupportQrCodeComponent } from '../support-qr-code/support-qr-code.compo
     IonCardTitle,
     IonContent,
     IonHeader,
+    IonIcon,
     IonNote,
     SupportQrCodeComponent,
     IonTitle,
@@ -42,6 +46,10 @@ export class SupportQrDialogComponent {
   private readonly flowState = signal<PublicRedemptionFlowStore | null>(null);
   private readonly modalController = inject(ModalController);
   protected readonly correlationId = computed(() => this.flowState()?.correlationId() ?? null);
+
+  constructor() {
+    addIcons({ closeOutline });
+  }
 
   set redemptionFlowStore(flow: PublicRedemptionFlowStore) {
     this.flowState.set(flow);

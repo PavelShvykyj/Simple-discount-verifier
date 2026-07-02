@@ -70,7 +70,7 @@
     </ion-button>
   </ion-buttons>
 
-  <div app-slot="footer">
+  <div app-slot="footer" hidden>
     <ion-button size="small" (click)="nav.resetToPhone()">tel</ion-button>
     <ion-button size="small" (click)="nav.pushSms()">sms</ion-button>
     <ion-button size="small" (click)="nav.pushBarcode()">res</ion-button>
