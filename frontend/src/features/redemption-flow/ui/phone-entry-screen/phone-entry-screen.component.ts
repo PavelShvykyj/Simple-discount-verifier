@@ -76,7 +76,10 @@ export class PhoneEntryScreenComponent {
     return this.phoneControl.hasError('required') ? PHONE_REQUIRED_MESSAGE : PHONE_INVALID_MESSAGE;
   });
   protected readonly canSubmitPhone = computed(
-    () => this.phoneControl.valid && this.flow.phoneStatus() !== 'submitting',
+    () => {
+      const isValid = this.phoneControlStatus()?.source.valid;
+      return isValid && this.flow.phoneStatus() !== 'submitting';
+    }
   );
 
   constructor() {
