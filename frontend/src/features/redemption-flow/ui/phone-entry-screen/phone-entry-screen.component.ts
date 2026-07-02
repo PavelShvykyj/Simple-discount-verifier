@@ -75,6 +75,9 @@ export class PhoneEntryScreenComponent {
     }
     return this.phoneControl.hasError('required') ? PHONE_REQUIRED_MESSAGE : PHONE_INVALID_MESSAGE;
   });
+  protected readonly canSubmitPhone = computed(
+    () => this.phoneControl.valid && this.flow.phoneStatus() !== 'submitting',
+  );
 
   constructor() {
     this.phoneControl.valueChanges.pipe(takeUntilDestroyed(this.destroyRef)).subscribe((phone) => {
@@ -88,16 +91,6 @@ export class PhoneEntryScreenComponent {
         this.phoneControl.enable({ emitEvent: false });
       }
     });
-  }
-
-
-
-
-
-
-
-  protected canSubmitPhone(): boolean {
-    return this.phoneControl.valid && this.flow.phoneStatus() !== 'submitting';
   }
 
   protected submitPhone(event?: Event): void {
