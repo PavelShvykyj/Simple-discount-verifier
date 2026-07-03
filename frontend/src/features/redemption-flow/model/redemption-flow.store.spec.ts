@@ -172,7 +172,7 @@ describe('PublicRedemptionSignalStore', () => {
         redemptionKey: 'new-redemption-key',
         correlationId: 'NEW7O7KCNM',
         smsSent: true,
-        retryAfterSeconds: 5,
+        retryAfterSeconds: 180,
         smsExpiresAt: '2026-06-26T12:06:00Z',
       }),
     );
@@ -184,7 +184,7 @@ describe('PublicRedemptionSignalStore', () => {
     expect(store.smsCode()).toBe('');
     expect(store.redemptionKey()).toBe('new-redemption-key');
     expect(store.correlationId()).toBe('NEW7O7KCNM');
-    expect(store.retryAfterSeconds()).toBe(5);
+    expect(store.retryAfterSeconds()).toBe(180);
   });
 
   it('keeps the SMS step open when requesting a new SMS code fails', async () => {

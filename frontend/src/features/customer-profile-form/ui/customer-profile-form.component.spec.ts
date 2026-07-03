@@ -1,4 +1,5 @@
 /* eslint-disable @angular-eslint/component-selector, @angular-eslint/directive-selector */
+import { HttpErrorResponse } from '@angular/common/http';
 import { TestBed } from '@angular/core/testing';
 import { Observable, of, throwError } from 'rxjs';
 
@@ -60,11 +61,25 @@ describe('CustomerProfileFormComponent', () => {
       class IonButtons {}
 
       @Component({
+        selector: 'ion-col',
+        standalone: true,
+        template: '<ng-content />',
+      })
+      class IonCol {}
+
+      @Component({
         selector: 'ion-content',
         standalone: true,
         template: '<ng-content />',
       })
       class IonContent {}
+
+      @Component({
+        selector: 'ion-grid',
+        standalone: true,
+        template: '<ng-content />',
+      })
+      class IonGrid {}
 
       @Component({
         selector: 'ion-header',
@@ -100,6 +115,13 @@ describe('CustomerProfileFormComponent', () => {
         template: '<ng-content />',
       })
       class IonList {}
+
+      @Component({
+        selector: 'ion-row',
+        standalone: true,
+        template: '<ng-content />',
+      })
+      class IonRow {}
 
       @Component({
         selector: 'ion-spinner',
@@ -150,11 +172,14 @@ describe('CustomerProfileFormComponent', () => {
         IonActionSheet,
         IonButton,
         IonButtons,
+        IonCol,
         IonContent,
+        IonGrid,
         IonHeader,
         IonIcon,
         IonInput,
         IonList,
+        IonRow,
         IonSpinner,
         IonTextarea,
         IonText,
@@ -252,13 +277,54 @@ describe('CustomerProfileFormComponent', () => {
 
     submit(component);
 
-    expect(toast.showError).toHaveBeenCalledWith('Не вдалося зберегти анкету.');
+    expect(toast.showError).toHaveBeenCalledWith(
+      'Не вдалося зберегти анкету.',
+      'Не вдалося зберегти анкету.',
+    );
+    expect(modalController.dismiss).not.toHaveBeenCalled();
+  });
+
+  it('passes API error responses to the error toast when saving fails', () => {
+    const errorBody = {
+      Error: {
+        Code: 'invalid_phone',
+        Message: 'Phone is missing or invalid.',
+        CorrelationId: 'request-1',
+      },
+    };
+    api.create.mockReturnValue(
+      throwError(
+        () =>
+          new HttpErrorResponse({
+            status: 400,
+            error: errorBody,
+          }),
+      ),
+    );
+    setCreateFormValues(component);
+
+    submit(component);
+
+    expect(toast.showError).toHaveBeenCalledWith(
+      errorBody,
+      'Не вдалося зберегти анкету.',
+    );
     expect(modalController.dismiss).not.toHaveBeenCalled();
   });
 
   it('blocks submit when the phone body is invalid', () => {
     getPhoneControl(component).setValue('123');
     getAnswerControl(component, 'fullName').setValue('Олена Коваленко');
+
+    submit(component);
+
+    expect(api.create).not.toHaveBeenCalled();
+    expect(toast.showError).not.toHaveBeenCalled();
+  });
+
+  it('blocks submit when the phone body is not an accepted Ukrainian national part', () => {
+    getPhoneControl(component).setValue('222222222');
+    getAnswerControl(component, 'fullName').setValue('Olena');
 
     submit(component);
 

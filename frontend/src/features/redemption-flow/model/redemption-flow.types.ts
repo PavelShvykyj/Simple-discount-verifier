@@ -1,3 +1,5 @@
+import type { ApiErrorResponse } from '../../../shared/lib/api-error/api-error';
+
 export type RedemptionStep = 'phone' | 'sms' | 'barcode';
 
 export type RedemptionRequestStatus = 'idle' | 'submitting' | 'success' | 'error';
@@ -30,13 +32,7 @@ export interface VerifySmsResponse {
   readonly ttlSeconds: number;
 }
 
-export interface ApiErrorResponse {
-  readonly error?: {
-    readonly code?: string;
-    readonly message?: string;
-    readonly correlationId?: string | null;
-  };
-}
+export type { ApiErrorResponse };
 
 export interface RedemptionFlowError {
   readonly code: string;

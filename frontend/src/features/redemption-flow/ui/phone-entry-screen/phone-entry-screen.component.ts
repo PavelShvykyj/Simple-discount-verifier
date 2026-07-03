@@ -20,10 +20,14 @@ import { PublicRedemptionNavService } from '../../navigation/public-redemption-n
 import { PUBLIC_REDEMPTION_FLOW_STORE } from '../../model/redemption-flow.store';
 import { MobileFlowScreenComponent } from '../../../../shared/ui/mobile-flow-screen/mobile-flow-screen.component';
 import { DisabledButtonColorDirective } from '../../../../shared/ui/disabled-button-color/disabled-button-color.directive';
+import {
+  nineDigitPhoneBodyValidator,
+  ukrainianPhoneBodyStartDigitValidator,
+} from '../../../../shared/lib/phone/ukrainian-phone.validators';
 
-const UKRAINIAN_PHONE_BODY_LENGTH = 9;
 const PHONE_REQUIRED_MESSAGE = 'Введіть номер телефону.';
 const PHONE_INVALID_MESSAGE = 'Введіть 9 цифр номера після +380.';
+const PHONE_NOT_UKRAINIAN_MESSAGE = 'Введіть український номер телефону.';
 
 @Component({
   selector: 'app-phone-entry-screen',
@@ -52,7 +56,11 @@ export class PhoneEntryScreenComponent {
 
   protected readonly phoneControl = new FormControl('', {
     nonNullable: true,
-    validators: [Validators.required, Validators.pattern(/^\d{9}$/), Validators.maxLength(UKRAINIAN_PHONE_BODY_LENGTH)],
+    validators: [
+      Validators.required,
+      nineDigitPhoneBodyValidator,
+      ukrainianPhoneBodyStartDigitValidator,
+    ],
   });
 
   protected phoneForm = new FormGroup({
@@ -73,7 +81,13 @@ export class PhoneEntryScreenComponent {
     if (!isInvalid) {
       return '';
     }
-    return this.phoneControl.hasError('required') ? PHONE_REQUIRED_MESSAGE : PHONE_INVALID_MESSAGE;
+    if (this.phoneControl.hasError('required')) {
+      return PHONE_REQUIRED_MESSAGE;
+    }
+    if (this.phoneControl.hasError('phoneBodyFormat')) {
+      return PHONE_INVALID_MESSAGE;
+    }
+    return PHONE_NOT_UKRAINIAN_MESSAGE;
   });
   protected readonly canSubmitPhone = computed(
     () => {

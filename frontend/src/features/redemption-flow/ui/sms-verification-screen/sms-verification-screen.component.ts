@@ -143,6 +143,15 @@ export class SmsVerificationScreenComponent {
       this.resendRemainingSecondsState.set(secondsUntil(this.resendAvailableAt()));
     });
 
+    effect(() => {
+      if (this.isSmsBusy()) {
+        this.smsCodeControl.disable({ emitEvent: false });
+        return;
+      }
+
+      this.smsCodeControl.enable({ emitEvent: false });
+    });
+
     this.smsCodeControl.valueChanges.pipe(takeUntilDestroyed(this.destroyRef)).subscribe((code) => {
       const normalizedCode = toSmsCode(code);
 
@@ -161,7 +170,13 @@ export class SmsVerificationScreenComponent {
   protected verifySms(): void {
     this.smsCodeControl.markAsTouched();
     this.smsCodeControl.updateValueAndValidity();
-    this.flow.setSmsCode(this.smsCodeControl.value);
+    const normalizedCode = toSmsCode(this.smsCodeControl.value);
+
+    if (normalizedCode !== this.smsCodeControl.value) {
+      this.smsCodeControl.setValue(normalizedCode, { emitEvent: false });
+    }
+
+    this.flow.setSmsCode(normalizedCode);
 
     if (this.smsCodeControl.invalid) {
       return;
@@ -211,8 +226,8 @@ export class SmsVerificationScreenComponent {
   }
 }
 
-function toSmsCode(value: string): string {
-  return value.replace(/\D/g, '').slice(0, SMS_CODE_LENGTH);
+function toSmsCode(value: unknown): string {
+  return String(value ?? '').replace(/\D/g, '').slice(0, SMS_CODE_LENGTH);
 }
 
 function secondsUntil(targetAt: number): number {
