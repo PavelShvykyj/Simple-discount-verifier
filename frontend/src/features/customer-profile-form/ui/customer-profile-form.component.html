@@ -13,80 +13,86 @@
 </ion-header>
 
 <ion-content class="customer-profile-form">
-  <form novalidate [formGroup]="profileForm" (ngSubmit)="submit($event)">
-    <ion-list class="customer-profile-form__fields">
-      <div class="customer-profile-form__field">
-        <ion-input
-          label="Номер телефону"
-          labelPlacement="stacked"
-          type="text"
-          inputmode="numeric"
-          autocomplete="tel"
-          fill="outline"
-          maxlength="9"
-          pattern="[0-9]*"
-          [counter]="true"
-          placeholder="501234567"
-          helperText="Введіть 9 цифр номера."
-          [errorText]="phoneErrorText()"
-          [class.ion-touched]="isPhoneTouched()"
-          [attr.aria-invalid]="shouldShowPhoneError()"
-          formControlName="phone"
-        >
-          <ion-text slot="start" color="primary" aria-hidden="true">+380</ion-text>
-        </ion-input>
-      </div>
+  <ion-grid fixed class="ion-padding">
+    <ion-row class="ion-justify-content-center">
+      <ion-col size="12" size-md="7" size-lg="5">
+        <form novalidate [formGroup]="profileForm" (ngSubmit)="submit($event)">
+          <ion-list class="customer-profile-form__fields ion-padding-top">
+            <div class="customer-profile-form__field">
+              <ion-input
+                label="Номер телефону"
+                labelPlacement="stacked"
+                type="text"
+                inputmode="numeric"
+                autocomplete="tel"
+                fill="outline"
+                maxlength="9"
+                pattern="[0-9]*"
+                [counter]="true"
+                placeholder="501234567"
+                helperText="Введіть 9 цифр номера."
+                [errorText]="phoneErrorText()"
+                [class.ion-touched]="isPhoneTouched()"
+                [attr.aria-invalid]="shouldShowPhoneError()"
+                formControlName="phone"
+              >
+                <ion-text slot="start" color="primary" aria-hidden="true">+380</ion-text>
+              </ion-input>
+            </div>
 
-      @for (field of fieldViews; track field.config.code) {
-        <div class="customer-profile-form__field">
-          @if (field.config.form.control === 'textarea') {
-            <ion-textarea
-              [label]="field.config.label"
-              labelPlacement="stacked"
-              fill="outline"
-              [autoGrow]="true"
-              [counter]="field.config.maxLength !== undefined"
-              [attr.maxlength]="field.config.maxLength ?? null"
-              [errorText]="field.errorText()"
-              [class.ion-touched]="field.isTouched()"
-              [attr.aria-invalid]="field.shouldShowError()"
-              [formControl]="field.control"
-            />
-          } @else {
-            <ion-input
-              [label]="field.config.label"
-              labelPlacement="stacked"
-              [type]="field.config.type === 'date' ? 'date' : 'text'"
-              [autocomplete]="field.config.form.autocomplete ?? null"
-              fill="outline"
-              [counter]="field.config.maxLength !== undefined"
-              [attr.maxlength]="field.config.maxLength ?? null"
-              [errorText]="field.errorText()"
-              [class.ion-touched]="field.isTouched()"
-              [attr.aria-invalid]="field.shouldShowError()"
-              [formControl]="field.control"
-            />
-          }
-        </div>
-      }
-    </ion-list>
+            @for (field of fieldViews; track field.config.code) {
+              <div class="customer-profile-form__field">
+                @if (field.config.form.control === 'textarea') {
+                  <ion-textarea
+                    [label]="field.config.label"
+                    labelPlacement="stacked"
+                    fill="outline"
+                    [autoGrow]="true"
+                    [counter]="field.config.maxLength !== undefined"
+                    [attr.maxlength]="field.config.maxLength ?? null"
+                    [errorText]="field.errorText()"
+                    [class.ion-touched]="field.isTouched()"
+                    [attr.aria-invalid]="field.shouldShowError()"
+                    [formControl]="field.control"
+                  />
+                } @else {
+                  <ion-input
+                    [label]="field.config.label"
+                    labelPlacement="stacked"
+                    [type]="field.config.type === 'date' ? 'date' : 'text'"
+                    [autocomplete]="field.config.form.autocomplete ?? null"
+                    fill="outline"
+                    [counter]="field.config.maxLength !== undefined"
+                    [attr.maxlength]="field.config.maxLength ?? null"
+                    [errorText]="field.errorText()"
+                    [class.ion-touched]="field.isTouched()"
+                    [attr.aria-invalid]="field.shouldShowError()"
+                    [formControl]="field.control"
+                  />
+                }
+              </div>
+            }
+          </ion-list>
 
-    <div class="ion-padding">
-      <ion-button
-        [appDisabledButtonColor]="!canSubmit()"
-        expand="block"
-        size="large"
-        type="submit"
-        [disabled]="!canSubmit()"
-        [attr.aria-busy]="isSaving()"
-      >
-        @if (isSaving()) {
-          <ion-spinner name="crescent" aria-hidden="true" />
-          <span class="ion-margin-start">Зберігаємо...</span>
-        } @else {
-          {{ submitText() }}
-        }
-      </ion-button>
-    </div>
-  </form>
+          <div class="ion-padding-top">
+            <ion-button
+              [appDisabledButtonColor]="!canSubmit()"
+              expand="block"
+              size="large"
+              type="submit"
+              [disabled]="!canSubmit()"
+              [attr.aria-busy]="isSaving()"
+            >
+              @if (isSaving()) {
+                <ion-spinner name="crescent" aria-hidden="true" />
+                <span class="ion-margin-start">Зберігаємо...</span>
+              } @else {
+                {{ submitText() }}
+              }
+            </ion-button>
+          </div>
+        </form>
+      </ion-col>
+    </ion-row>
+  </ion-grid>
 </ion-content>

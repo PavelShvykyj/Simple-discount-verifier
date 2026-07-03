@@ -154,7 +154,7 @@ az staticwebapp appsettings set `
     PosMainClientId=main-pos-system `
     PosRequestFreshnessToleranceSeconds=300 `
     SmsCodeTtlSeconds=180 `
-    SmsRetryAfterSeconds=5 `
+    SmsRetryAfterSeconds=180 `
     BarcodeTtlSeconds=180 `
     DiscountRuntimeRetentionHours=24 `
     AuditEventsRetentionDays=30
@@ -175,7 +175,7 @@ az staticwebapp appsettings set `
     PosMainClientId=main-pos-system `
     PosRequestFreshnessToleranceSeconds=300 `
     SmsCodeTtlSeconds=180 `
-    SmsRetryAfterSeconds=5 `
+    SmsRetryAfterSeconds=180 `
     BarcodeTtlSeconds=180 `
     DiscountRuntimeRetentionHours=24 `
     AuditEventsRetentionDays=30 `

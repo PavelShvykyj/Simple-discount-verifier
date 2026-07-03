@@ -141,7 +141,7 @@ Content-Type: application/json
   "redemptionKey": "EOBMCDRDRT",
   "correlationId": "QPS7O7KCNM",
   "smsSent": true,
-  "retryAfterSeconds": 5,
+  "retryAfterSeconds": 180,
   "smsExpiresAt": "2026-06-16T14:03:00Z"
 }
 ```

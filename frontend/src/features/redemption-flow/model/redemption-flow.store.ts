@@ -135,7 +135,7 @@ export class PublicRedemptionSignalStore implements PublicRedemptionFlowStore {
   }
 
   setSmsCode(code: string): void {
-    this.smsCodeState.set(code.replace(/\D/g, '').slice(0, SMS_CODE_LENGTH));
+    this.smsCodeState.set(String(code ?? '').replace(/\D/g, '').slice(0, SMS_CODE_LENGTH));
     this.clearError();
   }
 
@@ -303,12 +303,12 @@ export class PublicRedemptionSignalStore implements PublicRedemptionFlowStore {
   private toFlowError(error: unknown, isRestartRequired: boolean): RedemptionFlowError {
     if (error instanceof HttpErrorResponse) {
       const body = error.error as ApiErrorResponse | null;
-      const apiError = body?.error;
+      const apiError = body?.error ?? body?.Error;
 
       return {
-        code: apiError?.code ?? `http_${error.status}`,
-        message: apiError?.message ?? FALLBACK_ERROR_MESSAGE,
-        correlationId: apiError?.correlationId ?? null,
+        code: apiError?.code ?? apiError?.Code ?? `http_${error.status}`,
+        message: apiError?.message ?? apiError?.Message ?? FALLBACK_ERROR_MESSAGE,
+        correlationId: apiError?.correlationId ?? apiError?.CorrelationId ?? null,
         isRestartRequired,
       };
     }
@@ -327,7 +327,8 @@ export class PublicRedemptionSignalStore implements PublicRedemptionFlowStore {
     }
 
     const body = error.error as ApiErrorResponse | null;
-    const code = body?.error?.code;
+    const apiError = body?.error ?? body?.Error;
+    const code = apiError?.code ?? apiError?.Code;
 
     return code !== 'invalid_sms_code';
   }

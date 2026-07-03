@@ -14,10 +14,11 @@
         <ion-input-otp
           aria-label="SMS-код"
           fill="outline"
+          inputmode="numeric"
           shape="soft"
+          type="text"
           required
           [length]="smsCodeLength"
-          [disabled]="isSmsBusy()"
           formControlName="smsCode"
         >
             <ion-note

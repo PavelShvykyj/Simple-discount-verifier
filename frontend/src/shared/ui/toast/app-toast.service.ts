@@ -1,6 +1,9 @@
 import { Injectable, inject } from '@angular/core';
 import { ToastController } from '@ionic/angular/standalone';
 
+import type { ApiErrorMessage } from '../../lib/api-error/api-error';
+import { toApiErrorDisplayMessage } from '../../lib/api-error/api-error';
+
 type AppToastKind = 'success' | 'error' | 'warning' | 'info';
 
 const TOAST_COLORS: Record<AppToastKind, string> = {
@@ -9,6 +12,7 @@ const TOAST_COLORS: Record<AppToastKind, string> = {
   warning: 'warning',
   info: 'primary',
 };
+const DEFAULT_ERROR_MESSAGE = 'Сталася помилка.';
 
 @Injectable({ providedIn: 'root' })
 export class AppToastService {
@@ -18,8 +22,11 @@ export class AppToastService {
     await this.show('success', message);
   }
 
-  async showError(message: string): Promise<void> {
-    await this.show('error', message);
+  async showError(
+    message: ApiErrorMessage,
+    fallbackMessage = DEFAULT_ERROR_MESSAGE,
+  ): Promise<void> {
+    await this.show('error', toApiErrorDisplayMessage(message, fallbackMessage));
   }
 
   async showWarning(message: string): Promise<void> {

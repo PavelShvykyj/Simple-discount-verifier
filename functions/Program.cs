@@ -8,6 +8,7 @@ using SimpleDiscountVerifier.Api.Application.Redemptions;
 using SimpleDiscountVerifier.Api.Application.Sms;
 using SimpleDiscountVerifier.Api.Application.System;
 using SimpleDiscountVerifier.Api.Domain.Shared;
+using SimpleDiscountVerifier.Api.Functions.Http;
 using SimpleDiscountVerifier.Api.Infrastructure;
 using SimpleDiscountVerifier.Api.Infrastructure.Options;
 using SimpleDiscountVerifier.Api.Infrastructure.Sms;
@@ -15,7 +16,10 @@ using SimpleDiscountVerifier.Api.Infrastructure.Storage;
 using SimpleDiscountVerifier.Api.Storage;
 
 var host = new HostBuilder()
-    .ConfigureFunctionsWebApplication()
+    .ConfigureFunctionsWebApplication(builder =>
+    {
+        builder.UseMiddleware<GlobalExceptionMiddleware>();
+    })
     .ConfigureServices((context, services) =>
     {
         services.AddBackendOptions(context.Configuration);
