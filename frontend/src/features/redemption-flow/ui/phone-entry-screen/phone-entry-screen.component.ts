@@ -21,8 +21,8 @@ import { PUBLIC_REDEMPTION_FLOW_STORE } from '../../model/redemption-flow.store'
 import { MobileFlowScreenComponent } from '../../../../shared/ui/mobile-flow-screen/mobile-flow-screen.component';
 import { DisabledButtonColorDirective } from '../../../../shared/ui/disabled-button-color/disabled-button-color.directive';
 import {
-  ukrainianPhoneBodyFormatValidator,
-  ukrainianPhoneBodyValidator,
+  nineDigitPhoneBodyValidator,
+  ukrainianPhoneBodyStartDigitValidator,
 } from '../../../../shared/lib/phone/ukrainian-phone.validators';
 
 const PHONE_REQUIRED_MESSAGE = 'Введіть номер телефону.';
@@ -56,7 +56,11 @@ export class PhoneEntryScreenComponent {
 
   protected readonly phoneControl = new FormControl('', {
     nonNullable: true,
-    validators: [Validators.required, ukrainianPhoneBodyFormatValidator, ukrainianPhoneBodyValidator],
+    validators: [
+      Validators.required,
+      nineDigitPhoneBodyValidator,
+      ukrainianPhoneBodyStartDigitValidator,
+    ],
   });
 
   protected phoneForm = new FormGroup({

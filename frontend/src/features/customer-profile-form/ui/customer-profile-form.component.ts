@@ -46,8 +46,8 @@ import {
   normalizeUkrainianPhone,
 } from '../../../shared/lib/phone/ukrainian-phone';
 import {
-  ukrainianPhoneBodyFormatValidator,
-  ukrainianPhoneBodyValidator,
+  nineDigitPhoneBodyValidator,
+  ukrainianPhoneBodyStartDigitValidator,
 } from '../../../shared/lib/phone/ukrainian-phone.validators';
 import { ThemeModeSelectorComponent } from '../../../shared/theme/ui/theme-mode-selector.component';
 import { ConfirmActionSheetService } from '../../../shared/ui/confirm-action-sheet/confirm-action-sheet.service';
@@ -124,8 +124,8 @@ export class CustomerProfileFormComponent {
     nonNullable: true,
     validators: [
       requiredTrimmedValidator,
-      ukrainianPhoneBodyFormatValidator,
-      ukrainianPhoneBodyValidator,
+      nineDigitPhoneBodyValidator,
+      ukrainianPhoneBodyStartDigitValidator,
     ],
   });
   private readonly phoneControlEvent = toSignal(

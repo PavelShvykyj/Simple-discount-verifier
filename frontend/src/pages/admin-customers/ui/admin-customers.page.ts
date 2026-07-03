@@ -44,7 +44,7 @@ import {
   INVALID_UKRAINIAN_PHONE_MESSAGE,
   normalizeUkrainianPhone,
 } from '../../../shared/lib/phone/ukrainian-phone';
-import { ukrainianPhoneNumberValidator } from '../../../shared/lib/phone/ukrainian-phone.validators';
+import { normalizableUkrainianPhoneValidator } from '../../../shared/lib/phone/ukrainian-phone.validators';
 import {
   SubmitSearchFieldComponent,
   SubmitSearchFieldValidator,
@@ -102,7 +102,7 @@ export class AdminCustomersPage {
     {
       errorKey: 'ukrainianPhone',
       message: INVALID_UKRAINIAN_PHONE_MESSAGE,
-      validator: ukrainianPhoneNumberValidator,
+      validator: normalizableUkrainianPhoneValidator,
     },
   ];
   protected readonly listView = this.dataSource.connect();
