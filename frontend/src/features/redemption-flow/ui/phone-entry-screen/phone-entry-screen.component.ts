@@ -1,13 +1,6 @@
 import { Component, computed, DestroyRef, effect, inject } from '@angular/core';
 import { takeUntilDestroyed, toSignal } from '@angular/core/rxjs-interop';
-import {
-  AbstractControl,
-  FormControl,
-  FormGroup,
-  ReactiveFormsModule,
-  ValidationErrors,
-  Validators,
-} from '@angular/forms';
+import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import {
   IonButton,
   IonButtons,
@@ -27,7 +20,10 @@ import { PublicRedemptionNavService } from '../../navigation/public-redemption-n
 import { PUBLIC_REDEMPTION_FLOW_STORE } from '../../model/redemption-flow.store';
 import { MobileFlowScreenComponent } from '../../../../shared/ui/mobile-flow-screen/mobile-flow-screen.component';
 import { DisabledButtonColorDirective } from '../../../../shared/ui/disabled-button-color/disabled-button-color.directive';
-import { isValidUkrainianPhoneBody } from '../../../../shared/lib/phone/ukrainian-phone';
+import {
+  ukrainianPhoneBodyFormatValidator,
+  ukrainianPhoneBodyValidator,
+} from '../../../../shared/lib/phone/ukrainian-phone.validators';
 
 const PHONE_REQUIRED_MESSAGE = 'Введіть номер телефону.';
 const PHONE_INVALID_MESSAGE = 'Введіть 9 цифр номера після +380.';
@@ -60,7 +56,7 @@ export class PhoneEntryScreenComponent {
 
   protected readonly phoneControl = new FormControl('', {
     nonNullable: true,
-    validators: [Validators.required, phoneBodyFormatValidator, ukrainianPhoneValidator],
+    validators: [Validators.required, ukrainianPhoneBodyFormatValidator, ukrainianPhoneBodyValidator],
   });
 
   protected phoneForm = new FormGroup({
@@ -129,24 +125,4 @@ export class PhoneEntryScreenComponent {
         }
       });
   }
-}
-
-function phoneBodyFormatValidator(control: AbstractControl): ValidationErrors | null {
-  const value = String(control.value ?? '');
-
-  if (value.trim().length === 0) {
-    return null;
-  }
-
-  return /^\d{9}$/.test(value) ? null : { phoneBodyFormat: true };
-}
-
-function ukrainianPhoneValidator(control: AbstractControl): ValidationErrors | null {
-  const value = String(control.value ?? '');
-
-  if (value.trim().length === 0 || !/^\d{9}$/.test(value)) {
-    return null;
-  }
-
-  return isValidUkrainianPhoneBody(value) ? null : { ukrainianPhone: true };
 }

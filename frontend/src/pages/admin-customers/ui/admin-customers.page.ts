@@ -1,6 +1,5 @@
 import { DatePipe } from '@angular/common';
 import { Component, DestroyRef, computed, effect, inject, signal } from '@angular/core';
-import { AbstractControl, ValidationErrors } from '@angular/forms';
 import {
   IonButton,
   IonButtons,
@@ -45,6 +44,7 @@ import {
   INVALID_UKRAINIAN_PHONE_MESSAGE,
   normalizeUkrainianPhone,
 } from '../../../shared/lib/phone/ukrainian-phone';
+import { ukrainianPhoneNumberValidator } from '../../../shared/lib/phone/ukrainian-phone.validators';
 import {
   SubmitSearchFieldComponent,
   SubmitSearchFieldValidator,
@@ -102,7 +102,7 @@ export class AdminCustomersPage {
     {
       errorKey: 'ukrainianPhone',
       message: INVALID_UKRAINIAN_PHONE_MESSAGE,
-      validator: ukrainianPhoneValidator,
+      validator: ukrainianPhoneNumberValidator,
     },
   ];
   protected readonly listView = this.dataSource.connect();
@@ -242,14 +242,4 @@ export class AdminCustomersPage {
       this.loadAllProfiles();
     }
   }
-}
-
-function ukrainianPhoneValidator(control: AbstractControl): ValidationErrors | null {
-  const value = String(control.value ?? '');
-
-  if (value.trim().length === 0) {
-    return null;
-  }
-
-  return normalizeUkrainianPhone(value) === null ? { ukrainianPhone: true } : null;
 }

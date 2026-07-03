@@ -43,9 +43,12 @@ import type { ApiErrorMessage } from '../../../shared/lib/api-error/api-error';
 import {
   EMPTY_PHONE_MESSAGE,
   INVALID_UKRAINIAN_PHONE_MESSAGE,
-  isValidUkrainianPhoneBody,
   normalizeUkrainianPhone,
 } from '../../../shared/lib/phone/ukrainian-phone';
+import {
+  ukrainianPhoneBodyFormatValidator,
+  ukrainianPhoneBodyValidator,
+} from '../../../shared/lib/phone/ukrainian-phone.validators';
 import { ThemeModeSelectorComponent } from '../../../shared/theme/ui/theme-mode-selector.component';
 import { ConfirmActionSheetService } from '../../../shared/ui/confirm-action-sheet/confirm-action-sheet.service';
 import { DisabledButtonColorDirective } from '../../../shared/ui/disabled-button-color/disabled-button-color.directive';
@@ -119,7 +122,11 @@ export class CustomerProfileFormComponent {
 
   protected readonly phoneControl = new FormControl('', {
     nonNullable: true,
-    validators: [requiredTrimmedValidator, phoneBodyFormatValidator, ukrainianPhoneValidator],
+    validators: [
+      requiredTrimmedValidator,
+      ukrainianPhoneBodyFormatValidator,
+      ukrainianPhoneBodyValidator,
+    ],
   });
   private readonly phoneControlEvent = toSignal(
     this.phoneControl.events.pipe(takeUntilDestroyed(this.destroyRef)),
@@ -348,26 +355,6 @@ function requiredTrimmedValidator(control: AbstractControl): ValidationErrors | 
   const value = String(control.value ?? '');
 
   return value.trim().length === 0 ? { required: true } : null;
-}
-
-function phoneBodyFormatValidator(control: AbstractControl): ValidationErrors | null {
-  const value = String(control.value ?? '');
-
-  if (value.trim().length === 0) {
-    return null;
-  }
-
-  return /^\d{9}$/.test(value) ? null : { phoneBodyFormat: true };
-}
-
-function ukrainianPhoneValidator(control: AbstractControl): ValidationErrors | null {
-  const value = String(control.value ?? '');
-
-  if (value.trim().length === 0 || !/^\d{9}$/.test(value)) {
-    return null;
-  }
-
-  return isValidUkrainianPhoneBody(value) ? null : { ukrainianPhone: true };
 }
 
 function dateValueValidator(control: AbstractControl): ValidationErrors | null {
