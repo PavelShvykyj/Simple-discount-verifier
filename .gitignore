@@ -1,5 +1,7 @@
 # Spec Kit local tooling and generated scaffolding.
 node_modules/
+bin/
+obj/
 
 # Azure Functions local secrets.
 functions/local.settings.json
