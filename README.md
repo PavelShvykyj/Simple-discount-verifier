@@ -125,3 +125,20 @@ Import modes:
 The utility can also read the connection string from the
 `AppStorageConnectionString` environment variable when `--connection-string` is
 omitted.
+
+## POS HMAC COM component
+
+The `tools/PosHmacCom` project provides the registered COM component used by
+the 1C POS module to calculate UTF-8 HMAC-SHA256 signatures in Base64 without
+activating .NET Framework system classes through COM.
+
+Build:
+
+```powershell
+dotnet build `
+  .\tools\PosHmacCom\SimpleDiscountVerifier.PosHmacCom.csproj `
+  --configuration Release
+```
+
+Registration, verification, unregistration, and 1C usage instructions are in
+[`tools/PosHmacCom/README.md`](tools/PosHmacCom/README.md).
