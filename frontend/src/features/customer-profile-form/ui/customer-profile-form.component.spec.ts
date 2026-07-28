@@ -4,11 +4,13 @@ import { TestBed } from '@angular/core/testing';
 import { Observable, of, throwError } from 'rxjs';
 
 import type {
+  ActivationCodeSmsRequest,
   CustomerProfile,
   CustomerProfileUpsertRequest,
 } from '../../../entities/customer-profile/model/customer-profile.types';
 
 class AdminCustomerProfilesApiStub {
+  sendActivationCodeSms = vi.fn<(request: ActivationCodeSmsRequest) => Observable<void>>();
   create = vi.fn<(request: CustomerProfileUpsertRequest) => Observable<CustomerProfile>>();
   updateByPhone =
     vi.fn<(phone: string, request: CustomerProfileUpsertRequest) => Observable<CustomerProfile>>();
@@ -125,6 +127,13 @@ describe('CustomerProfileFormComponent', () => {
       class IonInput {}
 
       @Component({
+        selector: 'ion-input-otp',
+        standalone: true,
+        template: '<ng-content />',
+      })
+      class IonInputOtp {}
+
+      @Component({
         selector: 'ion-list',
         standalone: true,
         template: '<ng-content />',
@@ -202,6 +211,7 @@ describe('CustomerProfileFormComponent', () => {
         IonHeader,
         IonIcon,
         IonInput,
+        IonInputOtp,
         IonList,
         IonNote,
         IonRow,
@@ -254,8 +264,10 @@ describe('CustomerProfileFormComponent', () => {
   });
 
   it('creates a profile with normalized phone and answers, then resets the form', () => {
+    api.sendActivationCodeSms.mockReturnValue(of(void 0));
     api.create.mockReturnValue(of(createProfile()));
     setCreateFormValues(component);
+    sendAndMatchActivationCode(component, '07');
 
     submit(component);
 
@@ -298,8 +310,10 @@ describe('CustomerProfileFormComponent', () => {
   });
 
   it('shows an error toast when saving fails', () => {
+    api.sendActivationCodeSms.mockReturnValue(of(void 0));
     api.create.mockReturnValue(throwError(() => new Error('backend offline')));
     setCreateFormValues(component);
+    sendAndMatchActivationCode(component, '07');
 
     submit(component);
 
@@ -327,7 +341,9 @@ describe('CustomerProfileFormComponent', () => {
           }),
       ),
     );
+    api.sendActivationCodeSms.mockReturnValue(of(void 0));
     setCreateFormValues(component);
+    sendAndMatchActivationCode(component, '07');
 
     submit(component);
 
@@ -358,7 +374,9 @@ describe('CustomerProfileFormComponent', () => {
   it.each(['', '482000123456', '482000123456A', '4820001234564'])(
     'blocks submit when the physical card number is invalid: %s',
     (physicalCardNumber) => {
+      api.sendActivationCodeSms.mockReturnValue(of(void 0));
       setCreateFormValues(component);
+      sendAndMatchActivationCode(component, '07');
       getPhysicalCardNumberControl(component).setValue(physicalCardNumber);
 
       submit(component);
@@ -385,6 +403,84 @@ describe('CustomerProfileFormComponent', () => {
     expect(getPhysicalCardNumberControl(component).value).toBe('4820001234565');
     expect(getPhysicalCardNumberControl(component).dirty).toBe(true);
   });
+
+  it('blocks create until the locally entered activation code matches', () => {
+    vi.spyOn(Math, 'random').mockReturnValue(0.07);
+    api.sendActivationCodeSms.mockReturnValue(of(void 0));
+    api.create.mockReturnValue(of(createProfile()));
+    setCreateFormValues(component);
+
+    submit(component);
+    expect(api.create).not.toHaveBeenCalled();
+
+    sendActivationCode(component);
+    expect(api.sendActivationCodeSms).toHaveBeenCalledWith({
+      phone: '+380501234567',
+      code: '07',
+    });
+
+    getActivationCodeControl(component).setValue('08');
+    submit(component);
+    expect(api.create).not.toHaveBeenCalled();
+
+    getActivationCodeControl(component).setValue('07');
+    expect(isActivationCodeMatched(component)).toBe(true);
+    expect(canSendActivationCode(component)).toBe(false);
+
+    submit(component);
+    expect(api.create).toHaveBeenCalledOnce();
+  });
+
+  it('reuses the same code for resend and clears confirmation after a phone edit', () => {
+    vi.spyOn(Math, 'random').mockReturnValue(0.42);
+    api.sendActivationCodeSms.mockReturnValue(of(void 0));
+    api.create.mockReturnValue(of(createProfile()));
+    setCreateFormValues(component);
+
+    sendActivationCode(component);
+    sendActivationCode(component);
+
+    expect(api.sendActivationCodeSms).toHaveBeenNthCalledWith(1, {
+      phone: '+380501234567',
+      code: '42',
+    });
+    expect(api.sendActivationCodeSms).toHaveBeenNthCalledWith(2, {
+      phone: '+380501234567',
+      code: '42',
+    });
+
+    getActivationCodeControl(component).setValue('42');
+    expect(isActivationCodeMatched(component)).toBe(true);
+
+    getPhoneControl(component).setValue('671234567');
+    expect(isActivationCodeMatched(component)).toBe(false);
+    expect(canSendActivationCode(component)).toBe(true);
+
+    submit(component);
+
+    expect(api.create).not.toHaveBeenCalled();
+    expect(getActivationCodeControl(component).value).toBe('');
+  });
+
+  it('retains the generated code for retry after the first send fails', () => {
+    vi.spyOn(Math, 'random').mockReturnValue(0);
+    api.sendActivationCodeSms
+      .mockReturnValueOnce(throwError(() => new Error('provider unavailable')))
+      .mockReturnValueOnce(of(void 0));
+    setCreateFormValues(component);
+
+    sendActivationCode(component);
+    sendActivationCode(component);
+
+    expect(api.sendActivationCodeSms).toHaveBeenNthCalledWith(1, {
+      phone: '+380501234567',
+      code: '00',
+    });
+    expect(api.sendActivationCodeSms).toHaveBeenNthCalledWith(2, {
+      phone: '+380501234567',
+      code: '00',
+    });
+  });
 });
 
 function setCreateFormValues(component: unknown): void {
@@ -397,6 +493,24 @@ function setCreateFormValues(component: unknown): void {
 
 function submit(component: unknown): void {
   (component as { submit: (event: Event) => void }).submit(new Event('submit'));
+}
+
+function sendActivationCode(component: unknown): void {
+  (component as { sendActivationCode: () => void }).sendActivationCode();
+}
+
+function isActivationCodeMatched(component: unknown): boolean {
+  return (component as { isActivationCodeMatched: () => boolean }).isActivationCodeMatched();
+}
+
+function canSendActivationCode(component: unknown): boolean {
+  return (component as { canSendActivationCode: () => boolean }).canSendActivationCode();
+}
+
+function sendAndMatchActivationCode(component: unknown, code: string): void {
+  vi.spyOn(Math, 'random').mockReturnValue(Number(code) / 100);
+  sendActivationCode(component);
+  getActivationCodeControl(component).setValue(code);
 }
 
 function openPhysicalCardScanner(component: unknown): Promise<void> {
@@ -414,6 +528,14 @@ function setComponentInput(component: unknown, name: string, value: unknown): vo
 function getPhoneControl(component: unknown) {
   return (component as { phoneControl: { setValue: (value: string) => void; value: string } })
     .phoneControl;
+}
+
+function getActivationCodeControl(component: unknown) {
+  return (
+    component as {
+      activationCodeControl: { setValue: (value: string) => void; value: string };
+    }
+  ).activationCodeControl;
 }
 
 function getPhysicalCardNumberControl(component: unknown) {

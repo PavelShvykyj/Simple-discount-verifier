@@ -3,6 +3,7 @@ import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
 
 import {
+  ActivationCodeSmsRequest,
   AdminCustomerProfileListRequest,
   CustomerProfileListResponse,
   CustomerProfile,
@@ -39,14 +40,15 @@ export class AdminCustomerProfilesApi {
     );
   }
 
+  sendActivationCodeSms(request: ActivationCodeSmsRequest): Observable<void> {
+    return this.http.post<void>('/api/backoffice/customer-profiles/activation-code-sms', request);
+  }
+
   create(request: CustomerProfileUpsertRequest): Observable<CustomerProfile> {
     return this.http.post<CustomerProfile>('/api/backoffice/customer-profiles', request);
   }
 
-  updateByPhone(
-    phone: string,
-    request: CustomerProfileUpsertRequest,
-  ): Observable<CustomerProfile> {
+  updateByPhone(phone: string, request: CustomerProfileUpsertRequest): Observable<CustomerProfile> {
     return this.http.patch<CustomerProfile>(
       `/api/backoffice/customer-profiles/by-phone/${encodeURIComponent(phone)}`,
       request,

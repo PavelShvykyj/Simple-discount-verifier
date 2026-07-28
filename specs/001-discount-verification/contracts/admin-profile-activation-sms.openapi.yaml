@@ -1,0 +1,86 @@
+openapi: 3.0.3
+info:
+  title: Admin Customer Profile Activation SMS
+  version: 1.0.0
+paths:
+  /api/backoffice/customer-profiles/activation-code-sms:
+    post:
+      summary: Send a frontend-generated two-digit activation code
+      description: >-
+        Admin-only same-origin endpoint protected by the existing Azure Static
+        Web Apps /api/backoffice/* rule. Only an authenticated identity with
+        the custom role admin may reach the Function. It validates the
+        normalized Ukrainian phone and two-character decimal code, sends a
+        fixed SMS message through the configured provider, and stores no
+        challenge or verification state.
+      x-azure-static-web-apps-allowed-roles:
+        - admin
+      operationId: sendCustomerProfileActivationCodeSms
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ActivationCodeSmsRequest'
+      responses:
+        '202':
+          description: The SMS provider accepted the message.
+        '400':
+          description: Invalid JSON, phone, or activation-code format.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '401':
+          description: >-
+            Static Web Apps did not receive an authenticated identity; the
+            Function is not invoked. The deployed response override may redirect
+            the caller to login.
+        '403':
+          description: >-
+            The authenticated identity does not have the admin role; the
+            Function is not invoked.
+        '502':
+          description: The SMS provider failed or rejected the message.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+components:
+  schemas:
+    ActivationCodeSmsRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - phone
+        - code
+      properties:
+        phone:
+          type: string
+          example: '+380501234567'
+        code:
+          type: string
+          pattern: '^[0-9]{2}$'
+          minLength: 2
+          maxLength: 2
+          example: '07'
+    ApiErrorResponse:
+      type: object
+      required:
+        - error
+      properties:
+        error:
+          type: object
+          required:
+            - code
+            - message
+          properties:
+            code:
+              type: string
+              example: invalid_request
+            message:
+              type: string
+              example: Activation code must contain exactly two digits.
+            correlationId:
+              type: string
+              nullable: true

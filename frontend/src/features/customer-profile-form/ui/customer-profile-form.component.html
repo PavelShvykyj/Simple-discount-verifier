@@ -23,29 +23,90 @@
         <form novalidate [formGroup]="profileForm" (ngSubmit)="submit($event)">
           <ion-list class="customer-profile-form__fields ion-padding-top">
             <div class="customer-profile-form__field">
-              <ion-input
-                label="Номер телефону"
-                labelPlacement="stacked"
-                type="text"
-                inputmode="numeric"
-                autocomplete="tel"
-                fill="outline"
-                maxlength="9"
-                pattern="[0-9]*"
-                [counter]="true"
-                placeholder="501234567"
-                helperText="Введіть 9 цифр номера."
-                [errorText]="phoneErrorText()"
-                [class.ion-touched]="isPhoneTouched()"
-                [attr.aria-invalid]="shouldShowPhoneError()"
-                formControlName="phone"
-              >
-                <ion-text slot="start" color="primary" aria-hidden="true">+380</ion-text>
-              </ion-input>
+              <ion-card class="customer-profile-form__card ion-no-margin">
+                <ion-card-content>
+                  <ion-input
+                    label="Номер телефону"
+                    labelPlacement="stacked"
+                    type="text"
+                    inputmode="numeric"
+                    autocomplete="tel"
+                    fill="outline"
+                    maxlength="9"
+                    pattern="[0-9]*"
+                    [counter]="true"
+                    placeholder="501234567"
+                    helperText="Введіть 9 цифр номера."
+                    [errorText]="phoneErrorText()"
+                    [class.ion-touched]="isPhoneTouched()"
+                    [attr.aria-invalid]="shouldShowPhoneError()"
+                    formControlName="phone"
+                  >
+                    <ion-text slot="start" color="primary" aria-hidden="true">+380</ion-text>
+                    @if (isActivationCodeMatched()) {
+                      <ion-icon
+                        slot="end"
+                        name="checkmark-circle"
+                        color="success"
+                        role="status"
+                        aria-label="Номер телефону підтверджено"
+                        aria-live="polite"
+                      />
+                    }
+                  </ion-input>
+
+                  @if (isCreateMode()) {
+                    <ion-button
+                      [appDisabledButtonColor]="!canSendActivationCode()"
+                      class="ion-margin-top"
+                      color="secondary"
+                      expand="block"
+                      type="button"
+                      [disabled]="!canSendActivationCode()"
+                      [attr.aria-busy]="isSendingActivationCode()"
+                      (click)="sendActivationCode()"
+                    >
+                      @if (isSendingActivationCode()) {
+                        <ion-spinner name="crescent" aria-hidden="true" />
+                        <span class="ion-margin-start">{{ activationCodeButtonText() }}</span>
+                      } @else {
+                        {{ activationCodeButtonText() }}
+                      }
+                    </ion-button>
+
+                    @if (isActivationCodeSent() && !isActivationCodeMatched()) {
+                      <div class="ion-padding-top ion-text-center">
+                        <ion-note color="medium">
+                          Попросіть клієнта продиктувати дві цифри з SMS.
+                        </ion-note>
+
+                        <ion-input-otp
+                          class="ion-margin-top"
+                          aria-label="Код підтвердження телефону"
+                          fill="outline"
+                          inputmode="numeric"
+                          shape="soft"
+                          type="text"
+                          required
+                          [length]="2"
+                          [attr.aria-invalid]="isActivationCodeMismatch()"
+                          [formControl]="activationCodeControl"
+                        >
+                          @if (isActivationCodeMismatch()) {
+                            <ion-note color="danger" role="alert" aria-live="polite">
+                              Код не збігається.
+                            </ion-note>
+                          }
+                        </ion-input-otp>
+                      </div>
+                    }
+                  }
+                </ion-card-content>
+              </ion-card>
             </div>
 
             <div class="customer-profile-form__field">
-              <ion-card class="physical-card-number-card ion-no-margin">
+              <ion-card class="customer-profile-form__card ion-no-margin">
                 <ion-card-content>
                   <ion-input
                     label="Номер фізичної картки"
@@ -77,38 +138,44 @@
               </ion-card>
             </div>
 
-            @for (field of fieldViews; track field.config.code) {
-              <div class="customer-profile-form__field">
-                @if (field.config.form.control === 'textarea') {
-                  <ion-textarea
-                    [label]="field.config.label"
-                    labelPlacement="stacked"
-                    fill="outline"
-                    [autoGrow]="true"
-                    [counter]="field.config.maxLength !== undefined"
-                    [attr.maxlength]="field.config.maxLength ?? null"
-                    [errorText]="field.errorText()"
-                    [class.ion-touched]="field.isTouched()"
-                    [attr.aria-invalid]="field.shouldShowError()"
-                    [formControl]="field.control"
-                  />
-                } @else {
-                  <ion-input
-                    [label]="field.config.label"
-                    labelPlacement="stacked"
-                    [type]="field.config.type === 'date' ? 'date' : 'text'"
-                    [autocomplete]="field.config.form.autocomplete ?? null"
-                    fill="outline"
-                    [counter]="field.config.maxLength !== undefined"
-                    [attr.maxlength]="field.config.maxLength ?? null"
-                    [errorText]="field.errorText()"
-                    [class.ion-touched]="field.isTouched()"
-                    [attr.aria-invalid]="field.shouldShowError()"
-                    [formControl]="field.control"
-                  />
-                }
-              </div>
-            }
+            <div class="customer-profile-form__field">
+              <ion-card class="customer-profile-form__card ion-no-margin">
+                <ion-card-content>
+                  @for (field of fieldViews; track field.config.code; let isLast = $last) {
+                    <div [class.ion-margin-bottom]="!isLast">
+                      @if (field.config.form.control === 'textarea') {
+                        <ion-textarea
+                          [label]="field.config.label"
+                          labelPlacement="stacked"
+                          fill="outline"
+                          [autoGrow]="true"
+                          [counter]="field.config.maxLength !== undefined"
+                          [attr.maxlength]="field.config.maxLength ?? null"
+                          [errorText]="field.errorText()"
+                          [class.ion-touched]="field.isTouched()"
+                          [attr.aria-invalid]="field.shouldShowError()"
+                          [formControl]="field.control"
+                        />
+                      } @else {
+                        <ion-input
+                          [label]="field.config.label"
+                          labelPlacement="stacked"
+                          [type]="field.config.type === 'date' ? 'date' : 'text'"
+                          [autocomplete]="field.config.form.autocomplete ?? null"
+                          fill="outline"
+                          [counter]="field.config.maxLength !== undefined"
+                          [attr.maxlength]="field.config.maxLength ?? null"
+                          [errorText]="field.errorText()"
+                          [class.ion-touched]="field.isTouched()"
+                          [attr.aria-invalid]="field.shouldShowError()"
+                          [formControl]="field.control"
+                        />
+                      }
+                    </div>
+                  }
+                </ion-card-content>
+              </ion-card>
+            </div>
           </ion-list>
 
           <div class="ion-padding-top">

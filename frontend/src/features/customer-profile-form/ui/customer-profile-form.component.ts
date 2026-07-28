@@ -21,7 +21,9 @@ import {
   IonHeader,
   IonIcon,
   IonInput,
+  IonInputOtp,
   IonList,
+  IonNote,
   IonRow,
   IonSpinner,
   IonTextarea,
@@ -31,7 +33,7 @@ import {
   ModalController,
 } from '@ionic/angular/standalone';
 import { addIcons } from 'ionicons';
-import { barcodeOutline, closeOutline } from 'ionicons/icons';
+import { barcodeOutline, checkmarkCircle, closeOutline } from 'ionicons/icons';
 import { take } from 'rxjs';
 
 import { AdminCustomerProfilesApi } from '../../../entities/customer-profile/api/admin-customer-profiles.api';
@@ -67,6 +69,8 @@ const PHYSICAL_CARD_NUMBER_REQUIRED_MESSAGE = 'Введіть номер фіз�
 const PHYSICAL_CARD_NUMBER_INVALID_MESSAGE =
   'Введіть 13 цифр EAN-13 із правильною контрольною цифрою.';
 const SAVE_ERROR_MESSAGE = 'Не вдалося зберегти анкету.';
+const ACTIVATION_SMS_ERROR_MESSAGE = 'Не вдалося надіслати код.';
+const ACTIVATION_CODE_LENGTH = 2;
 
 interface CustomerProfileFormFieldView {
   readonly config: CustomerProfileFieldConfig;
@@ -90,7 +94,9 @@ interface CustomerProfileFormFieldView {
     IonHeader,
     IonIcon,
     IonInput,
+    IonInputOtp,
     IonList,
+    IonNote,
     IonRow,
     IonSpinner,
     IonTextarea,
@@ -112,11 +118,27 @@ export class CustomerProfileFormComponent {
   private readonly modeState = signal<CustomerProfileFormMode>('create');
   private readonly presentationState = signal<CustomerProfileFormPresentation>('page');
   private readonly profileState = signal<CustomerProfile | null>(null);
+  private readonly activationCodeCandidate = signal<string | null>(null);
   private hasSavedChanges = false;
   private hasCanDismissHost = false;
 
   constructor() {
-    addIcons({ barcodeOutline, closeOutline });
+    addIcons({ barcodeOutline, checkmarkCircle, closeOutline });
+
+    this.phoneControl.valueChanges
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe(() => this.resetActivationCode());
+    this.activationCodeControl.valueChanges
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe((value) => {
+        const normalizedCode = String(value ?? '')
+          .replace(/\D/g, '')
+          .slice(0, ACTIVATION_CODE_LENGTH);
+
+        if (normalizedCode !== value) {
+          this.activationCodeControl.setValue(normalizedCode, { emitEvent: false });
+        }
+      });
   }
 
   protected readonly title = computed(() =>
@@ -126,7 +148,10 @@ export class CustomerProfileFormComponent {
     this.modeState() === 'create' ? 'Створити' : 'Зберегти',
   );
   protected readonly isModalPresentation = computed(() => this.presentationState() === 'modal');
+  protected readonly isCreateMode = computed(() => this.modeState() === 'create');
   protected readonly isSaving = signal(false);
+  protected readonly isSendingActivationCode = signal(false);
+  protected readonly isActivationCodeSent = signal(false);
 
   protected readonly phoneControl = new FormControl('', {
     nonNullable: true,
@@ -138,6 +163,13 @@ export class CustomerProfileFormComponent {
   });
   private readonly phoneControlEvent = toSignal(
     this.phoneControl.events.pipe(takeUntilDestroyed(this.destroyRef)),
+  );
+  protected readonly activationCodeControl = new FormControl('', {
+    nonNullable: true,
+    validators: [Validators.required, Validators.pattern(/^\d{2}$/)],
+  });
+  private readonly activationCodeControlEvent = toSignal(
+    this.activationCodeControl.events.pipe(takeUntilDestroyed(this.destroyRef)),
   );
   protected readonly physicalCardNumberControl = new FormControl('', {
     nonNullable: true,
@@ -202,14 +234,61 @@ export class CustomerProfileFormComponent {
 
     return getPhysicalCardNumberErrorText(this.physicalCardNumberControl);
   });
+  protected readonly isActivationCodeMatched = computed(() => {
+    this.activationCodeControlEvent();
+
+    return (
+      this.isActivationCodeSent() &&
+      this.activationCodeCandidate() !== null &&
+      this.activationCodeControl.value === this.activationCodeCandidate()
+    );
+  });
+  protected readonly isActivationCodeMismatch = computed(() => {
+    this.activationCodeControlEvent();
+
+    return (
+      this.isActivationCodeSent() &&
+      this.activationCodeControl.valid &&
+      this.activationCodeControl.value.length === ACTIVATION_CODE_LENGTH &&
+      !this.isActivationCodeMatched()
+    );
+  });
+  protected readonly canSendActivationCode = computed(() => {
+    this.phoneControlEvent();
+
+    return (
+      this.isCreateMode() &&
+      this.phoneControl.valid &&
+      normalizeUkrainianPhone(this.phoneControl.value) !== null &&
+      !this.isActivationCodeMatched() &&
+      !this.isSendingActivationCode() &&
+      !this.isSaving()
+    );
+  });
+  protected readonly activationCodeButtonText = computed(() => {
+    if (this.isSendingActivationCode()) {
+      return 'Надсилаємо код...';
+    }
+
+    return this.isActivationCodeSent() ? 'Надіслати код ще раз' : 'Надіслати код';
+  });
   protected readonly canSubmit = computed(() => {
     this.profileFormEvent();
 
-    return this.profileForm.valid && !this.isSaving();
+    return (
+      this.profileForm.valid &&
+      !this.isSaving() &&
+      !this.isSendingActivationCode() &&
+      (!this.isCreateMode() || this.isActivationCodeMatched())
+    );
   });
 
   set mode(value: CustomerProfileFormMode) {
     this.modeState.set(value);
+
+    if (value === 'edit') {
+      this.resetActivationCode();
+    }
   }
 
   set presentation(value: CustomerProfileFormPresentation) {
@@ -242,7 +321,7 @@ export class CustomerProfileFormComponent {
   }
 
   async canLeave(): Promise<boolean> {
-    if (this.isSaving()) {
+    if (this.isSaving() || this.isSendingActivationCode()) {
       return false;
     }
 
@@ -279,12 +358,51 @@ export class CustomerProfileFormComponent {
     this.physicalCardNumberControl.markAsTouched();
   }
 
+  protected sendActivationCode(): void {
+    if (!this.canSendActivationCode()) {
+      return;
+    }
+
+    const phone = normalizeUkrainianPhone(this.phoneControl.value);
+
+    if (phone === null) {
+      return;
+    }
+
+    const code = this.activationCodeCandidate() ?? createActivationCode();
+    this.activationCodeCandidate.set(code);
+    this.isSendingActivationCode.set(true);
+
+    this.api
+      .sendActivationCodeSms({ phone, code })
+      .pipe(take(1), takeUntilDestroyed(this.destroyRef))
+      .subscribe({
+        next: () => {
+          this.isSendingActivationCode.set(false);
+
+          if (
+            this.activationCodeCandidate() === code &&
+            normalizeUkrainianPhone(this.phoneControl.value) === phone
+          ) {
+            this.isActivationCodeSent.set(true);
+          }
+        },
+        error: (error: unknown) => {
+          this.isSendingActivationCode.set(false);
+          void this.toast.showError(
+            toApiErrorMessage(error, ACTIVATION_SMS_ERROR_MESSAGE),
+            ACTIVATION_SMS_ERROR_MESSAGE,
+          );
+        },
+      });
+  }
+
   protected submit(event: Event): void {
     event.preventDefault();
     this.profileForm.markAllAsTouched();
     this.profileForm.updateValueAndValidity();
 
-    if (this.profileForm.invalid) {
+    if (!this.canSubmit()) {
       return;
     }
 
@@ -316,7 +434,7 @@ export class CustomerProfileFormComponent {
       },
       error: (error: unknown) => {
         this.isSaving.set(false);
-        void this.toast.showError(toSaveErrorMessage(error), SAVE_ERROR_MESSAGE);
+        void this.toast.showError(toApiErrorMessage(error, SAVE_ERROR_MESSAGE), SAVE_ERROR_MESSAGE);
       },
     });
   }
@@ -348,6 +466,15 @@ export class CustomerProfileFormComponent {
     });
     this.profileForm.markAsPristine();
     this.profileForm.markAsUntouched();
+    this.resetActivationCode();
+  }
+
+  private resetActivationCode(): void {
+    this.activationCodeCandidate.set(null);
+    this.isActivationCodeSent.set(false);
+    this.activationCodeControl.reset('', { emitEvent: false });
+    this.activationCodeControl.markAsPristine();
+    this.activationCodeControl.markAsUntouched();
   }
 
   private toRequest(): CustomerProfileUpsertRequest | null {
@@ -479,12 +606,18 @@ function toUkrainianPhoneBody(phone: string): string {
   return normalizedPhone?.slice(-UKRAINIAN_PHONE_BODY_LENGTH) ?? '';
 }
 
-function toSaveErrorMessage(error: unknown): ApiErrorMessage {
+function createActivationCode(): string {
+  return Math.floor(Math.random() * 100)
+    .toString()
+    .padStart(ACTIVATION_CODE_LENGTH, '0');
+}
+
+function toApiErrorMessage(error: unknown, fallbackMessage: string): ApiErrorMessage {
   if (error instanceof HttpErrorResponse && isApiErrorMessage(error.error)) {
     return error.error;
   }
 
-  return SAVE_ERROR_MESSAGE;
+  return fallbackMessage;
 }
 
 function isApiErrorMessage(value: unknown): value is ApiErrorMessage {

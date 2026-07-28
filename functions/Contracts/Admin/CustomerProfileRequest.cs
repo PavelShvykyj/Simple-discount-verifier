@@ -10,3 +10,7 @@ public sealed record CustomerProfileRequest(
 public sealed record CustomerProfileAnswerRequest(
     [property: JsonPropertyName("code")] string? Code,
     [property: JsonPropertyName("value")] string? Value);
+
+public sealed record CustomerProfileActivationSmsRequest(
+    [property: JsonPropertyName("phone")] string? Phone,
+    [property: JsonPropertyName("code")] string? Code);

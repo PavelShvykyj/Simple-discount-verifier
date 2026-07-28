@@ -23,6 +23,11 @@ export interface CustomerProfileUpsertRequest {
   readonly answers: readonly CustomerProfileAnswerInput[];
 }
 
+export interface ActivationCodeSmsRequest {
+  readonly phone: string;
+  readonly code: string;
+}
+
 export interface CustomerProfileListResponse {
   readonly items: readonly CustomerProfile[];
   readonly continuationToken: string | null;

@@ -47,6 +47,7 @@ Git/GitHub стратегия выполнения задач зафиксиро
 | PR-8 | BE-13 | System Health And Runtime Cleanup | review | Health endpoint, admin/maintenance cleanup endpoints, bounded cleanup for `DiscountRuntime` and `AuditEvents`, SWA route rules, IaC settings, and optional Logic App scheduler support added. | `az bicep build --file infra\main.bicep` passed on 2026-06-24 with existing metadata warnings only. `dotnet build functions\SimpleDiscountVerifier.Api.csproj` passed with 0 warnings, 0 errors on 2026-06-24. |
 | PR-9 | BE-14 | Contract Verification And Manual Smoke Scenarios | todo | Manual integration scenarios for MVP API contract. | |
 | PR-10 | BE-15 | Unit Tests | todo | Final dedicated unit-test task for domain/application rules. | |
+| Feature | BE-16 | Admin Profile Phone Confirmation SMS | review | Admin-only stateless activation SMS endpoint validates normalized phone and exactly two ASCII digits, reuses `ISmsSender`, returns empty `202`, stores no challenge, and maps provider transport failures to `502`. | `dotnet build functions\SimpleDiscountVerifier.Api.csproj` passed with 0 warnings and 0 errors on 2026-07-28. Local smoke returned the documented `400` codes for malformed JSON, invalid phone, and invalid code. Deployed SWA-role, accepted-send, and provider-failure smoke remain pending. |
 
 ## Open Decisions
 

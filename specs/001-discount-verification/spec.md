@@ -33,6 +33,11 @@
   routes and the existing POS profile lookup are extended.
 - Q: How are existing profile rows handled? -> A: The current customer-profile
   table is cleared and reimported after implementation is ready.
+- Q: How is the phone checked while an administrator creates a profile? -> A:
+  The frontend generates a random two-digit code, sends only the normalized
+  phone and code through an admin-only stateless endpoint, and compares the
+  code dictated by the customer locally. No backend verification state is
+  stored.
 
 ## User Scenarios & Testing *(mandatory)*
 
@@ -80,18 +85,19 @@ and the EAN-13 number of the physical discount card issued to that customer.
 the restaurant needs a simple way to record eligible customers before payment.
 
 **Independent Test**: Create a customer profile with a phone number and a valid
-physical-card EAN-13, confirm both system fields are saved outside questionnaire
-answers without SMS verification, and use that phone number to start the
-redemption flow.
+physical-card EAN-13, send a two-digit code to the entered phone, confirm that a
+wrong dictated code cannot create the profile, enter the matching code, and
+verify both system fields are saved outside questionnaire answers.
 
 **Acceptance Scenarios**:
 
 1. **Given** an administrator enters required profile data including a phone
    number, **When** they save the profile, **Then** the customer profile exists
    and can be found later by that correctly validated phone number.
-2. **Given** an administrator is creating or updating a profile, **When** they
-   save the phone number, **Then** the system does not require SMS verification
-   during profile creation in the initial release.
+2. **Given** an administrator is creating a profile, **When** the customer
+   dictates the two-digit code received at the entered phone, **Then** the
+   frontend permits creation only after an exact local match; editing an
+   existing profile remains unchanged.
 3. **Given** an administrator enters or scans a physical-card number, **When**
    they save the profile, **Then** the system accepts exactly 13 digits only
    when the EAN-13 check digit is valid.
@@ -168,6 +174,10 @@ phone hash where appropriate.
 ### Edge Cases
 
 - Customer mistypes a phone number on a mobile keyboard.
+- Administrator changes the phone after matching the activation code; the
+  previous match is cleared even if the old phone is entered again.
+- SMS sending for profile creation fails or is delayed; retrying for the same
+  unchanged phone reuses the same two-digit code.
 - Administrator manually enters an invalid physical-card EAN-13.
 - Mobile browser camera permission is denied or EAN-13 cannot be recognized;
   manual entry remains available.
@@ -212,8 +222,11 @@ phone hash where appropriate.
   it later.
 - **FR-002e**: The backend MUST NOT introduce a uniqueness index or reject a
   valid `physicalCardNumber` because another profile stores the same value.
-- **FR-003**: The initial release MUST NOT require SMS verification during
-  administrator-managed profile creation.
+- **FR-003**: During administrator-managed profile creation, the frontend MUST
+  generate a random two-character decimal activation code from `00` through
+  `99`, send only the normalized phone and code through an admin-only endpoint,
+  and allow profile creation only after the customer dictates an exact local
+  match. The backend MUST NOT store a challenge or verification result.
 - **FR-004**: The initial release MUST NOT include complex customer profile
   workflow states such as Draft, PendingSync, Synced, or SyncError.
 - **FR-005**: The public customer redemption flow MUST allow a customer to enter
@@ -317,8 +330,8 @@ phone hash where appropriate.
 - **FR-035a**: Phone number entry fields MUST help users enter a valid Ukrainian
   phone number on mobile keyboards and MUST show clear validation messages when
   the number is incomplete or incorrectly formatted.
-- **FR-036**: The initial release MUST exclude SMS verification during
-  administrator profile creation, profile drafts, profile synchronization
+- **FR-036**: The initial release MUST exclude server-side verification state
+  during administrator profile creation, profile drafts, profile synchronization
   states, long-lived coupons, manual cancellation state for one-time codes,
   reservation/redeem lifecycle for barcode codes, restoring barcodes after sale
   cancellation, and detailed profile change history.
@@ -357,6 +370,9 @@ phone hash where appropriate.
   incorrectly formatted Ukrainian phone numbers with a clear validation message.
 - **SC-002b**: 100% of customer profile saves reject missing, non-13-digit, or
   checksum-invalid `physicalCardNumber` values with a clear validation message.
+- **SC-002c**: 100% of create-form attempts with an unmatched or reset
+  activation code remain blocked in the frontend, while edit mode remains
+  unchanged.
 - **SC-003**: 100% of successfully validated one-time codes fail when validated a
   second time.
 - **SC-004**: 100% of expired, unknown, invalid, or already used one-time codes
@@ -388,6 +404,8 @@ phone hash where appropriate.
   desktop support is secondary.
 - Administrators are restaurant employees or managers who maintain customer
   profiles.
+- Administrators are trusted for this operational typo-prevention check; the
+  two-digit client-side comparison is not server-attested authentication.
 - The profile has required top-level system fields `phone` and
   `physicalCardNumber`; the questionnaire remains full name, birth date, and
   favorite dish.

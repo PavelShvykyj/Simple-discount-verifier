@@ -89,4 +89,18 @@ describe('AdminCustomerProfilesApi', () => {
 
     expect(http.post).toHaveBeenCalledWith('/api/backoffice/customer-profiles', request);
   });
+
+  it('sends only the phone and two-digit activation code', () => {
+    const request = {
+      phone: '+380501234567',
+      code: '07',
+    };
+
+    api.sendActivationCodeSms(request);
+
+    expect(http.post).toHaveBeenCalledWith(
+      '/api/backoffice/customer-profiles/activation-code-sms',
+      request,
+    );
+  });
 });

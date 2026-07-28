@@ -34,6 +34,7 @@
 | PR-4 | Admin Customer Profiles | done | Staff customer profile list, exact phone lookup, customer profile field definitions, create/edit form flow, and `/api/backoffice/customer-profiles` integration are complete for the PR-4 scope. | Committed as `d47d604 PR-4-Edit-form`. |
 | PR-5 | Admin Service Inspect And Health | todo | Implement service hub, redemption inspect, support QR/barcode scanner, and system health view. | |
 | PR-6 | Performance And Mobile UX Hardening | todo | Verify production bundle, mobile UX, route chunk boundaries, browser back behavior, and accessibility. | |
+| Feature | Admin Profile Phone Confirmation | review | Create mode generates and retains one two-digit code per entered phone, sends only `{ phone, code }`, requires a local match before create, and clears confirmation on phone edits; edit mode remains unchanged. | On 2026-07-28: 64 tests and lint passed; production build passed with the existing bundle-budget warning; changed files passed Prettier; mobile light/dark visual smoke passed. Deployed admin-role and real-SMS smoke remain pending. |
 
 ## Update Rules
 

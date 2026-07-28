@@ -32,7 +32,7 @@ public sealed class AdminCustomerProfilesFunction
         HttpRequestData request,
         CancellationToken cancellationToken)
     {
-        var body = await ReadProfileRequestAsync(request, cancellationToken);
+        var body = await ReadRequestAsync<CustomerProfileRequest>(request, cancellationToken);
 
         if (!body.IsSuccess)
         {
@@ -45,6 +45,31 @@ public sealed class AdminCustomerProfilesFunction
             cancellationToken);
 
         return await WriteResultAsync(request, result, HttpStatusCode.Created, cancellationToken);
+    }
+
+    [Function(nameof(SendCustomerProfileActivationSms))]
+    public async Task<HttpResponseData> SendCustomerProfileActivationSms(
+        [HttpTrigger(
+            AuthorizationLevel.Anonymous,
+            "post",
+            Route = AdminApiRoutes.BackofficeCustomerProfileActivationSms)]
+        HttpRequestData request,
+        CancellationToken cancellationToken)
+    {
+        var body = await ReadRequestAsync<CustomerProfileActivationSmsRequest>(
+            request,
+            cancellationToken);
+
+        if (!body.IsSuccess)
+        {
+            return await HttpResponseWriter.WriteErrorAsync(request, body.Error!, cancellationToken);
+        }
+
+        var result = await _profiles.SendActivationCodeSmsAsync(body.Value, cancellationToken);
+
+        return result.IsSuccess
+            ? request.CreateResponse(HttpStatusCode.Accepted)
+            : await HttpResponseWriter.WriteErrorAsync(request, result.Error!, cancellationToken);
     }
 
     [Function(nameof(ListCustomerProfiles))]
@@ -102,7 +127,7 @@ public sealed class AdminCustomerProfilesFunction
         string phone,
         CancellationToken cancellationToken)
     {
-        var body = await ReadProfileRequestAsync(request, cancellationToken);
+        var body = await ReadRequestAsync<CustomerProfileRequest>(request, cancellationToken);
 
         if (!body.IsSuccess)
         {
@@ -118,23 +143,23 @@ public sealed class AdminCustomerProfilesFunction
         return await WriteResultAsync(request, result, HttpStatusCode.OK, cancellationToken);
     }
 
-    private async Task<ApplicationResult<CustomerProfileRequest?>> ReadProfileRequestAsync(
+    private async Task<ApplicationResult<T?>> ReadRequestAsync<T>(
         HttpRequestData request,
         CancellationToken cancellationToken)
     {
         try
         {
-            var body = await JsonSerializer.DeserializeAsync<CustomerProfileRequest>(
+            var body = await JsonSerializer.DeserializeAsync<T>(
                 request.Body,
                 JsonOptions,
                 cancellationToken);
 
-            return ApplicationResult<CustomerProfileRequest?>.Success(body);
+            return ApplicationResult<T?>.Success(body);
         }
         catch (JsonException exception)
         {
             _logger.LogWarning(exception, "Admin customer profile request body is invalid JSON.");
-            return ApplicationResult<CustomerProfileRequest?>.Failure(
+            return ApplicationResult<T?>.Failure(
                 new ApplicationError(
                     CustomerProfileErrorCodes.InvalidRequest,
                     "Request body must be valid JSON.",
