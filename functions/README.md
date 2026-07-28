@@ -102,6 +102,39 @@ Important properties:
    POST https://<your-static-web-app-domain>/api/scanner-survey
    ```
 
-## Local Settings
+## Local Development
 
-Copy `local.settings.json.example` to `local.settings.json` for local development. Do not commit `local.settings.json`.
+Prerequisites:
+
+- .NET 8 SDK;
+- Azure Functions Core Tools v4;
+- access to Azure test resources, or a running Azurite instance.
+
+From the repository root, create the local settings file on the first run:
+
+```powershell
+cd functions
+Copy-Item local.settings.json.example local.settings.json
+```
+
+Set the required local secrets and connection strings in `local.settings.json`.
+If it contains `UseDevelopmentStorage=true`, start Azurite before the Functions
+host. Do not commit `local.settings.json`.
+
+Start the API:
+
+```powershell
+func start
+```
+
+The local Functions host listens on `http://localhost:7071`. Start the frontend
+in a second terminal with:
+
+```powershell
+cd ..\frontend
+npm install
+npm run start:local-api
+```
+
+Run `npm install` only when frontend dependencies are not installed or have
+changed.

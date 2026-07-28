@@ -9,3 +9,12 @@
 .customer-profile-form__field {
   margin-bottom: 16px;
 }
+
+.physical-card-number-card {
+  border: 1px solid var(--app-border);
+  box-shadow: none;
+
+  ion-button {
+    margin-bottom: 0;
+  }
+}

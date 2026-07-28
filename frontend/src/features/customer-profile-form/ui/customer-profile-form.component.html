@@ -15,7 +15,11 @@
 <ion-content class="customer-profile-form">
   <ion-grid fixed class="ion-padding">
     <ion-row class="ion-justify-content-center">
-      <ion-col size="12" size-md="7" size-lg="5">
+      <ion-col
+        size="12"
+        [sizeMd]="isModalPresentation() ? '12' : '7'"
+        [sizeLg]="isModalPresentation() ? '12' : '5'"
+      >
         <form novalidate [formGroup]="profileForm" (ngSubmit)="submit($event)">
           <ion-list class="customer-profile-form__fields ion-padding-top">
             <div class="customer-profile-form__field">
@@ -38,6 +42,39 @@
               >
                 <ion-text slot="start" color="primary" aria-hidden="true">+380</ion-text>
               </ion-input>
+            </div>
+
+            <div class="customer-profile-form__field">
+              <ion-card class="physical-card-number-card ion-no-margin">
+                <ion-card-content>
+                  <ion-input
+                    label="Номер фізичної картки"
+                    labelPlacement="stacked"
+                    type="text"
+                    inputmode="numeric"
+                    fill="outline"
+                    maxlength="13"
+                    pattern="[0-9]*"
+                    [counter]="true"
+                    helperText="Введіть 13 цифр EAN-13."
+                    [errorText]="physicalCardNumberErrorText()"
+                    [class.ion-touched]="isPhysicalCardNumberTouched()"
+                    [attr.aria-invalid]="shouldShowPhysicalCardNumberError()"
+                    formControlName="physicalCardNumber"
+                  />
+
+                  <ion-button
+                    class="ion-margin-top"
+                    color="secondary"
+                    expand="block"
+                    type="button"
+                    (click)="openPhysicalCardScanner()"
+                  >
+                    <ion-icon slot="start" name="barcode-outline" aria-hidden="true" />
+                    Сканувати номер картки
+                  </ion-button>
+                </ion-card-content>
+              </ion-card>
             </div>
 
             @for (field of fieldViews; track field.config.code) {

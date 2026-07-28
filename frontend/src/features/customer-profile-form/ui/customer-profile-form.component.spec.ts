@@ -10,9 +10,8 @@ import type {
 
 class AdminCustomerProfilesApiStub {
   create = vi.fn<(request: CustomerProfileUpsertRequest) => Observable<CustomerProfile>>();
-  updateByPhone = vi.fn<
-    (phone: string, request: CustomerProfileUpsertRequest) => Observable<CustomerProfile>
-  >();
+  updateByPhone =
+    vi.fn<(phone: string, request: CustomerProfileUpsertRequest) => Observable<CustomerProfile>>();
 }
 
 describe('CustomerProfileFormComponent', () => {
@@ -22,6 +21,7 @@ describe('CustomerProfileFormComponent', () => {
     showError: ReturnType<typeof vi.fn>;
   };
   let modalController: {
+    create: ReturnType<typeof vi.fn>;
     dismiss: ReturnType<typeof vi.fn>;
   };
   let AdminCustomerProfilesApi: new () => unknown;
@@ -39,6 +39,7 @@ describe('CustomerProfileFormComponent', () => {
       showError: vi.fn(() => Promise.resolve()),
     };
     modalController = {
+      create: vi.fn(),
       dismiss: vi.fn(() => Promise.resolve(true)),
     };
 
@@ -59,6 +60,20 @@ describe('CustomerProfileFormComponent', () => {
         template: '<ng-content />',
       })
       class IonButtons {}
+
+      @Component({
+        selector: 'ion-card',
+        standalone: true,
+        template: '<ng-content />',
+      })
+      class IonCard {}
+
+      @Component({
+        selector: 'ion-card-content',
+        standalone: true,
+        template: '<ng-content />',
+      })
+      class IonCardContent {}
 
       @Component({
         selector: 'ion-col',
@@ -117,6 +132,13 @@ describe('CustomerProfileFormComponent', () => {
       class IonList {}
 
       @Component({
+        selector: 'ion-note',
+        standalone: true,
+        template: '<ng-content />',
+      })
+      class IonNote {}
+
+      @Component({
         selector: 'ion-row',
         standalone: true,
         template: '<ng-content />',
@@ -172,6 +194,8 @@ describe('CustomerProfileFormComponent', () => {
         IonActionSheet,
         IonButton,
         IonButtons,
+        IonCard,
+        IonCardContent,
         IonCol,
         IonContent,
         IonGrid,
@@ -179,6 +203,7 @@ describe('CustomerProfileFormComponent', () => {
         IonIcon,
         IonInput,
         IonList,
+        IonNote,
         IonRow,
         IonSpinner,
         IonTextarea,
@@ -191,12 +216,10 @@ describe('CustomerProfileFormComponent', () => {
     });
 
     ({ ModalController } = await import('@ionic/angular/standalone'));
-    ({ AdminCustomerProfilesApi } = await import(
-      '../../../entities/customer-profile/api/admin-customer-profiles.api'
-    ));
-    ({ ConfirmActionSheetService } = await import(
-      '../../../shared/ui/confirm-action-sheet/confirm-action-sheet.service'
-    ));
+    ({ AdminCustomerProfilesApi } =
+      await import('../../../entities/customer-profile/api/admin-customer-profiles.api'));
+    ({ ConfirmActionSheetService } =
+      await import('../../../shared/ui/confirm-action-sheet/confirm-action-sheet.service'));
     ({ AppToastService } = await import('../../../shared/ui/toast/app-toast.service'));
     ({ CustomerProfileFormComponent } = await import('./customer-profile-form.component'));
 
@@ -238,6 +261,7 @@ describe('CustomerProfileFormComponent', () => {
 
     expect(api.create).toHaveBeenCalledWith({
       phone: '+380501234567',
+      physicalCardNumber: '4820001234565',
       answers: [
         { code: 'fullName', value: 'Олена Коваленко' },
         { code: 'birthDate', value: '1990-04-15' },
@@ -247,6 +271,7 @@ describe('CustomerProfileFormComponent', () => {
     expect(toast.showSuccess).toHaveBeenCalledWith('Анкету створено.');
     expect(modalController.dismiss).not.toHaveBeenCalled();
     expect(getPhoneControl(component).value).toBe('');
+    expect(getPhysicalCardNumberControl(component).value).toBe('');
   });
 
   it('updates an existing profile in modal mode and dismisses with a saved result', () => {
@@ -261,6 +286,7 @@ describe('CustomerProfileFormComponent', () => {
 
     expect(api.updateByPhone).toHaveBeenCalledWith('+380501234567', {
       phone: '+380501234567',
+      physicalCardNumber: '4820001234565',
       answers: [
         { code: 'fullName', value: 'Олена Коваленко' },
         { code: 'birthDate', value: '1990-04-15' },
@@ -305,10 +331,7 @@ describe('CustomerProfileFormComponent', () => {
 
     submit(component);
 
-    expect(toast.showError).toHaveBeenCalledWith(
-      errorBody,
-      'Не вдалося зберегти анкету.',
-    );
+    expect(toast.showError).toHaveBeenCalledWith(errorBody, 'Не вдалося зберегти анкету.');
     expect(modalController.dismiss).not.toHaveBeenCalled();
   });
 
@@ -331,10 +354,42 @@ describe('CustomerProfileFormComponent', () => {
     expect(api.create).not.toHaveBeenCalled();
     expect(toast.showError).not.toHaveBeenCalled();
   });
+
+  it.each(['', '482000123456', '482000123456A', '4820001234564'])(
+    'blocks submit when the physical card number is invalid: %s',
+    (physicalCardNumber) => {
+      setCreateFormValues(component);
+      getPhysicalCardNumberControl(component).setValue(physicalCardNumber);
+
+      submit(component);
+
+      expect(api.create).not.toHaveBeenCalled();
+    },
+  );
+
+  it('fills the physical card control from the scanner modal', async () => {
+    const scannerModal = {
+      present: vi.fn(() => Promise.resolve()),
+      onDidDismiss: vi.fn(() =>
+        Promise.resolve({
+          data: { value: '4820001234565' },
+        }),
+      ),
+    };
+    modalController.create.mockResolvedValue(scannerModal);
+
+    await openPhysicalCardScanner(component);
+
+    expect(modalController.create).toHaveBeenCalledOnce();
+    expect(scannerModal.present).toHaveBeenCalledOnce();
+    expect(getPhysicalCardNumberControl(component).value).toBe('4820001234565');
+    expect(getPhysicalCardNumberControl(component).dirty).toBe(true);
+  });
 });
 
 function setCreateFormValues(component: unknown): void {
   getPhoneControl(component).setValue('501234567');
+  getPhysicalCardNumberControl(component).setValue('4820001234565');
   getAnswerControl(component, 'fullName').setValue('Олена Коваленко');
   getAnswerControl(component, 'birthDate').setValue('1990-04-15');
   getAnswerControl(component, 'favoriteDish').setValue('Борщ');
@@ -344,6 +399,14 @@ function submit(component: unknown): void {
   (component as { submit: (event: Event) => void }).submit(new Event('submit'));
 }
 
+function openPhysicalCardScanner(component: unknown): Promise<void> {
+  return (
+    component as {
+      openPhysicalCardScanner: () => Promise<void>;
+    }
+  ).openPhysicalCardScanner();
+}
+
 function setComponentInput(component: unknown, name: string, value: unknown): void {
   (component as Record<string, unknown>)[name] = value;
 }
@@ -351,6 +414,18 @@ function setComponentInput(component: unknown, name: string, value: unknown): vo
 function getPhoneControl(component: unknown) {
   return (component as { phoneControl: { setValue: (value: string) => void; value: string } })
     .phoneControl;
+}
+
+function getPhysicalCardNumberControl(component: unknown) {
+  return (
+    component as {
+      physicalCardNumberControl: { setValue: (value: string) => void; value: string };
+    }
+  ).physicalCardNumberControl as {
+    setValue: (value: string) => void;
+    value: string;
+    dirty: boolean;
+  };
 }
 
 function getAnswerControl(component: unknown, code: string) {
@@ -364,6 +439,7 @@ function getAnswerControl(component: unknown, code: string) {
 function createProfile(): CustomerProfile {
   return {
     phone: '+380501234567',
+    physicalCardNumber: '4820001234565',
     createdAt: '2026-07-02T09:00:00Z',
     updatedAt: '2026-07-02T09:00:00Z',
     answers: [

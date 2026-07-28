@@ -13,6 +13,8 @@ import {
 import {
   IonButton,
   IonButtons,
+  IonCard,
+  IonCardContent,
   IonCol,
   IonContent,
   IonGrid,
@@ -29,11 +31,12 @@ import {
   ModalController,
 } from '@ionic/angular/standalone';
 import { addIcons } from 'ionicons';
-import { closeOutline } from 'ionicons/icons';
+import { barcodeOutline, closeOutline } from 'ionicons/icons';
 import { take } from 'rxjs';
 
 import { AdminCustomerProfilesApi } from '../../../entities/customer-profile/api/admin-customer-profiles.api';
 import { CUSTOMER_PROFILE_FORM_CONFIG } from '../../../entities/customer-profile/model/customer-profile-form.config';
+import { isValidPhysicalCardNumber } from '../../../entities/customer-profile/model/physical-card-number';
 import {
   CustomerProfile,
   CustomerProfileFieldConfig,
@@ -60,6 +63,9 @@ type CustomerProfileFormCanDismissRegister = (handler: () => Promise<boolean>) =
 const UKRAINIAN_PHONE_BODY_LENGTH = 9;
 const PHONE_BODY_INVALID_MESSAGE = 'Введіть 9 цифр номера після +380.';
 const PHONE_NOT_UKRAINIAN_MESSAGE = 'Введіть український номер телефону.';
+const PHYSICAL_CARD_NUMBER_REQUIRED_MESSAGE = 'Введіть номер фізичної картки.';
+const PHYSICAL_CARD_NUMBER_INVALID_MESSAGE =
+  'Введіть 13 цифр EAN-13 із правильною контрольною цифрою.';
 const SAVE_ERROR_MESSAGE = 'Не вдалося зберегти анкету.';
 
 interface CustomerProfileFormFieldView {
@@ -76,6 +82,8 @@ interface CustomerProfileFormFieldView {
     DisabledButtonColorDirective,
     IonButton,
     IonButtons,
+    IonCard,
+    IonCardContent,
     IonCol,
     IonContent,
     IonGrid,
@@ -108,7 +116,7 @@ export class CustomerProfileFormComponent {
   private hasCanDismissHost = false;
 
   constructor() {
-    addIcons({ closeOutline });
+    addIcons({ barcodeOutline, closeOutline });
   }
 
   protected readonly title = computed(() =>
@@ -131,11 +139,19 @@ export class CustomerProfileFormComponent {
   private readonly phoneControlEvent = toSignal(
     this.phoneControl.events.pipe(takeUntilDestroyed(this.destroyRef)),
   );
+  protected readonly physicalCardNumberControl = new FormControl('', {
+    nonNullable: true,
+    validators: [requiredTrimmedValidator, physicalCardNumberValidator],
+  });
+  private readonly physicalCardNumberControlEvent = toSignal(
+    this.physicalCardNumberControl.events.pipe(takeUntilDestroyed(this.destroyRef)),
+  );
   private readonly answerControls = createAnswerControls();
 
   protected readonly answerForm = new FormGroup(this.answerControls);
   protected readonly profileForm = new FormGroup({
     phone: this.phoneControl,
+    physicalCardNumber: this.physicalCardNumberControl,
     answers: this.answerForm,
   });
   private readonly profileFormEvent = toSignal(
@@ -172,6 +188,19 @@ export class CustomerProfileFormComponent {
     this.phoneControlEvent();
 
     return getPhoneErrorText(this.phoneControl);
+  });
+  protected readonly isPhysicalCardNumberTouched = computed(
+    () =>
+      this.physicalCardNumberControlEvent()?.source.touched ??
+      this.physicalCardNumberControl.touched,
+  );
+  protected readonly shouldShowPhysicalCardNumberError = computed(
+    () => this.isPhysicalCardNumberTouched() && this.physicalCardNumberControl.invalid,
+  );
+  protected readonly physicalCardNumberErrorText = computed(() => {
+    this.physicalCardNumberControlEvent();
+
+    return getPhysicalCardNumberErrorText(this.physicalCardNumberControl);
   });
   protected readonly canSubmit = computed(() => {
     this.profileFormEvent();
@@ -230,6 +259,26 @@ export class CustomerProfileFormComponent {
     });
   }
 
+  protected async openPhysicalCardScanner(): Promise<void> {
+    const { PhysicalCardScannerComponent } =
+      await import('./physical-card-scanner/physical-card-scanner.component');
+    const modal = await this.modalController.create({
+      component: PhysicalCardScannerComponent,
+    });
+
+    await modal.present();
+    const scanResult = await modal.onDidDismiss<{ value?: string }>();
+    const scannedValue = scanResult.data?.value;
+
+    if (scannedValue === undefined) {
+      return;
+    }
+
+    this.physicalCardNumberControl.setValue(scannedValue);
+    this.physicalCardNumberControl.markAsDirty();
+    this.physicalCardNumberControl.markAsTouched();
+  }
+
   protected submit(event: Event): void {
     event.preventDefault();
     this.profileForm.markAllAsTouched();
@@ -274,6 +323,7 @@ export class CustomerProfileFormComponent {
 
   private patchProfile(profile: CustomerProfile): void {
     this.phoneControl.setValue(toUkrainianPhoneBody(profile.phone), { emitEvent: false });
+    this.physicalCardNumberControl.setValue(profile.physicalCardNumber, { emitEvent: false });
 
     for (const field of CUSTOMER_PROFILE_FORM_CONFIG.questionnaire.fields) {
       const answerValue = profile.answers.find((answer) => answer.code === field.code)?.value ?? '';
@@ -286,6 +336,7 @@ export class CustomerProfileFormComponent {
   private resetForm(): void {
     this.profileForm.reset({
       phone: '',
+      physicalCardNumber: '',
       answers: CUSTOMER_PROFILE_FORM_CONFIG.questionnaire.fields.reduce<Record<string, string>>(
         (answers, field) => {
           answers[field.code] = '';
@@ -308,6 +359,7 @@ export class CustomerProfileFormComponent {
 
     return {
       phone,
+      physicalCardNumber: this.physicalCardNumberControl.value,
       answers: CUSTOMER_PROFILE_FORM_CONFIG.questionnaire.fields.map((field) => ({
         code: field.code,
         value: toAnswerValue(this.answerControls[field.code].value),
@@ -357,6 +409,12 @@ function requiredTrimmedValidator(control: AbstractControl): ValidationErrors | 
   return value.trim().length === 0 ? { required: true } : null;
 }
 
+function physicalCardNumberValidator(control: AbstractControl): ValidationErrors | null {
+  return isValidPhysicalCardNumber(String(control.value ?? ''))
+    ? null
+    : { physicalCardNumber: true };
+}
+
 function dateValueValidator(control: AbstractControl): ValidationErrors | null {
   const value = String(control.value ?? '').trim();
 
@@ -381,6 +439,12 @@ function getPhoneErrorText(control: AbstractControl): string {
   }
 
   return '';
+}
+
+function getPhysicalCardNumberErrorText(control: AbstractControl): string {
+  return control.hasError('required')
+    ? PHYSICAL_CARD_NUMBER_REQUIRED_MESSAGE
+    : PHYSICAL_CARD_NUMBER_INVALID_MESSAGE;
 }
 
 function getFieldErrorText(field: CustomerProfileFieldConfig, control: AbstractControl): string {
