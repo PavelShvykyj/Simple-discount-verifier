@@ -46,8 +46,8 @@
 
 | Field | Value |
 | --- | --- |
-| Current phase | Решения и документация зафиксированы; реализация не начата |
-| Backend/API | `todo` |
+| Current phase | PCN-01 завершен; следующий пункт — PCN-02 |
+| Backend/API | `done` |
 | Importer | `todo` |
 | Frontend | `todo` |
 | POS/1C | `todo` |
@@ -58,7 +58,7 @@
 | ID | Task | Status | Dependencies | Evidence |
 | --- | --- | --- | --- | --- |
 | PCN-00 | Зафиксировать требования и обновить действующие документы | `done` | none | Этот документ и связанные документы, обновленные 2026-07-28 |
-| PCN-01 | Backend, storage и существующие API | `todo` | PCN-00 | |
+| PCN-01 | Backend, storage и существующие API | `done` | PCN-00 | 2026-07-28: backend build — 0 warnings/errors; EAN-13 check и in-memory smoke для create/read/list/update, invalid values, storage round-trip, support inspect, POS lookup, JSON и audit — passed |
 | PCN-02 | JSON CustomerProfileImporter | `todo` | PCN-01 shared validation/storage contract | |
 | PCN-03 | FE: ручной ввод и камера | `todo` | PCN-01 API contract | |
 | PCN-04 | POS/1C: создание и явное обновление карты | `todo` | PCN-01 POS response contract | |

@@ -163,6 +163,7 @@ public sealed class AzureTableCustomerProfileRepository : ICustomerProfileReposi
         return new TableEntity(StorageConstants.CustomerProfilePartitionKey, profile.Phone.StorageKey)
         {
             [StorageConstants.Properties.Phone] = profile.Phone.Value,
+            [StorageConstants.Properties.PhysicalCardNumber] = profile.PhysicalCardNumber.Value,
             [StorageConstants.Properties.AnswersJson] = JsonSerializer.Serialize(profile.Answers, StorageJson.Options),
             [StorageConstants.Properties.CreatedAtUtc] = profile.CreatedAtUtc,
             [StorageConstants.Properties.UpdatedAtUtc] = profile.UpdatedAtUtc
@@ -178,6 +179,15 @@ public sealed class AzureTableCustomerProfileRepository : ICustomerProfileReposi
             throw new InvalidOperationException("Stored customer profile phone is invalid.");
         }
 
+        var physicalCardNumberValue = TableStorageMapper.GetRequiredString(
+            entity,
+            StorageConstants.Properties.PhysicalCardNumber);
+
+        if (!PhysicalCardNumber.TryCreate(physicalCardNumberValue, out var physicalCardNumber))
+        {
+            throw new InvalidOperationException("Stored customer profile physical card number is invalid.");
+        }
+
         var answersJson = TableStorageMapper.GetRequiredString(entity, StorageConstants.Properties.AnswersJson);
         var answers = JsonSerializer.Deserialize<IReadOnlyList<QuestionnaireAnswer>>(
             answersJson,
@@ -185,6 +195,7 @@ public sealed class AzureTableCustomerProfileRepository : ICustomerProfileReposi
 
         return new CustomerProfileRecord(
             phone,
+            physicalCardNumber,
             answers,
             TableStorageMapper.GetRequiredDateTimeOffset(entity, StorageConstants.Properties.CreatedAtUtc),
             TableStorageMapper.GetRequiredDateTimeOffset(entity, StorageConstants.Properties.UpdatedAtUtc),

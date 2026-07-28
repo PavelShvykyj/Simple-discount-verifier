@@ -13,6 +13,11 @@ public sealed class AdminCustomerProfileService
     private const int DefaultPageSize = 50;
     private const int MaxPageSize = 100;
 
+    private sealed record ValidatedProfile(
+        NormalizedPhoneNumber Phone,
+        PhysicalCardNumber PhysicalCardNumber,
+        IReadOnlyList<QuestionnaireAnswer> Answers);
+
     private readonly ICustomerProfileRepository _profiles;
     private readonly IAuditWriter _auditWriter;
     private readonly IClock _clock;
@@ -39,9 +44,9 @@ public sealed class AdminCustomerProfileService
             return ApplicationResult<CustomerProfileResponse>.Failure(validation.Error!);
         }
 
-        var (phone, answers) = validation.Value!;
+        var (phone, physicalCardNumber, answers) = validation.Value!;
         var now = _clock.UtcNow;
-        var profile = new CustomerProfileRecord(phone, answers, now, now);
+        var profile = new CustomerProfileRecord(phone, physicalCardNumber, answers, now, now);
         var writeResult = await _profiles.InsertAsync(profile, cancellationToken);
 
         if (writeResult.Status == StorageWriteStatus.Conflict)
@@ -132,10 +137,11 @@ public sealed class AdminCustomerProfileService
             return ApplicationResult<CustomerProfileResponse>.Failure(validation.Error!);
         }
 
-        var (requestPhone, answers) = validation.Value!;
+        var (requestPhone, physicalCardNumber, answers) = validation.Value!;
         var updated = existing with
         {
             Phone = requestPhone,
+            PhysicalCardNumber = physicalCardNumber,
             Answers = answers,
             UpdatedAtUtc = _clock.UtcNow
         };
@@ -168,18 +174,23 @@ public sealed class AdminCustomerProfileService
         return ApplicationResult<CustomerProfileResponse>.Success(ToResponse(updated));
     }
 
-    private static ApplicationResult<(NormalizedPhoneNumber Phone, IReadOnlyList<QuestionnaireAnswer> Answers)> ValidateProfileRequest(
+    private static ApplicationResult<ValidatedProfile> ValidateProfileRequest(
         CustomerProfileRequest? request)
     {
         if (request is null)
         {
-            return ApplicationResult<(NormalizedPhoneNumber, IReadOnlyList<QuestionnaireAnswer>)>.Failure(
+            return ApplicationResult<ValidatedProfile>.Failure(
                 InvalidRequest("Request body is required."));
         }
 
         if (!NormalizedPhoneNumber.TryCreate(request.Phone, out var phone))
         {
-            return ApplicationResult<(NormalizedPhoneNumber, IReadOnlyList<QuestionnaireAnswer>)>.Failure(InvalidPhone());
+            return ApplicationResult<ValidatedProfile>.Failure(InvalidPhone());
+        }
+
+        if (!PhysicalCardNumber.TryCreate(request.PhysicalCardNumber, out var physicalCardNumber))
+        {
+            return ApplicationResult<ValidatedProfile>.Failure(InvalidPhysicalCardNumber());
         }
 
         var answers = request.Answers?.Select(answer => new QuestionnaireInputAnswer(answer.Code, answer.Value));
@@ -187,12 +198,12 @@ public sealed class AdminCustomerProfileService
 
         if (!answersResult.IsValid)
         {
-            return ApplicationResult<(NormalizedPhoneNumber, IReadOnlyList<QuestionnaireAnswer>)>.Failure(
+            return ApplicationResult<ValidatedProfile>.Failure(
                 InvalidProfileAnswers());
         }
 
-        return ApplicationResult<(NormalizedPhoneNumber, IReadOnlyList<QuestionnaireAnswer>)>.Success(
-            (phone, answersResult.Value!));
+        return ApplicationResult<ValidatedProfile>.Success(
+            new ValidatedProfile(phone, physicalCardNumber, answersResult.Value!));
     }
 
     private static int NormalizePageSize(int? pageSize)
@@ -225,6 +236,7 @@ public sealed class AdminCustomerProfileService
     {
         return new CustomerProfileResponse(
             profile.Phone.Value,
+            profile.PhysicalCardNumber.Value,
             profile.Answers
                 .Select(answer => new CustomerProfileAnswerDto(answer.Code, answer.Name, answer.Value))
                 .ToArray(),
@@ -237,6 +249,12 @@ public sealed class AdminCustomerProfileService
 
     private static ApplicationError InvalidPhone() =>
         new(CustomerProfileErrorCodes.InvalidPhone, "Phone is missing or invalid.", HttpStatusCode.BadRequest);
+
+    private static ApplicationError InvalidPhysicalCardNumber() =>
+        new(
+            CustomerProfileErrorCodes.InvalidPhysicalCardNumber,
+            "Physical card number is missing or invalid.",
+            HttpStatusCode.BadRequest);
 
     private static ApplicationError InvalidProfileAnswers() =>
         new(CustomerProfileErrorCodes.InvalidProfileAnswers, "Profile answers are invalid.", HttpStatusCode.BadRequest);
