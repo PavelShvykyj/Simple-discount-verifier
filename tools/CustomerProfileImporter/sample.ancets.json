@@ -1,0 +1,16 @@
+{
+  "ancets": [
+    {
+      "tel": "+38 (050) 123-45-67",
+      "fio": "Ivan Petrenko",
+      "dish": "Pizza Margherita",
+      "birthday": "06.03.1989 0:00:00"
+    },
+    {
+      "tel": "not-a-phone",
+      "fio": "Invalid Phone",
+      "dish": "Borscht",
+      "birthday": ""
+    }
+  ]
+}

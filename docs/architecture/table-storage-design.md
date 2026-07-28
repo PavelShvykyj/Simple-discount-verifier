@@ -70,6 +70,7 @@ Entity:
   "PartitionKey": "phone",
   "RowKey": "380501234567",
   "Phone": "+380501234567",
+  "PhysicalCardNumber": "4820001234565",
   "AnswersJson": "[{\"code\":\"fullName\",\"name\":\"ФИО\",\"value\":\"Ivan Petrenko\"},{\"code\":\"birthDate\",\"name\":\"День рождения\",\"value\":\"1990-04-15\"},{\"code\":\"favoriteDish\",\"name\":\"Любимое блюдо\",\"value\":\"Pizza Margherita\"}]",
   "CreatedAtUtc": "2026-06-16T13:55:00Z",
   "UpdatedAtUtc": "2026-06-16T13:55:00Z"
@@ -83,6 +84,7 @@ Fields:
 | `PartitionKey` | Constant `phone`; groups customer profile rows separately from other tables and keeps lookup simple. |
 | `RowKey` | Normalized phone without `+`; primary lookup key for admin, public redemption, and POS profile lookup. |
 | `Phone` | Normalized display/API phone value with `+`; returned to API clients and POS. |
+| `PhysicalCardNumber` | Required 13-digit EAN-13 string with a valid check digit. Returned to admin clients and POS, but not used as a key or questionnaire answer. |
 | `AnswersJson` | Serialized `answers[]` array with `code`, `name`, `value`; stored as one value because profiles are small and read/written as a whole. |
 | `CreatedAtUtc` | Profile creation time; returned to admin API and useful for support. |
 | `UpdatedAtUtc` | Last profile update time; returned to admin API and useful for support. |
@@ -91,7 +93,8 @@ Why this is optimal for the MVP:
 
 - every required profile lookup is by phone;
 - no separate `ProfileId` is needed;
-- no secondary profile index is needed;
+- no secondary profile index is needed; `PhysicalCardNumber` uniqueness is not
+  enforced by the service;
 - no duplicated profile records need to be kept in sync;
 - create, read, and update are single-row operations.
 

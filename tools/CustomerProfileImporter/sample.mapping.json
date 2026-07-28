@@ -1,0 +1,14 @@
+{
+  "fields": {
+    "tel": "phone",
+    "fio": "fullName",
+    "dish": "favoriteDish",
+    "birthday": "birthDate"
+  },
+  "dateFormats": {
+    "birthDate": [
+      "yyyy-MM-dd",
+      "dd.MM.yyyy H:mm:ss"
+    ]
+  }
+}

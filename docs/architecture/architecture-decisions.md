@@ -185,6 +185,14 @@
 - Discount calculation is owned by the main restaurant application.
 - Web service does not calculate discount amount.
 - Main application lookup key returned by the web service: phone number.
+- Customer profiles contain required top-level system fields `phone` and
+  `physicalCardNumber`; `physicalCardNumber` is a valid EAN-13 string and is not
+  stored in questionnaire `answers[]`.
+- The backend does not enforce uniqueness of `physicalCardNumber`; no auxiliary
+  Azure Table entity, index table, or new API route is introduced for it.
+- Administrators may change `physicalCardNumber`. POS does not synchronize it
+  automatically, but may explicitly repeat the existing customer-profile
+  lookup and update local `КодКарты` and `РучнойКод`.
 - When a customer requests a new one-time barcode while an active barcode exists,
   the web service recreates the barcode and overwrites the active table record.
 - One-time barcode is invalidated immediately after successful validation.

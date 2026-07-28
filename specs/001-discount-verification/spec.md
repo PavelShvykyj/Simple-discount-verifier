@@ -18,6 +18,22 @@
 - Q: What should be the initial limit for invalid SMS code attempts before the redemption flow fails? -> A: 3 attempts per SMS code.
 - Q: What customer-facing behavior should occur when SMS sending fails during redemption? -> A: Show a retryable error and allow requesting SMS again, limited to 1 request per 5 seconds.
 
+### Session 2026-07-28
+
+- Q: Where is the physical discount-card EAN-13 stored? -> A: In required
+  top-level `physicalCardNumber` next to `phone`, not in questionnaire answers.
+- Q: How is `physicalCardNumber` validated? -> A: Exactly 13 digits with a
+  valid EAN-13 check digit; the backend does not enforce uniqueness.
+- Q: Can the number change? -> A: An administrator may change it. POS does not
+  synchronize automatically, but may explicitly repeat the existing profile
+  lookup and update local `КодКарты` and `РучнойКод`.
+- Q: How is the number entered on frontend? -> A: Manually or by scanning with
+  the mobile browser camera using the existing ZXing integration.
+- Q: Are new API routes or Azure indexes required? -> A: No. Existing profile
+  routes and the existing POS profile lookup are extended.
+- Q: How are existing profile rows handled? -> A: The current customer-profile
+  table is cleared and reimported after implementation is ready.
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - Redeem Discount With Verified Phone (Priority: P1)
@@ -57,14 +73,16 @@ validation attempt fails.
 
 An administrator creates a saved customer profile for a customer who has been
 approved to receive a discount, including the phone number that will later
-connect the profile to the discount card in the main restaurant application.
+connect the profile to the discount card in the main restaurant application
+and the EAN-13 number of the physical discount card issued to that customer.
 
 **Why this priority**: Redemption can only work for pre-approved customers, so
 the restaurant needs a simple way to record eligible customers before payment.
 
-**Independent Test**: Create a customer profile with a phone number, confirm it
-is saved without SMS verification during profile creation, and use that phone
-number to start the redemption flow.
+**Independent Test**: Create a customer profile with a phone number and a valid
+physical-card EAN-13, confirm both system fields are saved outside questionnaire
+answers without SMS verification, and use that phone number to start the
+redemption flow.
 
 **Acceptance Scenarios**:
 
@@ -74,6 +92,12 @@ number to start the redemption flow.
 2. **Given** an administrator is creating or updating a profile, **When** they
    save the phone number, **Then** the system does not require SMS verification
    during profile creation in the initial release.
+3. **Given** an administrator enters or scans a physical-card number, **When**
+   they save the profile, **Then** the system accepts exactly 13 digits only
+   when the EAN-13 check digit is valid.
+4. **Given** an administrator edits a saved profile, **When** they enter another
+   valid physical-card number, **Then** the saved `physicalCardNumber` is
+   replaced without changing the phone-based profile identity.
 
 ---
 
@@ -144,6 +168,9 @@ phone hash where appropriate.
 ### Edge Cases
 
 - Customer mistypes a phone number on a mobile keyboard.
+- Administrator manually enters an invalid physical-card EAN-13.
+- Mobile browser camera permission is denied or EAN-13 cannot be recognized;
+  manual entry remains available.
 - Customer submits a phone number for which no saved profile exists.
 - SMS send fails or is delayed; the customer sees a retryable error, but SMS
   requests are limited to 1 request per 5 seconds.
@@ -176,6 +203,15 @@ phone hash where appropriate.
 - **FR-002a**: Phone numbers MUST be entered in a format accepted in Ukraine,
   and customer profile forms MUST validate that the telephone number is entered
   correctly before saving.
+- **FR-002b**: A customer profile MUST include `physicalCardNumber` as a
+  top-level system field next to `phone`, not as a questionnaire answer.
+- **FR-002c**: `physicalCardNumber` MUST be a string of exactly 13 digits with a
+  valid EAN-13 check digit.
+- **FR-002d**: Administrators MUST be able to enter `physicalCardNumber`
+  manually or scan it with the mobile browser camera and MUST be able to change
+  it later.
+- **FR-002e**: The backend MUST NOT introduce a uniqueness index or reject a
+  valid `physicalCardNumber` because another profile stores the same value.
 - **FR-003**: The initial release MUST NOT require SMS verification during
   administrator-managed profile creation.
 - **FR-004**: The initial release MUST NOT include complex customer profile
@@ -249,6 +285,17 @@ phone hash where appropriate.
   the discount card and calculating the discount amount.
 - **FR-027**: The discount verification service MUST NOT calculate the discount
   amount.
+- **FR-027a**: Existing customer-profile API routes MUST carry
+  `physicalCardNumber`; no new route is required for this field or for
+  browser-camera scanning.
+- **FR-027b**: POS MUST write `physicalCardNumber` to both `КодКарты` and
+  `РучнойКод` when it creates a local card.
+- **FR-027c**: POS MUST continue to find the local card by phone through
+  questionnaire data and MUST NOT treat `physicalCardNumber` as a questionnaire
+  answer.
+- **FR-027d**: POS MAY explicitly repeat the existing customer-profile lookup
+  and update both local card-code fields after `physicalCardNumber` changes;
+  automatic profile synchronization is not required.
 - **FR-028**: The system MUST log important business events from customer profile
   creation through SMS verification, barcode issue, validation, failure,
   expiration, and invalidation.
@@ -279,9 +326,11 @@ phone hash where appropriate.
 ### Key Entities *(include if feature involves data)*
 
 - **Customer Profile**: A saved record that represents a customer pre-approved
-  for a discount. It includes at least a correctly validated phone number in a
-  Ukraine-accepted format and profile data entered by an administrator. In the
-  initial release, it has no complex workflow state.
+  for a discount. It includes a correctly validated phone number in a
+  Ukraine-accepted format, a required editable physical-card EAN-13 in
+  `physicalCardNumber`, and questionnaire data entered by an administrator.
+  The two system fields are outside questionnaire answers. In the initial
+  release, the profile has no complex workflow state.
 - **SMS Verification**: A short-lived verification challenge sent to the
   customer-entered phone number during discount redemption.
 - **One-Time Discount Code**: A random, short-lived, single-use code generated
@@ -306,6 +355,8 @@ phone hash where appropriate.
   customer profiles stop before SMS sending and barcode issuance.
 - **SC-002a**: 100% of customer profile saves reject missing, incomplete, or
   incorrectly formatted Ukrainian phone numbers with a clear validation message.
+- **SC-002b**: 100% of customer profile saves reject missing, non-13-digit, or
+  checksum-invalid `physicalCardNumber` values with a clear validation message.
 - **SC-003**: 100% of successfully validated one-time codes fail when validated a
   second time.
 - **SC-004**: 100% of expired, unknown, invalid, or already used one-time codes
@@ -337,8 +388,11 @@ phone hash where appropriate.
   desktop support is secondary.
 - Administrators are restaurant employees or managers who maintain customer
   profiles.
-- The final customer profile field list is not fixed yet, but a correctly
-  validated Ukrainian phone number is mandatory for the initial release.
+- The profile has required top-level system fields `phone` and
+  `physicalCardNumber`; the questionnaire remains full name, birth date, and
+  favorite dish.
+- Duplicate `physicalCardNumber` values are operationally undesirable, but the
+  service does not enforce uniqueness.
 - The main restaurant application can distinguish standard EAN13 discount cards
   from web-generated one-time codes after the final barcode format is agreed.
 - The main restaurant application remains the owner of discount card lookup,

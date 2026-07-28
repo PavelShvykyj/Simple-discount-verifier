@@ -5,6 +5,9 @@
 - Created by an administrator.
 - Stored as the source of pre-approved discount eligibility.
 - Identified for integration primarily by phone number.
+- Contains required top-level system fields `phone` and `physicalCardNumber`.
+- `physicalCardNumber` is an editable EAN-13 value used when POS creates or
+  explicitly updates the local discount card; it is not a questionnaire answer.
 - Has no workflow state in the initial release.
 
 ## SMS Verification
