@@ -336,6 +336,7 @@ public sealed class AdminSupportService
     private static CustomerProfileResponse ToCustomerProfileResponse(CustomerProfileRecord profile) =>
         new(
             profile.Phone.Value,
+            profile.PhysicalCardNumber.Value,
             profile.Answers
                 .Select(answer => new CustomerProfileAnswerDto(answer.Code, answer.Name, answer.Value))
                 .ToArray(),

@@ -1,6 +1,7 @@
 {
   "fields": {
     "tel": "phone",
+    "PhysicalCardNumber": "physicalCardNumber",
     "fio": "fullName",
     "dish": "favoriteDish",
     "birthday": "birthDate"

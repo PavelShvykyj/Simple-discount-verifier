@@ -1,5 +1,6 @@
 {
   "fields": {
+    "PhysicalCardNumber": "physicalCardNumber",
     "_1": "fullName",
     "_2": "phone",
     "_3": "favoriteDish",

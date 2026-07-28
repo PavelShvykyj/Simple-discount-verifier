@@ -46,9 +46,9 @@
 
 | Field | Value |
 | --- | --- |
-| Current phase | Решения и документация зафиксированы; реализация не начата |
-| Backend/API | `todo` |
-| Importer | `todo` |
+| Current phase | PCN-02 завершен; следующий пункт — PCN-03 |
+| Backend/API | `done` |
+| Importer | `done` |
 | Frontend | `todo` |
 | POS/1C | `todo` |
 | Azure reset/reimport | `todo` |
@@ -58,8 +58,8 @@
 | ID | Task | Status | Dependencies | Evidence |
 | --- | --- | --- | --- | --- |
 | PCN-00 | Зафиксировать требования и обновить действующие документы | `done` | none | Этот документ и связанные документы, обновленные 2026-07-28 |
-| PCN-01 | Backend, storage и существующие API | `todo` | PCN-00 | |
-| PCN-02 | JSON CustomerProfileImporter | `todo` | PCN-01 shared validation/storage contract | |
+| PCN-01 | Backend, storage и существующие API | `done` | PCN-00 | 2026-07-28: backend build — 0 warnings/errors; EAN-13 check и in-memory smoke для create/read/list/update, invalid values, storage round-trip, support inspect, POS lookup, JSON и audit — passed |
+| PCN-02 | JSON CustomerProfileImporter | `done` | PCN-01 shared validation/storage contract | 2026-07-28: build — 0 warnings/errors; sample dry-run — 1 valid, 2 skipped; `vopac.json` dry-run — 73 total, 69 valid, 4 skipped, 0 writes |
 | PCN-03 | FE: ручной ввод и камера | `todo` | PCN-01 API contract | |
 | PCN-04 | POS/1C: создание и явное обновление карты | `todo` | PCN-01 POS response contract | |
 | PCN-05 | Очистка, повторный импорт и end-to-end проверка | `todo` | PCN-01..PCN-04 | |

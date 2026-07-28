@@ -4,6 +4,7 @@ namespace SimpleDiscountVerifier.Api.Contracts.Admin;
 
 public sealed record CustomerProfileRequest(
     [property: JsonPropertyName("phone")] string? Phone,
+    [property: JsonPropertyName("physicalCardNumber")] string? PhysicalCardNumber,
     [property: JsonPropertyName("answers")] IReadOnlyList<CustomerProfileAnswerRequest>? Answers);
 
 public sealed record CustomerProfileAnswerRequest(

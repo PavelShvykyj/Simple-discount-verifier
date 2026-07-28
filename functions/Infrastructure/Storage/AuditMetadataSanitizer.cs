@@ -6,6 +6,7 @@ internal static class AuditMetadataSanitizer
     {
         "phone",
         "rawPhone",
+        "physicalCardNumber",
         "smsCode",
         "barcodeValue",
         "requestBody"

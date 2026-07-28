@@ -12,6 +12,7 @@ internal static class StorageConstants
     public static class Properties
     {
         public const string Phone = "Phone";
+        public const string PhysicalCardNumber = "PhysicalCardNumber";
         public const string AnswersJson = "AnswersJson";
         public const string CreatedAtUtc = "CreatedAtUtc";
         public const string UpdatedAtUtc = "UpdatedAtUtc";

@@ -12,18 +12,12 @@ tools/CustomerProfileImporter
 The importer writes customer profile rows to the `CustomerProfiles` table. It
 expects JSON with the `ancets` array:
 
-The approved profile contract now also requires top-level
-`physicalCardNumber`. Importer support for mapping and validating that field is
-tracked as `PCN-02` in
-`docs/architecture/physical-card-number-implementation-plan.md` and is not yet
-implemented. Do not use the current importer for the post-change reload until
-that task is completed.
-
 ```json
 {
   "ancets": [
     {
       "tel": "+38 (050) 123-45-67",
+      "PhysicalCardNumber": "4820001234565",
       "fio": "Ivan Petrenko",
       "dish": "Pizza Margherita"
     }
@@ -31,12 +25,13 @@ that task is completed.
 }
 ```
 
-Source-to-questionnaire mapping is configured in a separate JSON file:
+Source-to-profile mapping is configured in a separate JSON file:
 
 ```json
 {
   "fields": {
     "tel": "phone",
+    "PhysicalCardNumber": "physicalCardNumber",
     "fio": "fullName",
     "dish": "favoriteDish",
     "birthday": "birthDate"
@@ -55,13 +50,16 @@ Mapping rules:
 | Source field | Meaning |
 | --- | --- |
 | Any string key mapped to `phone` | Customer phone. The importer normalizes Ukrainian phones and skips rows that cannot be normalized. |
+| Any string key mapped to `physicalCardNumber` | Required physical discount-card number. Must be a valid 13-digit EAN-13 value. |
 | Any string key mapped to `fullName` | Full name. Required by the current questionnaire. |
 | Any string key mapped to `birthDate` | Birth date. Optional, must use `YYYY-MM-DD` when present. |
 | Any string key mapped to `favoriteDish` | Favorite dish. Optional. |
 
-The mapping must contain exactly one source key mapped to `phone`. Unmapped
-source fields are ignored. Optional questionnaire fields missing from the
-mapping are stored as empty optional answers.
+The mapping must contain exactly one source key mapped to `phone` and exactly
+one source key mapped to `physicalCardNumber`. These are system fields and are
+not stored in questionnaire `answers[]`. Unmapped source fields are ignored.
+Optional questionnaire fields missing from the mapping are stored as empty
+optional answers.
 
 When source dates are not already in `YYYY-MM-DD`, configure `dateFormats` for
 the target questionnaire code. Matching dates are normalized to `YYYY-MM-DD`
@@ -95,6 +93,7 @@ The POS mapping file maps:
 
 | POS source field | Target |
 | --- | --- |
+| `PhysicalCardNumber` | `physicalCardNumber` |
 | `_1` | `fullName` |
 | `_2` | `phone` |
 | `_3` | `favoriteDish` |
