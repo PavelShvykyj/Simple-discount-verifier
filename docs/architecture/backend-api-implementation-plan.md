@@ -431,6 +431,24 @@ logic:
 предыдущих задач должен быть написан так, чтобы эти проверки были простыми и
 не требовали реального Azure Storage или SMS provider.
 
+### BE-16. Admin Profile Phone Confirmation SMS
+
+Реализовать stateless endpoint:
+
+```text
+POST /api/backoffice/customer-profiles/activation-code-sms
+```
+
+- защитить существующим SWA-правилом `/api/backoffice/*` с ролью `admin`;
+- принимать только нормализуемый украинский телефон и две ASCII-цифры;
+- отправлять фиксированный SMS-текст через существующий `ISmsSender`;
+- возвращать пустой `202 Accepted`;
+- не хранить код, challenge, результат проверки, черновик анкеты или audit
+  event.
+
+Frontend генерирует код, сохраняет его только на время заполнения формы и
+локально разрешает создание анкеты после совпадения.
+
 ## 5. Что Не Входит В Этот План
 
 - Frontend UI implementation, кроме контрактных ожиданий.

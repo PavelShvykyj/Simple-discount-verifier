@@ -197,4 +197,12 @@
   the web service recreates the barcode and overwrites the active table record.
 - One-time barcode is invalidated immediately after successful validation.
 - Customer profile has no complex workflow state.
-- SMS verification during profile creation is out of scope for initial release.
+- Customer profile creation uses an operational phone-confirmation guard in the
+  admin frontend. The frontend generates one two-digit code per entered phone,
+  sends only `{ phone, code }` through the admin-only
+  `/api/backoffice/customer-profiles/activation-code-sms` endpoint, and permits
+  profile creation only after a local match.
+- The activation endpoint is stateless: it validates the phone and code, sends
+  the SMS through the existing provider, and stores no challenge or verification
+  result. Changing the phone clears the frontend confirmation state; edit mode
+  does not require confirmation.

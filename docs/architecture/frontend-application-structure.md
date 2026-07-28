@@ -460,6 +460,14 @@ baseline. Its manual entry, mobile-camera scan, validation, and API changes are
 tracked separately as `PCN-03` in
 `docs/architecture/physical-card-number-implementation-plan.md`.
 
+Admin profile phone confirmation is implemented as another PR-4 extension.
+Create mode generates and retains one two-digit code for the entered phone,
+sends `{ phone, code }` through the admin-only activation endpoint, and blocks
+profile creation until the locally entered code matches. A confirmed phone
+disables code sending, hides the instruction and OTP input, and shows an
+accessible success icon inside the phone input. Editing the phone resets the
+confirmation flow; profile edit mode remains unchanged.
+
 ### PR-5. Admin Service Inspect And Health
 
 Scope:
