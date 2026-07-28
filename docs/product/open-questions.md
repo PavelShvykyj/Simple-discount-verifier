@@ -6,6 +6,10 @@
 2. Customer profile fields:
    - Decided for MVP in `docs/architecture/api-contract.md`.
    - One phone number represents one person and one profile.
+   - Required top-level system fields are `phone` and `physicalCardNumber`.
+   - `physicalCardNumber` is a valid EAN-13 string, editable by an
+     administrator, and is not part of questionnaire `answers[]`.
+   - The backend does not enforce uniqueness of `physicalCardNumber`.
    - Profile questionnaire fields are full name, birth date, and favorite dish.
    - Questionnaire answers are exchanged as `code`, `name`, `value`; answer
      type and questionnaire versions are not part of the MVP API/storage model.

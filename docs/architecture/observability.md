@@ -16,7 +16,8 @@ This document fixes the production-pilot observability baseline.
 - Do not send business event payloads to Application Insights. Store those
   events in `AuditEvents`.
 - Do not send raw request bodies, SMS codes, barcode values, raw phone numbers,
-  or other sensitive customer data to Application Insights.
+  physical discount-card numbers, or other sensitive customer data to
+  Application Insights.
 - Use hashed or opaque identifiers where technical diagnosis needs an identifier.
 - Include the current `correlationId` in Application Insights telemetry whenever
   one exists, so operational telemetry can be matched with `AuditEvents`.

@@ -38,6 +38,14 @@ Storage implementation details are fixed in
 - One phone number represents one person and one customer profile.
 - `phone` is a system field. It is stored separately because it is used for
   uniqueness, SMS verification, lookup, and `phoneHash`.
+- `physicalCardNumber` is a required system field stored next to `phone`. It is
+  a string of exactly 13 digits with a valid EAN-13 check digit.
+- `physicalCardNumber` is not a questionnaire answer, is editable by an
+  administrator, and is not used as the profile storage key or phone lookup key.
+- The backend validates the EAN-13 format but does not enforce uniqueness of
+  `physicalCardNumber`.
+- Raw `physicalCardNumber` must not be added to audit metadata or operational
+  telemetry.
 - The profile questionnaire is not versioned in the MVP.
 - The profile questionnaire does not store or expose field `type`.
 - The current questionnaire fields are stable and approved for the MVP:
@@ -283,6 +291,7 @@ Request body:
 ```json
 {
   "phone": "+380501234567",
+  "physicalCardNumber": "4820001234565",
   "answers": [
     {
       "code": "fullName",
@@ -305,6 +314,7 @@ Fields:
 | Field | Type | Required | Description |
 | --- | --- | --- | --- |
 | `phone` | string | yes | Customer phone number. Must be accepted and normalized as a Ukrainian phone number. |
+| `physicalCardNumber` | string | yes | Physical discount-card number. Must contain exactly 13 digits and have a valid EAN-13 check digit. |
 | `answers` | array | yes | Questionnaire answers. |
 | `answers[].code` | string | yes | One of the allowed questionnaire field codes: `fullName`, `birthDate`, `favoriteDish`. |
 | `answers[].value` | string/null | yes | Answer value. Empty optional values may be omitted or sent as `null`. |
@@ -319,6 +329,7 @@ Content-Type: application/json
 ```json
 {
   "phone": "+380501234567",
+  "physicalCardNumber": "4820001234565",
   "answers": [
     {
       "code": "fullName",
@@ -344,6 +355,8 @@ Content-Type: application/json
 Expected errors:
 
 - `400 invalid_phone`: phone is missing or invalid.
+- `400 invalid_physical_card_number`: `physicalCardNumber` is missing or is
+  not a valid EAN-13 value.
 - `400 invalid_profile_answers`: required answers are missing, an answer code
   is unknown, or an answer value has an invalid format.
 - `409 duplicate_profile`: a profile already exists for the normalized phone.
@@ -354,6 +367,7 @@ Notes:
 - No customer profile workflow status is stored in the MVP. A profile exists
   and is saved, or it does not exist.
 - The backend stores one profile per normalized phone number.
+- The backend does not enforce uniqueness of `physicalCardNumber`.
 - The normalized phone key is the storage identity of the profile. The MVP does
   not create a separate `profileId`.
 - The backend does not store questionnaire versions or answer types.
@@ -381,6 +395,7 @@ Success response:
   "items": [
     {
       "phone": "+380501234567",
+      "physicalCardNumber": "4820001234565",
       "answers": [
         {
           "code": "fullName",
@@ -419,6 +434,7 @@ Success response:
 ```json
 {
   "phone": "+380501234567",
+  "physicalCardNumber": "4820001234565",
   "answers": [
     {
       "code": "fullName",
@@ -465,6 +481,7 @@ Request body:
 ```json
 {
   "phone": "+380501234567",
+  "physicalCardNumber": "4820001234565",
   "answers": [
     {
       "code": "fullName",
@@ -487,6 +504,7 @@ Success response:
 ```json
 {
   "phone": "+380501234567",
+  "physicalCardNumber": "4820001234565",
   "answers": [
     {
       "code": "fullName",
@@ -512,6 +530,8 @@ Success response:
 Expected errors:
 
 - `400 invalid_phone`: supplied phone is invalid.
+- `400 invalid_physical_card_number`: `physicalCardNumber` is missing or is
+  not a valid EAN-13 value.
 - `400 invalid_profile_answers`: required answers are missing, an answer code
   is unknown, or an answer value has an invalid format.
 - `404 profile_not_found`: profile does not exist for the path phone.
@@ -582,6 +602,7 @@ Response:
   },
   "profile": {
     "phone": "+380501234567",
+    "physicalCardNumber": "4820001234565",
     "answers": [
       {
         "code": "fullName",
@@ -843,6 +864,11 @@ it needs to fetch a saved profile by phone, most commonly after this sequence:
 4. POS does not find a local discount card/customer questionnaire and needs the
    saved profile data from this service to create or complete the local record.
 
+POS may also call the same endpoint explicitly when it needs to refresh an
+already-created local card after an administrator changes
+`physicalCardNumber`. This is not automatic synchronization and does not require
+a separate API route.
+
 Authentication is the same HMAC scheme as
 `POST /api/pos/barcodes/validate`.
 
@@ -883,6 +909,7 @@ Content-Type: application/json
   "found": true,
   "profile": {
     "phone": "+380501234567",
+    "physicalCardNumber": "4820001234565",
     "answers": [
       {
         "code": "fullName",
@@ -911,6 +938,7 @@ Response fields:
 | --- | --- | --- |
 | `found` | boolean | `true` when a saved profile exists for the phone. |
 | `profile.phone` | string | Normalized phone number. |
+| `profile.physicalCardNumber` | string | Physical discount-card EAN-13. POS writes it to `КодКарты` and `РучнойКод` when creating or explicitly updating the local card. |
 | `profile.answers` | array | Questionnaire answers in POS-compatible `code`, `name`, `value` form. |
 | `profile.answers[].code` | string | Stable answer code. |
 | `profile.answers[].name` | string | Human-readable questionnaire item name. |
@@ -1163,9 +1191,12 @@ Common HTTP meanings:
   phone, SMS, and barcode screens.
 - Staff UI lives under `/admin`: customer-profile work under
   `/admin/customers/*` and service tools under `/admin/service/*`.
-- Admin customer profile forms should render the current fixed questionnaire
-  fields from a small frontend field definition list: phone, full name, birth
-  date, and favorite dish.
+- Admin customer profile forms should render top-level system fields `phone`
+  and `physicalCardNumber` separately from the fixed questionnaire fields:
+  full name, birth date, and favorite dish.
+- The admin form supports manual EAN-13 entry and camera scanning in the mobile
+  browser. Scanning is frontend-only and uses the existing ZXing integration;
+  it does not add a backend endpoint.
 - The frontend sends profile answers as `code` and `value`; it does not send
   answer `name` or `type`.
 - POS integration endpoints are not called by the Angular frontend.

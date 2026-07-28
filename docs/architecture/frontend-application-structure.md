@@ -455,6 +455,11 @@ Verification:
 - mobile viewport checks for create/edit forms;
 - lint and build.
 
+The later physical-card-number extension is not part of the completed PR-4
+baseline. Its manual entry, mobile-camera scan, validation, and API changes are
+tracked separately as `PCN-03` in
+`docs/architecture/physical-card-number-implementation-plan.md`.
+
 ### PR-5. Admin Service Inspect And Health
 
 Scope:

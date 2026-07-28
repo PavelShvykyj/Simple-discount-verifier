@@ -12,6 +12,13 @@ tools/CustomerProfileImporter
 The importer writes customer profile rows to the `CustomerProfiles` table. It
 expects JSON with the `ancets` array:
 
+The approved profile contract now also requires top-level
+`physicalCardNumber`. Importer support for mapping and validating that field is
+tracked as `PCN-02` in
+`docs/architecture/physical-card-number-implementation-plan.md` and is not yet
+implemented. Do not use the current importer for the post-change reload until
+that task is completed.
+
 ```json
 {
   "ancets": [
