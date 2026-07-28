@@ -1,6 +1,7 @@
 using System.Net;
 using SimpleDiscountVerifier.Api.Application.Audit;
 using SimpleDiscountVerifier.Api.Application.Common;
+using SimpleDiscountVerifier.Api.Application.Sms;
 using SimpleDiscountVerifier.Api.Contracts.Admin;
 using SimpleDiscountVerifier.Api.Domain.CustomerProfiles;
 using SimpleDiscountVerifier.Api.Domain.Redemptions;
@@ -12,6 +13,7 @@ public sealed class AdminCustomerProfileService
 {
     private const int DefaultPageSize = 50;
     private const int MaxPageSize = 100;
+    private const string ActivationSmsMessagePrefix = "Код підтвердження телефону:";
 
     private sealed record ValidatedProfile(
         NormalizedPhoneNumber Phone,
@@ -21,15 +23,48 @@ public sealed class AdminCustomerProfileService
     private readonly ICustomerProfileRepository _profiles;
     private readonly IAuditWriter _auditWriter;
     private readonly IClock _clock;
+    private readonly ISmsSender _smsSender;
 
     public AdminCustomerProfileService(
         ICustomerProfileRepository profiles,
         IAuditWriter auditWriter,
-        IClock clock)
+        IClock clock,
+        ISmsSender smsSender)
     {
         _profiles = profiles;
         _auditWriter = auditWriter;
         _clock = clock;
+        _smsSender = smsSender;
+    }
+
+    public async Task<ApplicationResult<bool>> SendActivationCodeSmsAsync(
+        CustomerProfileActivationSmsRequest? request,
+        CancellationToken cancellationToken)
+    {
+        if (request is null)
+        {
+            return ApplicationResult<bool>.Failure(
+                InvalidRequest("Request body is required."));
+        }
+
+        if (!NormalizedPhoneNumber.TryCreate(request.Phone, out var phone))
+        {
+            return ApplicationResult<bool>.Failure(InvalidPhone());
+        }
+
+        if (!IsTwoDigitActivationCode(request.Code))
+        {
+            return ApplicationResult<bool>.Failure(
+                InvalidRequest("Activation code must contain exactly two digits."));
+        }
+
+        var sendResult = await _smsSender.SendAsync(
+            new SmsSendRequest(phone, $"{ActivationSmsMessagePrefix} {request.Code}"),
+            cancellationToken);
+
+        return sendResult.Accepted
+            ? ApplicationResult<bool>.Success(true)
+            : ApplicationResult<bool>.Failure(SmsSendFailed());
     }
 
     public async Task<ApplicationResult<CustomerProfileResponse>> CreateAsync(
@@ -216,6 +251,11 @@ public sealed class AdminCustomerProfileService
         return Math.Min(pageSize.Value, MaxPageSize);
     }
 
+    private static bool IsTwoDigitActivationCode(string? code) =>
+        code is { Length: 2 }
+        && code[0] is >= '0' and <= '9'
+        && code[1] is >= '0' and <= '9';
+
     private async Task WriteProfileAuditAsync(
         string eventType,
         NormalizedPhoneNumber phone,
@@ -258,6 +298,12 @@ public sealed class AdminCustomerProfileService
 
     private static ApplicationError InvalidProfileAnswers() =>
         new(CustomerProfileErrorCodes.InvalidProfileAnswers, "Profile answers are invalid.", HttpStatusCode.BadRequest);
+
+    private static ApplicationError SmsSendFailed() =>
+        new(
+            CustomerProfileErrorCodes.SmsSendFailed,
+            "SMS provider failed or did not accept the message.",
+            HttpStatusCode.BadGateway);
 
     private static ApplicationError DuplicateProfile() =>
         new(CustomerProfileErrorCodes.DuplicateProfile, "A profile already exists for this phone.", HttpStatusCode.Conflict);

@@ -60,6 +60,7 @@ describe('AdminCustomerProfilesApi', () => {
 
     api.updateByPhone('+380501234567', {
       phone: '+380501234567',
+      physicalCardNumber: '4820001234565',
       answers: [{ code: 'fullName', value: 'Олена Коваленко' }],
     });
 
@@ -67,6 +68,7 @@ describe('AdminCustomerProfilesApi', () => {
       '/api/backoffice/customer-profiles/by-phone/%2B380501234567',
       {
         phone: '+380501234567',
+        physicalCardNumber: '4820001234565',
         answers: [{ code: 'fullName', value: 'Олена Коваленко' }],
       },
     );
@@ -75,6 +77,7 @@ describe('AdminCustomerProfilesApi', () => {
   it('creates profiles using the approved backoffice endpoint and payload shape', () => {
     const request = {
       phone: '+380501234567',
+      physicalCardNumber: '4820001234565',
       answers: [
         { code: 'fullName', value: 'Олена Коваленко' },
         { code: 'birthDate', value: '1990-04-15' },
@@ -85,5 +88,19 @@ describe('AdminCustomerProfilesApi', () => {
     api.create(request);
 
     expect(http.post).toHaveBeenCalledWith('/api/backoffice/customer-profiles', request);
+  });
+
+  it('sends only the phone and two-digit activation code', () => {
+    const request = {
+      phone: '+380501234567',
+      code: '07',
+    };
+
+    api.sendActivationCodeSms(request);
+
+    expect(http.post).toHaveBeenCalledWith(
+      '/api/backoffice/customer-profiles/activation-code-sms',
+      request,
+    );
   });
 });

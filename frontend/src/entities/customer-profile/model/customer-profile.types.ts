@@ -11,6 +11,7 @@ export interface CustomerProfileAnswerInput {
 
 export interface CustomerProfile {
   readonly phone: string;
+  readonly physicalCardNumber: string;
   readonly answers: readonly CustomerProfileAnswer[];
   readonly createdAt: string;
   readonly updatedAt: string;
@@ -18,7 +19,13 @@ export interface CustomerProfile {
 
 export interface CustomerProfileUpsertRequest {
   readonly phone: string;
+  readonly physicalCardNumber: string;
   readonly answers: readonly CustomerProfileAnswerInput[];
+}
+
+export interface ActivationCodeSmsRequest {
+  readonly phone: string;
+  readonly code: string;
 }
 
 export interface CustomerProfileListResponse {

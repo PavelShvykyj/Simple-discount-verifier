@@ -10,6 +10,18 @@
   explicitly updates the local discount card; it is not a questionnaire answer.
 - Has no workflow state in the initial release.
 
+## Administrator Profile Phone Confirmation
+
+- Exists only while the administrator create form is open.
+- The frontend generates one two-character decimal code for the current phone
+  and reuses it for retry/resend.
+- The backend receives only the normalized phone and code, relays a fixed SMS,
+  and stores no challenge or verification result.
+- Changing the phone, resetting or closing the form, or reloading the page
+  clears the local confirmation.
+- This flow creates no audit event or Azure Table entity and does not change the
+  public redemption SMS lifecycle below.
+
 ## SMS Verification
 
 - Created only after a customer enters a phone number that has a saved profile.

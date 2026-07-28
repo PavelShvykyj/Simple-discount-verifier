@@ -13,13 +13,17 @@ import {
 import {
   IonButton,
   IonButtons,
+  IonCard,
+  IonCardContent,
   IonCol,
   IonContent,
   IonGrid,
   IonHeader,
   IonIcon,
   IonInput,
+  IonInputOtp,
   IonList,
+  IonNote,
   IonRow,
   IonSpinner,
   IonTextarea,
@@ -29,11 +33,12 @@ import {
   ModalController,
 } from '@ionic/angular/standalone';
 import { addIcons } from 'ionicons';
-import { closeOutline } from 'ionicons/icons';
+import { barcodeOutline, checkmarkCircle, closeOutline } from 'ionicons/icons';
 import { take } from 'rxjs';
 
 import { AdminCustomerProfilesApi } from '../../../entities/customer-profile/api/admin-customer-profiles.api';
 import { CUSTOMER_PROFILE_FORM_CONFIG } from '../../../entities/customer-profile/model/customer-profile-form.config';
+import { isValidPhysicalCardNumber } from '../../../entities/customer-profile/model/physical-card-number';
 import {
   CustomerProfile,
   CustomerProfileFieldConfig,
@@ -60,7 +65,12 @@ type CustomerProfileFormCanDismissRegister = (handler: () => Promise<boolean>) =
 const UKRAINIAN_PHONE_BODY_LENGTH = 9;
 const PHONE_BODY_INVALID_MESSAGE = 'Введіть 9 цифр номера після +380.';
 const PHONE_NOT_UKRAINIAN_MESSAGE = 'Введіть український номер телефону.';
+const PHYSICAL_CARD_NUMBER_REQUIRED_MESSAGE = 'Введіть номер фізичної картки.';
+const PHYSICAL_CARD_NUMBER_INVALID_MESSAGE =
+  'Введіть 13 цифр EAN-13 із правильною контрольною цифрою.';
 const SAVE_ERROR_MESSAGE = 'Не вдалося зберегти анкету.';
+const ACTIVATION_SMS_ERROR_MESSAGE = 'Не вдалося надіслати код.';
+const ACTIVATION_CODE_LENGTH = 2;
 
 interface CustomerProfileFormFieldView {
   readonly config: CustomerProfileFieldConfig;
@@ -76,13 +86,17 @@ interface CustomerProfileFormFieldView {
     DisabledButtonColorDirective,
     IonButton,
     IonButtons,
+    IonCard,
+    IonCardContent,
     IonCol,
     IonContent,
     IonGrid,
     IonHeader,
     IonIcon,
     IonInput,
+    IonInputOtp,
     IonList,
+    IonNote,
     IonRow,
     IonSpinner,
     IonTextarea,
@@ -104,11 +118,27 @@ export class CustomerProfileFormComponent {
   private readonly modeState = signal<CustomerProfileFormMode>('create');
   private readonly presentationState = signal<CustomerProfileFormPresentation>('page');
   private readonly profileState = signal<CustomerProfile | null>(null);
+  private readonly activationCodeCandidate = signal<string | null>(null);
   private hasSavedChanges = false;
   private hasCanDismissHost = false;
 
   constructor() {
-    addIcons({ closeOutline });
+    addIcons({ barcodeOutline, checkmarkCircle, closeOutline });
+
+    this.phoneControl.valueChanges
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe(() => this.resetActivationCode());
+    this.activationCodeControl.valueChanges
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe((value) => {
+        const normalizedCode = String(value ?? '')
+          .replace(/\D/g, '')
+          .slice(0, ACTIVATION_CODE_LENGTH);
+
+        if (normalizedCode !== value) {
+          this.activationCodeControl.setValue(normalizedCode, { emitEvent: false });
+        }
+      });
   }
 
   protected readonly title = computed(() =>
@@ -118,7 +148,10 @@ export class CustomerProfileFormComponent {
     this.modeState() === 'create' ? 'Створити' : 'Зберегти',
   );
   protected readonly isModalPresentation = computed(() => this.presentationState() === 'modal');
+  protected readonly isCreateMode = computed(() => this.modeState() === 'create');
   protected readonly isSaving = signal(false);
+  protected readonly isSendingActivationCode = signal(false);
+  protected readonly isActivationCodeSent = signal(false);
 
   protected readonly phoneControl = new FormControl('', {
     nonNullable: true,
@@ -131,11 +164,26 @@ export class CustomerProfileFormComponent {
   private readonly phoneControlEvent = toSignal(
     this.phoneControl.events.pipe(takeUntilDestroyed(this.destroyRef)),
   );
+  protected readonly activationCodeControl = new FormControl('', {
+    nonNullable: true,
+    validators: [Validators.required, Validators.pattern(/^\d{2}$/)],
+  });
+  private readonly activationCodeControlEvent = toSignal(
+    this.activationCodeControl.events.pipe(takeUntilDestroyed(this.destroyRef)),
+  );
+  protected readonly physicalCardNumberControl = new FormControl('', {
+    nonNullable: true,
+    validators: [requiredTrimmedValidator, physicalCardNumberValidator],
+  });
+  private readonly physicalCardNumberControlEvent = toSignal(
+    this.physicalCardNumberControl.events.pipe(takeUntilDestroyed(this.destroyRef)),
+  );
   private readonly answerControls = createAnswerControls();
 
   protected readonly answerForm = new FormGroup(this.answerControls);
   protected readonly profileForm = new FormGroup({
     phone: this.phoneControl,
+    physicalCardNumber: this.physicalCardNumberControl,
     answers: this.answerForm,
   });
   private readonly profileFormEvent = toSignal(
@@ -173,14 +221,74 @@ export class CustomerProfileFormComponent {
 
     return getPhoneErrorText(this.phoneControl);
   });
+  protected readonly isPhysicalCardNumberTouched = computed(
+    () =>
+      this.physicalCardNumberControlEvent()?.source.touched ??
+      this.physicalCardNumberControl.touched,
+  );
+  protected readonly shouldShowPhysicalCardNumberError = computed(
+    () => this.isPhysicalCardNumberTouched() && this.physicalCardNumberControl.invalid,
+  );
+  protected readonly physicalCardNumberErrorText = computed(() => {
+    this.physicalCardNumberControlEvent();
+
+    return getPhysicalCardNumberErrorText(this.physicalCardNumberControl);
+  });
+  protected readonly isActivationCodeMatched = computed(() => {
+    this.activationCodeControlEvent();
+
+    return (
+      this.isActivationCodeSent() &&
+      this.activationCodeCandidate() !== null &&
+      this.activationCodeControl.value === this.activationCodeCandidate()
+    );
+  });
+  protected readonly isActivationCodeMismatch = computed(() => {
+    this.activationCodeControlEvent();
+
+    return (
+      this.isActivationCodeSent() &&
+      this.activationCodeControl.valid &&
+      this.activationCodeControl.value.length === ACTIVATION_CODE_LENGTH &&
+      !this.isActivationCodeMatched()
+    );
+  });
+  protected readonly canSendActivationCode = computed(() => {
+    this.phoneControlEvent();
+
+    return (
+      this.isCreateMode() &&
+      this.phoneControl.valid &&
+      normalizeUkrainianPhone(this.phoneControl.value) !== null &&
+      !this.isActivationCodeMatched() &&
+      !this.isSendingActivationCode() &&
+      !this.isSaving()
+    );
+  });
+  protected readonly activationCodeButtonText = computed(() => {
+    if (this.isSendingActivationCode()) {
+      return 'Надсилаємо код...';
+    }
+
+    return this.isActivationCodeSent() ? 'Надіслати код ще раз' : 'Надіслати код';
+  });
   protected readonly canSubmit = computed(() => {
     this.profileFormEvent();
 
-    return this.profileForm.valid && !this.isSaving();
+    return (
+      this.profileForm.valid &&
+      !this.isSaving() &&
+      !this.isSendingActivationCode() &&
+      (!this.isCreateMode() || this.isActivationCodeMatched())
+    );
   });
 
   set mode(value: CustomerProfileFormMode) {
     this.modeState.set(value);
+
+    if (value === 'edit') {
+      this.resetActivationCode();
+    }
   }
 
   set presentation(value: CustomerProfileFormPresentation) {
@@ -213,7 +321,7 @@ export class CustomerProfileFormComponent {
   }
 
   async canLeave(): Promise<boolean> {
-    if (this.isSaving()) {
+    if (this.isSaving() || this.isSendingActivationCode()) {
       return false;
     }
 
@@ -230,12 +338,71 @@ export class CustomerProfileFormComponent {
     });
   }
 
+  protected async openPhysicalCardScanner(): Promise<void> {
+    const { PhysicalCardScannerComponent } =
+      await import('./physical-card-scanner/physical-card-scanner.component');
+    const modal = await this.modalController.create({
+      component: PhysicalCardScannerComponent,
+    });
+
+    await modal.present();
+    const scanResult = await modal.onDidDismiss<{ value?: string }>();
+    const scannedValue = scanResult.data?.value;
+
+    if (scannedValue === undefined) {
+      return;
+    }
+
+    this.physicalCardNumberControl.setValue(scannedValue);
+    this.physicalCardNumberControl.markAsDirty();
+    this.physicalCardNumberControl.markAsTouched();
+  }
+
+  protected sendActivationCode(): void {
+    if (!this.canSendActivationCode()) {
+      return;
+    }
+
+    const phone = normalizeUkrainianPhone(this.phoneControl.value);
+
+    if (phone === null) {
+      return;
+    }
+
+    const code = this.activationCodeCandidate() ?? createActivationCode();
+    this.activationCodeCandidate.set(code);
+    this.isSendingActivationCode.set(true);
+
+    this.api
+      .sendActivationCodeSms({ phone, code })
+      .pipe(take(1), takeUntilDestroyed(this.destroyRef))
+      .subscribe({
+        next: () => {
+          this.isSendingActivationCode.set(false);
+
+          if (
+            this.activationCodeCandidate() === code &&
+            normalizeUkrainianPhone(this.phoneControl.value) === phone
+          ) {
+            this.isActivationCodeSent.set(true);
+          }
+        },
+        error: (error: unknown) => {
+          this.isSendingActivationCode.set(false);
+          void this.toast.showError(
+            toApiErrorMessage(error, ACTIVATION_SMS_ERROR_MESSAGE),
+            ACTIVATION_SMS_ERROR_MESSAGE,
+          );
+        },
+      });
+  }
+
   protected submit(event: Event): void {
     event.preventDefault();
     this.profileForm.markAllAsTouched();
     this.profileForm.updateValueAndValidity();
 
-    if (this.profileForm.invalid) {
+    if (!this.canSubmit()) {
       return;
     }
 
@@ -267,13 +434,14 @@ export class CustomerProfileFormComponent {
       },
       error: (error: unknown) => {
         this.isSaving.set(false);
-        void this.toast.showError(toSaveErrorMessage(error), SAVE_ERROR_MESSAGE);
+        void this.toast.showError(toApiErrorMessage(error, SAVE_ERROR_MESSAGE), SAVE_ERROR_MESSAGE);
       },
     });
   }
 
   private patchProfile(profile: CustomerProfile): void {
     this.phoneControl.setValue(toUkrainianPhoneBody(profile.phone), { emitEvent: false });
+    this.physicalCardNumberControl.setValue(profile.physicalCardNumber, { emitEvent: false });
 
     for (const field of CUSTOMER_PROFILE_FORM_CONFIG.questionnaire.fields) {
       const answerValue = profile.answers.find((answer) => answer.code === field.code)?.value ?? '';
@@ -286,6 +454,7 @@ export class CustomerProfileFormComponent {
   private resetForm(): void {
     this.profileForm.reset({
       phone: '',
+      physicalCardNumber: '',
       answers: CUSTOMER_PROFILE_FORM_CONFIG.questionnaire.fields.reduce<Record<string, string>>(
         (answers, field) => {
           answers[field.code] = '';
@@ -297,6 +466,15 @@ export class CustomerProfileFormComponent {
     });
     this.profileForm.markAsPristine();
     this.profileForm.markAsUntouched();
+    this.resetActivationCode();
+  }
+
+  private resetActivationCode(): void {
+    this.activationCodeCandidate.set(null);
+    this.isActivationCodeSent.set(false);
+    this.activationCodeControl.reset('', { emitEvent: false });
+    this.activationCodeControl.markAsPristine();
+    this.activationCodeControl.markAsUntouched();
   }
 
   private toRequest(): CustomerProfileUpsertRequest | null {
@@ -308,6 +486,7 @@ export class CustomerProfileFormComponent {
 
     return {
       phone,
+      physicalCardNumber: this.physicalCardNumberControl.value,
       answers: CUSTOMER_PROFILE_FORM_CONFIG.questionnaire.fields.map((field) => ({
         code: field.code,
         value: toAnswerValue(this.answerControls[field.code].value),
@@ -357,6 +536,12 @@ function requiredTrimmedValidator(control: AbstractControl): ValidationErrors | 
   return value.trim().length === 0 ? { required: true } : null;
 }
 
+function physicalCardNumberValidator(control: AbstractControl): ValidationErrors | null {
+  return isValidPhysicalCardNumber(String(control.value ?? ''))
+    ? null
+    : { physicalCardNumber: true };
+}
+
 function dateValueValidator(control: AbstractControl): ValidationErrors | null {
   const value = String(control.value ?? '').trim();
 
@@ -381,6 +566,12 @@ function getPhoneErrorText(control: AbstractControl): string {
   }
 
   return '';
+}
+
+function getPhysicalCardNumberErrorText(control: AbstractControl): string {
+  return control.hasError('required')
+    ? PHYSICAL_CARD_NUMBER_REQUIRED_MESSAGE
+    : PHYSICAL_CARD_NUMBER_INVALID_MESSAGE;
 }
 
 function getFieldErrorText(field: CustomerProfileFieldConfig, control: AbstractControl): string {
@@ -415,12 +606,18 @@ function toUkrainianPhoneBody(phone: string): string {
   return normalizedPhone?.slice(-UKRAINIAN_PHONE_BODY_LENGTH) ?? '';
 }
 
-function toSaveErrorMessage(error: unknown): ApiErrorMessage {
+function createActivationCode(): string {
+  return Math.floor(Math.random() * 100)
+    .toString()
+    .padStart(ACTIVATION_CODE_LENGTH, '0');
+}
+
+function toApiErrorMessage(error: unknown, fallbackMessage: string): ApiErrorMessage {
   if (error instanceof HttpErrorResponse && isApiErrorMessage(error.error)) {
     return error.error;
   }
 
-  return SAVE_ERROR_MESSAGE;
+  return fallbackMessage;
 }
 
 function isApiErrorMessage(value: unknown): value is ApiErrorMessage {

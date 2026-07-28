@@ -24,6 +24,10 @@ AuditEvents
 No separate profile index, barcode index, SMS challenge table, barcode history
 table, or POS client table is used in the MVP.
 
+The administrator profile-create activation code is generated and compared in
+frontend component memory. Its admin-only backend endpoint only relays the SMS;
+the code and confirmation result are not stored in any table.
+
 POS HMAC secrets are stored in server-side configuration or Key Vault, not in
 Azure Table Storage.
 

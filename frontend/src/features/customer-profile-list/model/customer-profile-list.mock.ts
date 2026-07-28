@@ -36,13 +36,7 @@ const MOCK_FULL_NAMES = [
   'Дарина Петренко',
 ] as const;
 
-const MOCK_FAVORITE_DISHES = [
-  'Борщ',
-  'Вареники',
-  'Деруни',
-  'Голубці',
-  'Сирники',
-] as const;
+const MOCK_FAVORITE_DISHES = ['Борщ', 'Вареники', 'Деруни', 'Голубці', 'Сирники'] as const;
 
 export function createMockCustomerProfilePage(
   request: PagedDataSourceLoadRequest<CustomerProfileListQuery>,
@@ -60,9 +54,7 @@ export function createMockCustomerProfilePage(
   };
 }
 
-function filterMockCustomerProfiles(
-  query: CustomerProfileListQuery,
-): readonly CustomerProfile[] {
+function filterMockCustomerProfiles(query: CustomerProfileListQuery): readonly CustomerProfile[] {
   if (query.kind === 'all') {
     return MOCK_CUSTOMER_PROFILES;
   }
@@ -82,6 +74,7 @@ const MOCK_CUSTOMER_PROFILES: readonly CustomerProfile[] = Array.from(
 
     return {
       phone,
+      physicalCardNumber: '4820001234565',
       createdAt,
       updatedAt: createdAt,
       answers: [

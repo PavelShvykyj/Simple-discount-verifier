@@ -46,12 +46,12 @@
 
 | Field | Value |
 | --- | --- |
-| Current phase | PCN-02 завершен; следующий пункт — PCN-03 |
+| Current phase | PCN-00..PCN-05 завершены |
 | Backend/API | `done` |
 | Importer | `done` |
-| Frontend | `todo` |
-| POS/1C | `todo` |
-| Azure reset/reimport | `todo` |
+| Frontend | `done` |
+| POS/1C | `done` |
+| Azure reset/reimport | `done` |
 
 ## Task Tracker
 
@@ -60,9 +60,9 @@
 | PCN-00 | Зафиксировать требования и обновить действующие документы | `done` | none | Этот документ и связанные документы, обновленные 2026-07-28 |
 | PCN-01 | Backend, storage и существующие API | `done` | PCN-00 | 2026-07-28: backend build — 0 warnings/errors; EAN-13 check и in-memory smoke для create/read/list/update, invalid values, storage round-trip, support inspect, POS lookup, JSON и audit — passed |
 | PCN-02 | JSON CustomerProfileImporter | `done` | PCN-01 shared validation/storage contract | 2026-07-28: build — 0 warnings/errors; sample dry-run — 1 valid, 2 skipped; `vopac.json` dry-run — 73 total, 69 valid, 4 skipped, 0 writes |
-| PCN-03 | FE: ручной ввод и камера | `todo` | PCN-01 API contract | |
-| PCN-04 | POS/1C: создание и явное обновление карты | `todo` | PCN-01 POS response contract | |
-| PCN-05 | Очистка, повторный импорт и end-to-end проверка | `todo` | PCN-01..PCN-04 | |
+| PCN-03 | FE: ручной ввод и камера | `done` | PCN-01 API contract | 2026-07-28: tests — 18 files, 60 passed; lint — passed; build — completed with initial bundle budget warning (1.21 MB при budget 650 kB); Prettier — измененные PCN-03 FE-файлы passed, полный baseline-check выявил 100 ранее существовавших несоответствий; пользователь подтвердил выполнение задачи и успешное считывание реальной EAN-13 карты после корректировки освещения |
+| PCN-04 | POS/1C: создание и явное обновление карты | `done` | PCN-01 POS response contract | 2026-07-28: выполнение подтверждено пользователем |
+| PCN-05 | Очистка, повторный импорт и end-to-end проверка | `done` | PCN-01..PCN-04 | 2026-07-28: выполнение подтверждено пользователем |
 
 ## PCN-01. Backend, storage и API
 

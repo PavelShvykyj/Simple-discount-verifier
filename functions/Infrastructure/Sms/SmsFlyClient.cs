@@ -49,30 +49,42 @@ public sealed class SmsFlyClient : ISmsSender
                     StandardSmsFlashMode,
                     request.Message)));
 
-        using var response = await _httpClient.PostAsJsonAsync(
-            SmsFlyEndpoint,
-            payload,
-            JsonOptions,
-            cancellationToken);
-
-        var body = await response.Content.ReadAsStringAsync(cancellationToken);
-
-        if (!response.IsSuccessStatusCode)
+        try
         {
-            _logger.LogWarning(
-                "SMS-Fly request failed with HTTP {StatusCode}.",
-                (int)response.StatusCode);
+            using var response = await _httpClient.PostAsJsonAsync(
+                SmsFlyEndpoint,
+                payload,
+                JsonOptions,
+                cancellationToken);
+            var body = await response.Content.ReadAsStringAsync(cancellationToken);
 
-            return new SmsSendResult(false, FailureReason: $"http_{(int)response.StatusCode}");
+            if (!response.IsSuccessStatusCode)
+            {
+                _logger.LogWarning(
+                    "SMS-Fly request failed with HTTP {StatusCode}.",
+                    (int)response.StatusCode);
+
+                return new SmsSendResult(false, FailureReason: $"http_{(int)response.StatusCode}");
+            }
+
+            if (LooksRejected(body))
+            {
+                _logger.LogWarning("SMS-Fly response did not accept the SMS message.");
+                return new SmsSendResult(false, FailureReason: "provider_rejected");
+            }
+
+            return new SmsSendResult(true, ExtractProviderMessageId(body));
         }
-
-        if (LooksRejected(body))
+        catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
         {
-            _logger.LogWarning("SMS-Fly response did not accept the SMS message.");
-            return new SmsSendResult(false, FailureReason: "provider_rejected");
+            _logger.LogWarning("SMS-Fly request timed out.");
+            return new SmsSendResult(false, FailureReason: "provider_timeout");
         }
-
-        return new SmsSendResult(true, ExtractProviderMessageId(body));
+        catch (HttpRequestException)
+        {
+            _logger.LogWarning("SMS-Fly transport request failed.");
+            return new SmsSendResult(false, FailureReason: "transport_error");
+        }
     }
 
     private static bool LooksRejected(string body)

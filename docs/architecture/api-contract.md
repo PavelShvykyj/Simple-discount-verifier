@@ -69,6 +69,7 @@ POST /api/public/redemptions
 POST /api/public/redemptions/{redemptionKey}/sms-verifications
 
 POST /api/backoffice/customer-profiles
+POST /api/backoffice/customer-profiles/activation-code-sms
 GET  /api/backoffice/customer-profiles
 GET  /api/backoffice/customer-profiles/by-phone/{phone}
 PATCH /api/backoffice/customer-profiles/by-phone/{phone}
@@ -276,6 +277,40 @@ Expected errors:
 Admin APIs require the Static Web Apps custom `admin` role. They must not rely
 on the broad `authenticated` role.
 
+### Send Customer Profile Activation Code
+
+```http
+POST /api/backoffice/customer-profiles/activation-code-sms
+Content-Type: application/json
+```
+
+The frontend sends only the normalized phone and its locally generated
+two-character decimal code:
+
+```json
+{
+  "phone": "+380501234567",
+  "code": "07"
+}
+```
+
+The endpoint is covered by the existing `/api/backoffice/*` Static Web Apps
+rule and requires the custom `admin` role. Static Web Apps rejects anonymous
+and authenticated non-admin callers before the Function is invoked. The
+Function keeps the existing backoffice `AuthorizationLevel.Anonymous` trigger
+because SWA is the authorization boundary.
+
+The backend validates the phone and requires exactly two ASCII digits, builds
+the fixed SMS text, and calls the existing SMS provider. It stores no challenge,
+verification result, profile draft, audit event, or request body.
+
+Success is an empty `202 Accepted`. Expected errors:
+
+- `400 invalid_request`: missing body or code other than exactly two ASCII
+  digits.
+- `400 invalid_phone`: phone is missing or invalid.
+- `502 sms_send_failed`: the provider rejects the message or delivery fails.
+
 ### Create Customer Profile
 
 ```http
@@ -363,7 +398,11 @@ Expected errors:
 
 Notes:
 
-- No SMS verification is required during profile creation in the MVP.
+- In create mode, the frontend permits this request only after locally matching
+  the two-digit code dictated by the customer. The activation code and match
+  state are not included in this request.
+- The create API does not attest the match; this is an operational guard for a
+  trusted administrator.
 - No customer profile workflow status is stored in the MVP. A profile exists
   and is saved, or it does not exist.
 - The backend stores one profile per normalized phone number.
