@@ -98,6 +98,7 @@ static void AddSkipReason(Dictionary<string, int> skipReasons, string? error)
     {
         null => "unknown",
         var value when value.StartsWith("phone ", StringComparison.Ordinal) => "phone cannot be normalized",
+        var value when value.StartsWith("physical card number ", StringComparison.Ordinal) => "physical card number invalid",
         var value when value.StartsWith("profile answers are invalid", StringComparison.Ordinal) => "profile answers invalid",
         var value when value.StartsWith("Value ", StringComparison.Ordinal) => "source value invalid",
         _ => error
@@ -223,10 +224,10 @@ internal sealed record ImportOptions(
               dotnet run --project tools/CustomerProfileImporter -- --input <file.json> --mapping <mapping.json> [--connection-string <storage-connection-string>] [--table-name CustomerProfiles] [--mode insert|upsert|skip-existing] [--dry-run] [--quiet]
 
             Input JSON:
-              { "ancets": [ { "tel": "+38 (050) 123-45-67", "fio": "ФИО", "dish": "блюдо" } ] }
+              { "ancets": [ { "tel": "+38 (050) 123-45-67", "PhysicalCardNumber": "4820001234565", "fio": "ФИО", "dish": "блюдо" } ] }
 
             Mapping JSON:
-              { "fields": { "tel": "phone", "fio": "fullName", "dish": "favoriteDish" }, "dateFormats": { "birthDate": [ "yyyy-MM-dd", "dd.MM.yyyy H:mm:ss" ] } }
+              { "fields": { "tel": "phone", "PhysicalCardNumber": "physicalCardNumber", "fio": "fullName", "dish": "favoriteDish" }, "dateFormats": { "birthDate": [ "yyyy-MM-dd", "dd.MM.yyyy H:mm:ss" ] } }
 
             Notes:
               --mode insert        Adds new rows and reports duplicates as skipped.
@@ -293,12 +294,14 @@ internal sealed class ImportDocument
 
 internal sealed record ImportMapping(
     string PhoneSourceKey,
+    string PhysicalCardNumberSourceKey,
     IReadOnlyDictionary<string, string> AnswerSourceKeysByCode,
     IReadOnlyDictionary<string, IReadOnlyList<string>> DateFormatsByCode);
 
 internal static class ImportMappingReader
 {
     private const string PhoneTargetKey = "phone";
+    private const string PhysicalCardNumberTargetKey = "physicalCardNumber";
 
     public static async Task<ImportMapping> ReadAsync(string path)
     {
@@ -311,6 +314,7 @@ internal static class ImportMappingReader
         }
 
         string? phoneSourceKey = null;
+        string? physicalCardNumberSourceKey = null;
         var answerSourceKeysByCode = new Dictionary<string, string>(StringComparer.Ordinal);
 
         foreach (var (sourceKey, targetKey) in document.Fields)
@@ -338,6 +342,18 @@ internal static class ImportMappingReader
                 continue;
             }
 
+            if (normalizedTargetKey == PhysicalCardNumberTargetKey)
+            {
+                if (physicalCardNumberSourceKey is not null)
+                {
+                    throw new InvalidOperationException(
+                        "Mapping must contain exactly one source key mapped to 'physicalCardNumber'.");
+                }
+
+                physicalCardNumberSourceKey = sourceKey;
+                continue;
+            }
+
             if (!answerSourceKeysByCode.TryAdd(normalizedTargetKey, sourceKey))
             {
                 throw new InvalidOperationException(
@@ -350,12 +366,22 @@ internal static class ImportMappingReader
             throw new InvalidOperationException("Mapping must contain one source key mapped to 'phone'.");
         }
 
+        if (physicalCardNumberSourceKey is null)
+        {
+            throw new InvalidOperationException(
+                "Mapping must contain one source key mapped to 'physicalCardNumber'.");
+        }
+
         var dateFormatsByCode = document.DateFormats?.ToDictionary(
             item => item.Key,
             item => (IReadOnlyList<string>)item.Value,
             StringComparer.Ordinal) ?? new Dictionary<string, IReadOnlyList<string>>(StringComparer.Ordinal);
 
-        return new ImportMapping(phoneSourceKey, answerSourceKeysByCode, dateFormatsByCode);
+        return new ImportMapping(
+            phoneSourceKey,
+            physicalCardNumberSourceKey,
+            answerSourceKeysByCode,
+            dateFormatsByCode);
     }
 }
 
@@ -394,6 +420,12 @@ internal static class CustomerProfileEntityFactory
             return CustomerProfileEntityResult.Failure($"phone '{rawPhone}' cannot be normalized");
         }
 
+        if (!row.TryGetValue(mapping.PhysicalCardNumberSourceKey, out var rawPhysicalCardNumber)
+            || !PhysicalCardNumber.TryCreate(rawPhysicalCardNumber, out var physicalCardNumber))
+        {
+            return CustomerProfileEntityResult.Failure("physical card number is missing or invalid");
+        }
+
         IReadOnlyList<QuestionnaireInputAnswer> inputAnswers;
 
         try
@@ -421,6 +453,7 @@ internal static class CustomerProfileEntityFactory
         var entity = new TableEntity("phone", phone.StorageKey)
         {
             ["Phone"] = phone.Value,
+            ["PhysicalCardNumber"] = physicalCardNumber.Value,
             ["AnswersJson"] = JsonSerializer.Serialize(answersResult.Value, JsonOptions.Default),
             ["CreatedAtUtc"] = importedAtUtc,
             ["UpdatedAtUtc"] = importedAtUtc

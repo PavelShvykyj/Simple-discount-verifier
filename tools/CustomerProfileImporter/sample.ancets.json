@@ -2,15 +2,24 @@
   "ancets": [
     {
       "tel": "+38 (050) 123-45-67",
+      "PhysicalCardNumber": "4820001234565",
       "fio": "Ivan Petrenko",
       "dish": "Pizza Margherita",
       "birthday": "06.03.1989 0:00:00"
     },
     {
       "tel": "not-a-phone",
+      "PhysicalCardNumber": "4006381333931",
       "fio": "Invalid Phone",
       "dish": "Borscht",
       "birthday": ""
+    },
+    {
+      "tel": "+380671234567",
+      "PhysicalCardNumber": "4820001234564",
+      "fio": "Invalid Physical Card",
+      "dish": "Varenyky",
+      "birthday": "1992-05-20"
     }
   ]
 }
