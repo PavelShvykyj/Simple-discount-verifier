@@ -6,13 +6,13 @@
       "value": "production"
     },
     "location": {
-      "value": "westeurope"
+      "value": "eastus2"
     },
     "staticWebAppName": {
-      "value": "swa-simple-discount-verifier-prod"
+      "value": "swa-simple-discount-verifier-nakhmari"
     },
     "manageStaticWebAppResource": {
-      "value": true
+      "value": false
     },
     "staticWebAppSkuName": {
       "value": "Free"
@@ -33,7 +33,7 @@
       "value": "/dist/app/browser"
     },
     "storageAccountName": {
-      "value": "sdvstorageaccountprod"
+      "value": "sdvstoragenakhmari"
     },
     "storageSkuName": {
       "value": "Standard_LRS"
@@ -47,10 +47,10 @@
       ]
     },
     "logAnalyticsWorkspaceName": {
-      "value": "ws-simple-discount-verifier-prod"
+      "value": "ws-simple-discount-verifier"
     },
     "appInsightsName": {
-      "value": "ins-simple-discount-verifier-prod"
+      "value": "ins-simple-discount-verifier"
     },
     "appInsightsRetentionInDays": {
       "value": 30
@@ -92,7 +92,7 @@
       "value": "la-sdv-cleanup-production"
     },
     "cleanupEndpointUrl": {
-      "value": "https://swa-simple-discount-verifier-prod.azurestaticapps.net/api/system/maintenance/cleanup"
+      "value": ""
     },
     "cleanupScheduleFrequency": {
       "value": "Day"
@@ -101,12 +101,7 @@
       "value": 1
     },
     "alertEmailReceivers": {
-      "value": [
-        {
-          "name": "operations",
-          "email": "replace-with-real-ops-email@example.com"
-        }
-      ]
+      "value": []
     },
     "enableScheduledQueryAlerts": {
       "value": false
