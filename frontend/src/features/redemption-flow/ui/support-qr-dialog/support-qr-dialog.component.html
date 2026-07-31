@@ -1,0 +1,29 @@
+<ion-header>
+  <ion-toolbar>
+    <ion-title>Код підтримки</ion-title>
+    <ion-buttons slot="end">
+      <ion-button fill="clear" aria-label="Закрити" (click)="close()">
+        <ion-icon slot="icon-only" name="close-outline" aria-hidden="true" />
+      </ion-button>
+    </ion-buttons>
+  </ion-toolbar>
+</ion-header>
+
+<ion-content>
+  <ion-card>
+    <ion-card-header>
+      <ion-card-subtitle>Для адміністратора</ion-card-subtitle>
+      <ion-card-title>Покажіть цей QR працівнику</ion-card-title>
+    </ion-card-header>
+
+    <ion-card-content>
+      @if (correlationId(); as correlationId) {
+        <app-support-qr-code [correlationId]="correlationId" />
+      } @else {
+        <ion-note color="danger" role="alert" aria-live="polite">
+          Не вдалося підготувати код підтримки. Закрийте вікно і спробуйте ще раз.
+        </ion-note>
+      }
+    </ion-card-content>
+  </ion-card>
+</ion-content>

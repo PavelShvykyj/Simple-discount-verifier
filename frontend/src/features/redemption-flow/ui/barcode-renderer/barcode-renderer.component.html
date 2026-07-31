@@ -1,0 +1,20 @@
+@if (barcodeImage(); as image) {
+  <ion-text>
+    <p class="ion-no-margin ion-text-center">
+      <img
+        style="display: block; inline-size: 100%; max-inline-size: 24rem; margin-inline: auto"
+        [src]="image"
+        alt="Штрихкод для отримання знижки"
+      />
+    </p>
+  </ion-text>
+} @else if (isRendering()) {
+  <p class="ion-no-margin ion-text-center" aria-live="polite">
+    <ion-spinner name="crescent" aria-hidden="true" />
+    <ion-note class="ion-margin-start" color="medium">Готуємо штрихкод...</ion-note>
+  </p>
+} @else if (hasRenderError()) {
+  <ion-note color="danger" role="alert" aria-live="polite">
+    Не вдалося показати штрихкод. Працівник може ввести код вручну.
+  </ion-note>
+}

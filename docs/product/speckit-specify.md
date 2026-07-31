@@ -18,9 +18,7 @@ Actors:
 
 Business process 1: customer eligibility registration
 
-An administrator signs in to a protected administrative web interface.
-
-After successful authorization, the administrator creates a customer profile for a customer who has been approved to receive a discount.
+An administrator opens the administrative web interface and creates a customer profile for a customer who has been approved to receive a discount.
 
 The administrator fills in the customer profile data, including the customer phone number.
 
@@ -64,6 +62,20 @@ The main restaurant application determines whether the scanned value is:
 If the scanned value is a standard EAN13 discount card barcode, the main restaurant application must continue using its existing discount card process.
 
 If the scanned value is a web-generated one-time discount code, the main restaurant application must call the discount verification web service to validate the code.
+
+The validation API used by the main restaurant application is a server-to-server integration.
+
+The validation API must use custom HMAC authentication inside the Azure Function.
+
+The main restaurant application must send these headers with validation requests:
+
+- `x-client-id`, initially `main-pos-system`;
+- `x-timestamp`;
+- `x-signature`.
+
+The initial release must validate request freshness with `x-timestamp`.
+
+Nonce-based replay protection is out of scope for the initial release. A future phase may add a nonce, a table of used nonce values, and periodic cleanup of that table.
 
 The discount verification web service validates the one-time code.
 
@@ -187,7 +199,6 @@ The following are out of scope for the initial release:
 - manual cancellation state for one-time codes;
 - reservation/redeem lifecycle for barcode codes;
 - restoring a barcode after sale cancellation;
-- advanced administrator role model;
 - detailed profile change history.
 
 Future considerations
@@ -196,7 +207,6 @@ Future versions may add:
 
 - SMS verification during customer profile creation to reduce phone number entry mistakes;
 - detailed audit history for administrator actions;
-- configurable administrator roles;
 - stronger reporting for fraud investigation;
 - improved barcode compatibility checks;
 - additional validation rules for repeated SMS requests;

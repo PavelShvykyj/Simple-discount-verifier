@@ -1,12 +1,44 @@
 import { routes } from './app.routes';
+import { adminGuard } from '../shared/auth/admin.guard';
 
 describe('routes', () => {
-  it('loads the home page for the default route', () => {
-    expect(routes).toEqual([
-      expect.objectContaining({
-        path: '',
-        loadComponent: expect.any(Function),
-      }),
-    ]);
+  it('loads the expected route components', () => {
+    expect(routes).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          path: '',
+          loadComponent: expect.any(Function),
+        }),
+        expect.objectContaining({
+          path: 'admin',
+          canActivate: [adminGuard],
+          loadComponent: expect.any(Function),
+          children: expect.arrayContaining([
+            expect.objectContaining({
+              path: '',
+              pathMatch: 'full',
+              redirectTo: 'customer-create',
+            }),
+            expect.objectContaining({
+              path: 'customer-create',
+              loadComponent: expect.any(Function),
+            }),
+            expect.objectContaining({
+              path: 'customers',
+              loadChildren: expect.any(Function),
+            }),
+            expect.objectContaining({
+              path: 'service',
+              loadChildren: expect.any(Function),
+            }),
+          ]),
+        }),
+        expect.objectContaining({
+          path: 'scanner-survey',
+          canActivate: [adminGuard],
+          loadComponent: expect.any(Function),
+        }),
+      ]),
+    );
   });
 });

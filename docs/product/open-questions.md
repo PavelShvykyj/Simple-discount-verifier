@@ -1,25 +1,36 @@
 # Open Questions
 
-1. Final web barcode format:
-   - Code 128 is preferred.
-   - Must be tested with real scanners and the main restaurant application.
-
-2. Exact web-code value format:
-   - Prefix or pattern must reliably distinguish it from EAN13 discount cards.
-
-3. One active barcode policy:
-   - Reject a new request while an active code exists, or invalidate the previous active code and issue a new one.
-
-4. SMS provider and SMS limits:
-   - Exact provider is not decided.
+1. SMS limits:
    - Need limits for repeated SMS requests and validation attempts.
 
-5. Administrator authorization:
-   - Exact authorization mechanism is not decided.
+2. Customer profile fields:
+   - Decided for MVP in `docs/architecture/api-contract.md`.
+   - One phone number represents one person and one profile.
+   - Required top-level system fields are `phone` and `physicalCardNumber`.
+   - `physicalCardNumber` is a valid EAN-13 string, editable by an
+     administrator, and is not part of questionnaire `answers[]`.
+   - The backend does not enforce uniqueness of `physicalCardNumber`.
+   - Profile questionnaire fields are full name, birth date, and favorite dish.
+   - Questionnaire answers are exchanged as `code`, `name`, `value`; answer
+     type and questionnaire versions are not part of the MVP API/storage model.
 
-6. Customer profile fields:
-   - Final field list is not decided.
+3. Main application integration contract:
+   - Decided for MVP in `docs/architecture/api-contract.md`.
+   - POS validates web barcodes through `POST /api/pos/barcodes/validate`.
+   - Server-to-server authentication uses HMAC with `x-client-id`,
+     `x-timestamp`, and `x-signature`; nonce replay protection is deferred to a
+     future phase.
 
-7. Main application integration contract:
-   - Exact validation API request and response format must be agreed.
-   - Returned lookup key is expected to be phone number or another agreed key.
+4. Admin barcode support:
+   - Decided for MVP in `docs/architecture/api-contract.md`.
+   - Admins can inspect a redemption attempt by `correlationId`, including
+     barcode status, profile data, audit events, and `ConsumedByScanId` when
+     those data already exist.
+   - QR-code access for the admin/support scenario is confirmed. The QR is
+     generated from `correlationId` returned after the first public request, not
+     from a manually typed code.
+   - Manual support code entry is not included in the current scope.
+   - The `scanner-survey` page must check QR/test-code reading from another app
+     instance with the Angular `@zxing-js/ngx-scanner` integration.
+   - Manager force approval is not implemented in the current scope and remains
+     a future idea.

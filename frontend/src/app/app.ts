@@ -1,5 +1,7 @@
-import { Component } from '@angular/core';
+import { Component, inject } from '@angular/core';
 import { IonApp, IonRouterOutlet } from '@ionic/angular/standalone';
+
+import { ThemeModeService } from '../shared/theme/theme-mode.service';
 
 @Component({
   selector: 'app-root',
@@ -7,4 +9,8 @@ import { IonApp, IonRouterOutlet } from '@ionic/angular/standalone';
   templateUrl: './app.html',
   styleUrl: './app.scss',
 })
-export class App {}
+export class App {
+  constructor() {
+    inject(ThemeModeService);
+  }
+}

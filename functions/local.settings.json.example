@@ -1,0 +1,28 @@
+{
+  "IsEncrypted": false,
+  "Values": {
+    "AzureWebJobsStorage": "UseDevelopmentStorage=true",
+    "FUNCTIONS_WORKER_RUNTIME": "dotnet-isolated",
+    "APPLICATIONINSIGHTS_CONNECTION_STRING": "",
+    "AppStorageConnectionString": "UseDevelopmentStorage=true",
+    "ScannerSurveyTableName": "ScannerSurveyResults",
+    "CustomerProfilesTableName": "CustomerProfiles",
+    "DiscountRuntimeTableName": "DiscountRuntime",
+    "AuditEventsTableName": "AuditEvents",
+    "PosMainClientId": "main-pos-system",
+    "PosMainClientHmacSecret": "replace-local-pos-hmac-secret",
+    "PosRequestFreshnessToleranceSeconds": "300",
+    "PhoneRuntimeKeySecret": "replace-local-phone-runtime-key-secret",
+    "SmsCodeHashSecret": "replace-local-sms-code-hash-secret",
+    "BarcodeHashSecret": "replace-local-barcode-hash-secret",
+    "AuditPhoneHashSecret": "replace-local-audit-phone-hash-secret",
+    "SmsFlyApiKey": "replace-local-sms-fly-api-key",
+    "SmsFlySender": "",
+    "SmsCodeTtlSeconds": "180",
+    "SmsRetryAfterSeconds": "5",
+    "BarcodeTtlSeconds": "180",
+    "DiscountRuntimeRetentionHours": "24",
+    "AuditEventsRetentionDays": "30",
+    "CleanupAutomationKey": "replace-local-cleanup-automation-key"
+  }
+}

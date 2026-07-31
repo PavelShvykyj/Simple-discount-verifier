@@ -1,42 +1,31 @@
 import { Component } from '@angular/core';
 import {
-  IonButton,
+  IonButtons,
+  IonCol,
   IonContent,
+  IonGrid,
   IonHeader,
-  IonIcon,
-  IonItem,
-  IonLabel,
-  IonList,
-  IonText,
+  IonRow,
   IonTitle,
   IonToolbar,
 } from '@ionic/angular/standalone';
-import { addIcons } from 'ionicons';
-import { barcodeOutline, chatbubbleEllipsesOutline, phonePortraitOutline } from 'ionicons/icons';
+
+import { ThemeModeSelectorComponent } from '../../../shared/theme/ui/theme-mode-selector.component';
 
 @Component({
   selector: 'app-home-page',
   imports: [
-    IonButton,
+    IonButtons,
+    IonCol,
     IonContent,
+    IonGrid,
     IonHeader,
-    IonIcon,
-    IonItem,
-    IonLabel,
-    IonList,
-    IonText,
+    IonRow,
     IonTitle,
     IonToolbar,
+    ThemeModeSelectorComponent,
   ],
   templateUrl: './home.page.html',
   styleUrl: './home.page.scss',
 })
-export class HomePage {
-  constructor() {
-    addIcons({
-      barcodeOutline,
-      chatbubbleEllipsesOutline,
-      phonePortraitOutline,
-    });
-  }
-}
+export class HomePage {}

@@ -1,0 +1,10 @@
+<ion-button fill="clear" shape="round" aria-label="Змінити тему" (click)="openThemeSheet()">
+  <ion-icon slot="icon-only" [name]="activeIcon()" aria-hidden="true" />
+</ion-button>
+
+<ion-action-sheet
+  header="Тема"
+  [isOpen]="isThemeSheetOpen()"
+  [buttons]="themeActions()"
+  (didDismiss)="closeThemeSheet()"
+/>

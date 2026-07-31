@@ -1,0 +1,16 @@
+{
+  "fields": {
+    "PhysicalCardNumber": "physicalCardNumber",
+    "_1": "fullName",
+    "_2": "phone",
+    "_3": "favoriteDish",
+    "_4": "birthDate"
+  },
+  "dateFormats": {
+    "birthDate": [
+      "yyyy-MM-dd",
+      "dd.MM.yyyy H:mm:ss",
+      "dd.MM.yyyy HH:mm:ss"
+    ]
+  }
+}

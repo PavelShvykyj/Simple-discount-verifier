@@ -1,0 +1,94 @@
+<app-mobile-flow-screen>
+  <ion-card>
+    <ion-card-header>
+      <ion-card-subtitle>Знижка в закладі</ion-card-subtitle>
+      <ion-card-title>Підтвердіть телефон</ion-card-title>
+    </ion-card-header>
+
+    <ion-card-content>
+      <ion-text color="medium">
+        <p class="ion-no-margin">Введіть номер, на який можна отримати SMS-код.</p>
+      </ion-text>
+
+      <form id="phone-entry-form" class="ion-margin-top" novalidate (ngSubmit)="submitPhone($event)" [formGroup]="phoneForm">
+        <ion-input
+          class="ion-margin-bottom"
+          label="Номер телефону"
+          labelPlacement="stacked"
+          type="text"
+          inputmode="numeric"
+          enterkeyhint="next"
+          autocomplete="tel-national"
+          fill="outline"
+          maxlength="9"
+          pattern="[0-9]*"
+          required
+          [counter]="true"
+          placeholder="501234567"
+          helperText="Введіть 9 цифр номера."
+          [errorText]="phoneErrorText()"
+          [class.ion-touched]="isTouched()"
+          [attr.aria-invalid]="shouldShowPhoneError()"
+          formControlName="phone"
+        >
+          <ion-text slot="start" color="primary" aria-hidden="true">+380</ion-text>
+        </ion-input>
+
+        @if (flow.error(); as error) {
+          <ion-note class="ion-margin-bottom" color="danger" role="alert" aria-live="polite">
+            {{ error.message }}
+          </ion-note>
+        }
+
+        <ion-button
+          [appDisabledButtonColor]="!canSubmitPhone()"
+          class="ion-margin-top"
+          expand="block"
+          size="large"
+          type="submit"
+          [disabled]="!canSubmitPhone()"
+          [attr.aria-busy]="flow.phoneStatus() === 'submitting'"
+          [attr.aria-label]="
+            flow.phoneStatus() === 'submitting'
+              ? 'Надсилаємо SMS-код'
+              : 'Отримати SMS-код на вказаний номер'
+          "
+        >
+          @if (flow.phoneStatus() === 'submitting') {
+            <ion-spinner name="crescent" aria-hidden="true" />
+            <span class="ion-margin-start">Надсилаємо SMS...</span>
+          } @else {
+            Отримати SMS-код
+          }
+        </ion-button>
+      </form>
+    </ion-card-content>
+  </ion-card>
+  <ion-buttons app-slot="footer" slot="end">
+    <ion-button appDisabledButtonColor fill="clear" disabled>
+      Далі
+    </ion-button>
+  </ion-buttons>
+
+  <div app-slot="footer" hidden>
+    <ion-button size="small" (click)="nav.resetToPhone()">tel</ion-button>
+    <ion-button size="small" (click)="nav.pushSms()">sms</ion-button>
+    <ion-button size="small" (click)="nav.pushBarcode()">res</ion-button>
+    <ion-button
+      size="small"
+      [color]="flow.isMockCorrelationIdActive() ? 'primary' : 'medium'"
+      aria-label="Перемкнути моковий correlationId"
+      (click)="flow.toggleMockCorrelationId()"
+    >
+      cid
+    </ion-button>
+    <ion-button
+      size="small"
+      [color]="flow.isMockBarcodeActive() ? 'primary' : 'medium'"
+      aria-label="Перемкнути моковий barcode"
+      (click)="flow.toggleMockBarcode()"
+    >
+      bar
+    </ion-button>
+  </div>
+</app-mobile-flow-screen>

@@ -1,0 +1,14 @@
+<div class="scanner-frame">
+  <zxing-scanner
+    #scanner
+    [tryHarder]="true"
+    (scanSuccess)="handleScanSuccess($event)"
+    (permissionResponse)="handlePermissionResponse($event)"
+    (camerasFound)="handleCamerasFound($event)"
+    (camerasNotFound)="handleCamerasNotFound()"
+  />
+</div>
+
+@if (statusMessage(); as message) {
+  <ion-note [color]="lastScannedValue() ? 'success' : 'medium'">{{ message }}</ion-note>
+}

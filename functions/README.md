@@ -1,0 +1,140 @@
+# Scanner Survey Azure Functions
+
+This API stores temporary scanner compatibility survey results for restaurant branches and terminals.
+It also stores admin browser-camera checks where one app instance displays a QR
+code or test barcode and another mobile browser instance reads it through the
+Angular `@zxing-js/ngx-scanner` integration.
+
+## Endpoint
+
+```http
+POST /api/scanner-survey
+Content-Type: application/json
+```
+
+Example payload:
+
+```json
+{
+  "branchName": "Pizza Center Obolon",
+  "submittedAtClient": "2026-06-01T14:30:00.000Z",
+  "terminals": [
+    {
+      "terminalName": "POS-01",
+      "answers": [
+        {
+          "barcodeId": "code128-web-20-fixed",
+          "isReadable": true,
+          "comment": ""
+        },
+        {
+          "barcodeId": "ean13-valid-discount-card",
+          "isReadable": false,
+          "comment": "Scanner beeps, POS ignores the value"
+        },
+        {
+          "barcodeId": "qr-admin-inspect-cross-instance-zxing",
+          "isReadable": true,
+          "comment": "Read by mobile browser from another app instance"
+        }
+      ]
+    }
+  ],
+  "comment": "Branch-wide note"
+}
+```
+
+The function intentionally does not validate business values. If the JSON body can be read, it stores the submitted values. Invalid JSON returns `400 Bad Request`.
+QR-code checks reuse the same `barcodeId`, `isReadable`, and `comment` answer
+shape. A separate manual support code is not part of the current scope.
+
+## Table Storage Shape
+
+Table name defaults to `ScannerSurveyResults`.
+
+Each barcode answer is stored as a separate Azure Table Storage row so later queries can answer:
+
+- which branch was tested;
+- which terminal/workplace was tested;
+- which barcode sample did not read;
+- which scanner/POS combinations have comments.
+
+Rows are partitioned by a technical `BranchKey` derived from `branchName`. The original `branchName` is stored unchanged in the `BranchName` property.
+
+Important properties:
+
+- `RecordType`
+- `SubmissionId`
+- `BranchName`
+- `TerminalName`
+- `BarcodeId`
+- `IsReadable`
+- `AnswerComment`
+- `SubmissionComment`
+- `SubmittedAtUtc`
+- `SubmittedAtClient`
+- `UserAgent`
+
+## Azure Portal Setup
+
+1. Open the Azure resource group that contains the Static Web App.
+2. Create or choose a Storage Account for scanner survey data.
+3. In the Storage Account, open **Data storage -> Tables** and create a table:
+
+   ```text
+   ScannerSurveyResults
+   ```
+
+4. In the Storage Account, open **Security + networking -> Access keys** and copy a connection string.
+5. Open the Static Web App.
+6. Open **Settings -> Environment variables**.
+7. Add these application settings:
+
+   ```text
+   AppStorageConnectionString=<storage account connection string>
+   ScannerSurveyTableName=ScannerSurveyResults
+   ```
+
+8. Save the settings and redeploy the Static Web App if needed.
+9. After deployment, test:
+
+   ```http
+   POST https://<your-static-web-app-domain>/api/scanner-survey
+   ```
+
+## Local Development
+
+Prerequisites:
+
+- .NET 8 SDK;
+- Azure Functions Core Tools v4;
+- access to Azure test resources, or a running Azurite instance.
+
+From the repository root, create the local settings file on the first run:
+
+```powershell
+cd functions
+Copy-Item local.settings.json.example local.settings.json
+```
+
+Set the required local secrets and connection strings in `local.settings.json`.
+If it contains `UseDevelopmentStorage=true`, start Azurite before the Functions
+host. Do not commit `local.settings.json`.
+
+Start the API:
+
+```powershell
+func start
+```
+
+The local Functions host listens on `http://localhost:7071`. Start the frontend
+in a second terminal with:
+
+```powershell
+cd ..\frontend
+npm install
+npm run start:local-api
+```
+
+Run `npm install` only when frontend dependencies are not installed or have
+changed.

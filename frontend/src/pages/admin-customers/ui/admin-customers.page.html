@@ -1,0 +1,107 @@
+<ion-header>
+  <ion-toolbar>
+    <ion-title>Анкети</ion-title>
+    <ion-buttons slot="end">
+      <ion-button
+        fill="clear"
+        shape="round"
+        aria-label="Показати або приховати пошук"
+        (click)="toggleSearch()"
+      >
+        <ion-icon slot="icon-only" name="search-outline" aria-hidden="true" />
+      </ion-button>
+      <app-theme-mode-selector />
+    </ion-buttons>
+  </ion-toolbar>
+
+  @if (isSearchVisible()) {
+    <ion-toolbar>
+      <app-submit-search-field
+        [label]="phoneConfig.label"
+        [placeholder]="phoneConfig.placeholder"
+        [inputType]="'tel'"
+        [inputMode]="phoneConfig.inputMode"
+        [autocomplete]="phoneConfig.autocomplete"
+        [validators]="phoneSearchValidators"
+        [busy]="isSearchBusy()"
+        (submitted)="searchByPhone($event)"
+        (blurredWithValue)="searchByPhone($event)"
+        (cleared)="loadAllProfiles()"
+      />
+    </ion-toolbar>
+  }
+</ion-header>
+
+<ion-content class="admin-page">
+  <ion-refresher slot="fixed" (ionRefresh)="refreshProfiles($event)">
+    <ion-refresher-content></ion-refresher-content>
+  </ion-refresher>
+
+  <ion-grid fixed class="ion-padding">
+    <ion-row class="ion-justify-content-center">
+      <ion-col size="12" size-lg="8">
+        <ion-list>
+          @if (isLoading()) {
+            <ion-item lines="none">
+              <ion-spinner slot="start" name="crescent" aria-hidden="true" />
+              <ion-label>Завантажуємо анкети...</ion-label>
+            </ion-item>
+          } @else if (hasProfiles()) {
+            @for (profile of profileItems(); track profile.phone) {
+              <ion-item-sliding>
+                <ion-item lines="full">
+                  <ion-label>
+                    <h2>{{ profile.title }}</h2>
+                    <p>{{ profile.phone }}</p>
+                    <p>Оновлено: {{ profile.updatedAt | date: 'dd.MM.yyyy HH:mm' }}</p>
+                  </ion-label>
+                </ion-item>
+
+                <ion-item-options side="end">
+                  <ion-item-option
+                    color="primary"
+                    (click)="openEditProfileModal(profile.profile)"
+                  >
+                    Редагувати
+                  </ion-item-option>
+                </ion-item-options>
+              </ion-item-sliding>
+            }
+          } @else {
+            <div class="empty-state">
+              <ion-icon name="document-text-outline" aria-hidden="true" />
+              <ion-text>
+                <h2>Немає результатів</h2>
+              </ion-text>
+            </div>
+          }
+        </ion-list>
+
+        @if (canLoadMore()) {
+          <ion-button expand="block" color="secondary" (click)="loadMore()">
+            Показати ще
+          </ion-button>
+        }
+
+        @if (isLoadingMore()) {
+          <ion-text color="medium">
+            <p class="ion-text-center">
+              <ion-spinner name="crescent" aria-hidden="true" />
+              Завантажуємо ще анкети...
+            </p>
+          </ion-text>
+        }
+      </ion-col>
+    </ion-row>
+  </ion-grid>
+
+  <ion-fab slot="fixed" vertical="bottom" horizontal="end">
+    <ion-fab-button
+      color="secondary"
+      aria-label="Додати анкету"
+      (click)="openCreateProfileModal()"
+    >
+      <ion-icon name="add-outline" aria-hidden="true" />
+    </ion-fab-button>
+  </ion-fab>
+</ion-content>

@@ -1,0 +1,21 @@
+name: PR Branch Policy
+
+on:
+  pull_request:
+    branches:
+      - develop
+      - master
+
+jobs:
+  validate-pr-branch-flow:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Validate branch flow
+        run: |
+          echo "base=${{ github.base_ref }}"
+          echo "head=${{ github.head_ref }}"
+
+          if [ "${{ github.base_ref }}" = "master" ] && [ "${{ github.head_ref }}" != "develop" ]; then
+            echo "PRs to master are allowed only from develop."
+            exit 1
+          fi

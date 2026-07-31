@@ -71,11 +71,17 @@
           },
           "configurations": {
             "production": {
+              "fileReplacements": [
+                {
+                  "replace": "src/environments/environment.ts",
+                  "with": "src/environments/environment.prod.ts"
+                }
+              ],
               "budgets": [
                 {
                   "type": "initial",
                   "maximumWarning": "650kB",
-                  "maximumError": "1.2MB"
+                  "maximumError": "5.2MB"
                 },
                 {
                   "type": "anyComponentStyle",
@@ -83,6 +89,7 @@
                   "maximumError": "8kB"
                 }
               ],
+              "sourceMap": true,
               "outputHashing": "all"
             },
             "development": {

@@ -1,0 +1,115 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentParameters.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "environmentName": {
+      "value": "production"
+    },
+    "location": {
+      "value": "westeurope"
+    },
+    "staticWebAppName": {
+      "value": "swa-simple-discount-verifier-prod"
+    },
+    "manageStaticWebAppResource": {
+      "value": true
+    },
+    "staticWebAppSkuName": {
+      "value": "Free"
+    },
+    "repositoryUrl": {
+      "value": "https://github.com/PavelShvykyj/Simple-discount-verifier"
+    },
+    "branch": {
+      "value": "master"
+    },
+    "appLocation": {
+      "value": "./frontend"
+    },
+    "apiLocation": {
+      "value": "./functions"
+    },
+    "outputLocation": {
+      "value": "/dist/app/browser"
+    },
+    "storageAccountName": {
+      "value": "sdvstorageaccountprod"
+    },
+    "storageSkuName": {
+      "value": "Standard_LRS"
+    },
+    "tableNames": {
+      "value": [
+        "ScannerSurveyResults",
+        "CustomerProfiles",
+        "DiscountRuntime",
+        "AuditEvents"
+      ]
+    },
+    "logAnalyticsWorkspaceName": {
+      "value": "ws-simple-discount-verifier-prod"
+    },
+    "appInsightsName": {
+      "value": "ins-simple-discount-verifier-prod"
+    },
+    "appInsightsRetentionInDays": {
+      "value": 30
+    },
+    "appInsightsDailyCapGB": {
+      "value": "0.1"
+    },
+    "appInsightsDailyCapWarningThreshold": {
+      "value": 90
+    },
+    "appInsightsStopSendNotificationWhenHitCap": {
+      "value": false
+    },
+    "manageStaticWebAppSettings": {
+      "value": false
+    },
+    "auditEventsRetentionDays": {
+      "value": 30
+    },
+    "scannerSurveyTableName": {
+      "value": "ScannerSurveyResults"
+    },
+    "customerProfilesTableName": {
+      "value": "CustomerProfiles"
+    },
+    "discountRuntimeTableName": {
+      "value": "DiscountRuntime"
+    },
+    "auditEventsTableName": {
+      "value": "AuditEvents"
+    },
+    "smsFlySender": {
+      "value": ""
+    },
+    "deployCleanupScheduler": {
+      "value": false
+    },
+    "cleanupLogicAppName": {
+      "value": "la-sdv-cleanup-production"
+    },
+    "cleanupEndpointUrl": {
+      "value": "https://swa-simple-discount-verifier-prod.azurestaticapps.net/api/system/maintenance/cleanup"
+    },
+    "cleanupScheduleFrequency": {
+      "value": "Day"
+    },
+    "cleanupScheduleInterval": {
+      "value": 1
+    },
+    "alertEmailReceivers": {
+      "value": [
+        {
+          "name": "operations",
+          "email": "replace-with-real-ops-email@example.com"
+        }
+      ]
+    },
+    "enableScheduledQueryAlerts": {
+      "value": false
+    }
+  }
+}

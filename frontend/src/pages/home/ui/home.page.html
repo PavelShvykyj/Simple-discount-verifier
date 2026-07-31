@@ -1,47 +1,26 @@
 <ion-header>
   <ion-toolbar>
-    <ion-title>Discount Verification</ion-title>
+    <ion-title>Simple Discount Verifier</ion-title>
+    <ion-buttons slot="end">
+      <app-theme-mode-selector />
+    </ion-buttons>
   </ion-toolbar>
 </ion-header>
 
 <ion-content fullscreen class="home-page">
-  <section class="hero ion-padding">
-    <ion-text>
-      <p class="eyebrow">Web-only Angular + Ionic app</p>
-      <h1>Verify approved restaurant discounts at payment time.</h1>
-      <p class="summary">
-        Customers verify access to the registered phone number before a short-lived barcode is
-        issued.
-      </p>
-    </ion-text>
-
-    <div class="actions">
-      <ion-button expand="block">Start verification</ion-button>
-      <ion-button expand="block" fill="outline">Admin sign in</ion-button>
-    </div>
-  </section>
-
-  <ion-list inset>
-    <ion-item>
-      <ion-icon name="phone-portrait-outline" slot="start" aria-hidden="true" />
-      <ion-label>
-        <h2>Phone-first flow</h2>
-        <p>The customer enters the approved phone number on the public page.</p>
-      </ion-label>
-    </ion-item>
-    <ion-item>
-      <ion-icon name="chatbubble-ellipses-outline" slot="start" aria-hidden="true" />
-      <ion-label>
-        <h2>SMS verification</h2>
-        <p>A barcode is issued only after a successful SMS code check.</p>
-      </ion-label>
-    </ion-item>
-    <ion-item>
-      <ion-icon name="barcode-outline" slot="start" aria-hidden="true" />
-      <ion-label>
-        <h2>One-time barcode</h2>
-        <p>The generated code is short-lived, random, and consumed after validation.</p>
-      </ion-label>
-    </ion-item>
-  </ion-list>
+  <ion-grid fixed class="home-shell ion-padding">
+    <ion-row>
+      <ion-col size="12">
+        <section class="welcome">
+          <p class="eyebrow">Публічний сценарій</p>
+          <h1>Вітаємо у Simple Discount Verifier</h1>
+          <p>
+            Тут буде швидкий мобільний процес підтвердження телефону та отримання
+            одноразового штрихкоду. Службові інструменти доступні тільки за прямим
+            захищеним посиланням.
+          </p>
+        </section>
+      </ion-col>
+    </ion-row>
+  </ion-grid>
 </ion-content>

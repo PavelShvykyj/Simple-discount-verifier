@@ -8,5 +8,8 @@
   "devDependencies": {
     "husky": "^9.1.7",
     "lint-staged": "^17.0.5"
+  },
+  "dependencies": {
+    "@zxing/ngx-scanner": "^20.0.0"
   }
 }

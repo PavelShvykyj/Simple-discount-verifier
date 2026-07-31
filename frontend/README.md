@@ -2,15 +2,28 @@
 
 This project was generated using [Angular CLI](https://github.com/angular/angular-cli) version 21.2.0.
 
-## Development server
+## Local Development
 
-To start a local development server, run:
+Start the Azure Functions API first from the repository root:
 
-```bash
-ng serve
+```powershell
+cd functions
+func start
 ```
 
-Once the server is running, open your browser and navigate to `http://localhost:4200/`. The application will automatically reload whenever you modify any of the source files.
+Then start the frontend in a second terminal:
+
+```powershell
+cd frontend
+npm install
+npm run start:local-api
+```
+
+Run `npm install` only when dependencies are not installed or have changed.
+Open `http://localhost:4200/` after Angular starts.
+
+`start:local-api` uses `proxy.conf.json` to forward frontend requests from
+`/api/*` to the local Functions host at `http://localhost:7071`.
 
 ## Code scaffolding
 

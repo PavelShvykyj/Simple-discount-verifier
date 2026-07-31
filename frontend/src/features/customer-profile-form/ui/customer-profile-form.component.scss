@@ -1,0 +1,20 @@
+.customer-profile-form {
+  --background: var(--app-page-background);
+}
+
+.customer-profile-form__fields {
+  background: transparent;
+}
+
+.customer-profile-form__field {
+  margin-bottom: 16px;
+}
+
+.customer-profile-form__card {
+  border: 1px solid var(--app-border);
+  box-shadow: none;
+
+  ion-button {
+    margin-bottom: 0;
+  }
+}

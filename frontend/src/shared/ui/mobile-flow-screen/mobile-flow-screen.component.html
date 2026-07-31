@@ -1,0 +1,17 @@
+<ion-content class="mobile-flow-screen">
+  <ion-grid fixed class="mobile-flow-screen__grid ion-padding">
+    <ion-row class="ion-justify-content-center">
+      <ion-col size="12" size-md="7" size-lg="5">
+        <section class="mobile-flow-screen__body">
+          <ng-content />
+        </section>
+      </ion-col>
+    </ion-row>
+  </ion-grid>
+</ion-content>
+
+<ion-footer>
+  <ion-toolbar>
+    <ng-content select='[app-slot="footer"]' />
+  </ion-toolbar>
+</ion-footer>

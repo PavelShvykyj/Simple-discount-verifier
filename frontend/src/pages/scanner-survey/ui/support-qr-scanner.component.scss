@@ -1,0 +1,15 @@
+:host {
+  display: grid;
+  gap: var(--ion-padding);
+}
+
+.scanner-frame {
+  overflow: hidden;
+  outline: solid var(--app-border);
+  border-radius: var(--ion-border-radius);
+  background: var(--ion-color-dark);
+}
+
+zxing-scanner {
+  display: block;
+}

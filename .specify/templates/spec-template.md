@@ -102,11 +102,20 @@
 - **FR-007**: System MUST retain user data for [NEEDS CLARIFICATION: retention period not specified]
 
 For frontend features, requirements MUST explicitly capture mobile-first behavior,
-WCAG AA accessibility expectations, and whether the work belongs to the public
+page-level mobile UX/UI best-practice expectations, reusable component
+candidates, Ionic-first UI composition, WCAG AA accessibility expectations,
+light/dark theme verification, and whether the work belongs to the public
 customer redemption flow, administrator profile management flow, or shared
-API/UI foundation. Do not add frontend frameworks, UI kits, state managers, or
-deployment assumptions beyond Angular + Ionic unless the constitution and
-architecture docs are amended.
+API/UI foundation. Reusable UI components must be dumb and independent by
+default. Requirements must preserve Angular modern control flow (`@if`, `@for`,
+`@switch` instead of `*ngIf`/`*ngFor`, except library directives such as
+`*cdkVirtualFor`), signal-based component APIs instead of decorator APIs, and
+template bindings that read reactive properties instead of calling component
+methods for derived values. Do not add frontend frameworks, UI kits, state
+managers, custom CSS classes, custom layout primitives, or deployment
+assumptions beyond Angular + Ionic unless the constitution and architecture
+docs are amended or the custom CSS exception is explicitly confirmed with
+necessity and trade-off documented.
 
 ### Key Entities *(include if feature involves data)*
 
@@ -128,8 +137,8 @@ architecture docs are amended.
 - **SC-004**: [Business metric, e.g., "Reduce support tickets related to [X] by 50%"]
 
 For frontend features, include measurable outcomes for mobile completion,
-small-screen usability, accessibility, and any barcode or SMS verification
-interaction affected by the feature.
+small-screen usability, WCAG AA accessibility, light/dark theme behavior, and
+any barcode or SMS verification interaction affected by the feature.
 
 ## Assumptions
 

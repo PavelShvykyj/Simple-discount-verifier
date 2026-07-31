@@ -1,0 +1,12 @@
+.mobile-flow-screen {
+  --background: var(--app-page-background);
+}
+
+.mobile-flow-screen__grid {
+  min-height: 100%;
+}
+
+.mobile-flow-screen__body {
+  display: flex;
+  flex-direction: column;
+}
