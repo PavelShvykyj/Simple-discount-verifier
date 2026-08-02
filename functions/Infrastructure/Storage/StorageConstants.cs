@@ -27,6 +27,10 @@ internal static class StorageConstants
         public const string BarcodeExpiresAtUtc = "BarcodeExpiresAtUtc";
         public const string BarcodeConsumedAtUtc = "BarcodeConsumedAtUtc";
         public const string ConsumedByScanId = "ConsumedByScanId";
+        public const string HourWindowStartUtc = "HourWindowStartUtc";
+        public const string HourWindowCount = "HourWindowCount";
+        public const string DayWindowStartUtc = "DayWindowStartUtc";
+        public const string DayWindowCount = "DayWindowCount";
         public const string EventType = "EventType";
         public const string PhoneHash = "PhoneHash";
         public const string ActorType = "ActorType";

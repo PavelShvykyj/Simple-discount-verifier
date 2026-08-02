@@ -10,6 +10,7 @@ export const SMS_CODE_LENGTH = 6;
 
 export interface StartRedemptionRequest {
   readonly phone: string;
+  readonly turnstileToken?: string | null;
 }
 
 export interface StartRedemptionResponse {

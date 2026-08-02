@@ -39,8 +39,11 @@ export interface PublicRedemptionFlowStore {
   readonly canAccessBarcodeStep: Signal<boolean>;
   readonly isMockCorrelationIdActive: Signal<boolean>;
   readonly isMockBarcodeActive: Signal<boolean>;
+  readonly turnstileRefreshRequested: Signal<number>;
   setPhone(phone: string): void;
   setSmsCode(code: string): void;
+  setTurnstileToken(token: string | null): void;
+  setTurnstileRequired(required: boolean): void;
   startRedemption(): Observable<RedemptionTransitionResult>;
   resendSms(): Observable<RedemptionTransitionResult>;
   verifySms(): Observable<RedemptionTransitionResult>;
@@ -75,6 +78,9 @@ export class PublicRedemptionSignalStore implements PublicRedemptionFlowStore {
   private readonly smsStatusState = signal<RedemptionRequestStatus>('idle');
   private readonly errorState = signal<RedemptionFlowError | null>(null);
   private readonly phoneTouchedState = signal(false);
+  private readonly turnstileTokenState = signal<string | null>(null);
+  private readonly turnstileRequiredState = signal(false);
+  private readonly turnstileRefreshRequestedState = signal(0);
 
   readonly currentStep = this.currentStepState.asReadonly();
   readonly phone = this.phoneState.asReadonly();
@@ -87,6 +93,7 @@ export class PublicRedemptionSignalStore implements PublicRedemptionFlowStore {
   readonly phoneStatus = this.phoneStatusState.asReadonly();
   readonly smsStatus = this.smsStatusState.asReadonly();
   readonly error = this.errorState.asReadonly();
+  readonly turnstileRefreshRequested = this.turnstileRefreshRequestedState.asReadonly();
 
   private readonly normalizedPhone = computed(() => normalizeUkrainianPhone(this.phone()));
 
@@ -105,7 +112,11 @@ export class PublicRedemptionSignalStore implements PublicRedemptionFlowStore {
   });
 
   readonly canSubmitPhone = computed(() => {
-    return this.phoneStatus() !== 'submitting' && this.normalizedPhone() !== null;
+    return (
+      this.phoneStatus() !== 'submitting' &&
+      this.normalizedPhone() !== null &&
+      (!this.turnstileRequiredState() || this.turnstileTokenState() !== null)
+    );
   });
 
   readonly canAccessSmsStep = computed(() => {
@@ -139,6 +150,14 @@ export class PublicRedemptionSignalStore implements PublicRedemptionFlowStore {
     this.clearError();
   }
 
+  setTurnstileToken(token: string | null): void {
+    this.turnstileTokenState.set(token);
+  }
+
+  setTurnstileRequired(required: boolean): void {
+    this.turnstileRequiredState.set(required);
+  }
+
   startRedemption(): Observable<RedemptionTransitionResult> {
     const normalizedPhone = this.normalizedPhone();
 
@@ -150,14 +169,20 @@ export class PublicRedemptionSignalStore implements PublicRedemptionFlowStore {
     this.phoneStatusState.set('submitting');
     this.clearAttemptStateBeforePhoneSubmit();
 
-    return this.api.startRedemption({ phone: normalizedPhone }).pipe(
-      tap((response) => this.handleStartRedemptionSuccess(response)),
-      map(() => 'advanced' as const),
-      catchError((error: unknown) => {
-        this.handlePhoneError(error);
-        return of('blocked' as const);
-      }),
-    );
+    return this.api
+      .startRedemption({
+        phone: normalizedPhone,
+        turnstileToken: this.turnstileTokenState(),
+      })
+      .pipe(
+        tap((response) => this.handleStartRedemptionSuccess(response)),
+        map(() => 'advanced' as const),
+        catchError((error: unknown) => {
+          this.handlePhoneError(error);
+          return of('blocked' as const);
+        }),
+        tap({ complete: () => this.turnstileRefreshRequestedState.update((n) => n + 1) }),
+      );
   }
 
   resendSms(): Observable<RedemptionTransitionResult> {
@@ -166,7 +191,8 @@ export class PublicRedemptionSignalStore implements PublicRedemptionFlowStore {
     if (
       !this.canAccessSmsStep() ||
       this.phoneStatus() === 'submitting' ||
-      normalizedPhone === null
+      normalizedPhone === null ||
+      (this.turnstileRequiredState() && this.turnstileTokenState() === null)
     ) {
       return of('blocked');
     }
@@ -174,17 +200,23 @@ export class PublicRedemptionSignalStore implements PublicRedemptionFlowStore {
     this.phoneStatusState.set('submitting');
     this.clearError();
 
-    return this.api.startRedemption({ phone: normalizedPhone }).pipe(
-      tap((response) => {
-        this.clearAttemptStateAfterSmsResendSuccess();
-        this.handleStartRedemptionSuccess(response);
-      }),
-      map(() => 'advanced' as const),
-      catchError((error: unknown) => {
-        this.handleSmsResendError(error);
-        return of('blocked' as const);
-      }),
-    );
+    return this.api
+      .startRedemption({
+        phone: normalizedPhone,
+        turnstileToken: this.turnstileTokenState(),
+      })
+      .pipe(
+        tap((response) => {
+          this.clearAttemptStateAfterSmsResendSuccess();
+          this.handleStartRedemptionSuccess(response);
+        }),
+        map(() => 'advanced' as const),
+        catchError((error: unknown) => {
+          this.handleSmsResendError(error);
+          return of('blocked' as const);
+        }),
+        tap({ complete: () => this.turnstileRefreshRequestedState.update((n) => n + 1) }),
+      );
   }
 
   verifySms(): Observable<RedemptionTransitionResult> {

@@ -92,7 +92,7 @@ export class PhoneEntryScreenComponent {
   protected readonly canSubmitPhone = computed(
     () => {
       const isValid = this.phoneControlStatus()?.source.valid;
-      return isValid && this.flow.phoneStatus() !== 'submitting';
+      return isValid && this.flow.canSubmitPhone();
     }
   );
 
@@ -116,7 +116,7 @@ export class PhoneEntryScreenComponent {
     this.phoneControl.updateValueAndValidity();
     this.flow.setPhone(this.phoneControl.value);
 
-    if (this.phoneControl.invalid) {
+    if (this.phoneControl.invalid || !this.flow.canSubmitPhone()) {
       return;
     }
 

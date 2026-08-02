@@ -109,26 +109,66 @@ Starts a customer discount redemption attempt.
 Backend behavior:
 
 1. Create `correlationId` as soon as the request reaches business handling.
-2. Store audit event `redemption_started` with `correlationId`.
-3. Normalize and validate the phone number. If normalization succeeds, include
+2. Verify the optional `turnstileToken` with Cloudflare Turnstile (invisible
+   widget). This happens **before** phone normalization, so a failed
+   verification never leaks whether a phone number is registered. Verification
+   is skipped entirely (always treated as passed) when the backend
+   `TurnstileEnabled` app setting is `false` — a kill switch for outages in the
+   third-party Turnstile service, see
+   [architecture-decisions.md](./architecture-decisions.md).
+   Rejected Turnstile traffic is not written to `AuditEvents`, preventing the
+   anonymous endpoint from becoming a storage write-amplification path.
+3. Store audit event `redemption_started` with `correlationId`.
+4. Normalize and validate the phone number. If normalization succeeds, include
    `phoneHash` in subsequent audit events for this attempt.
-4. Search for an existing saved customer profile by normalized phone.
-5. If no profile exists, store `profile_not_found` and stop the process without
-   sending SMS and without
-   issuing a barcode.
-6. If a profile exists, derive the opaque phone runtime key and upsert the
-   current runtime row for this phone.
-7. Create a new SMS verification challenge and send SMS to the same phone
-   number. This overwrites any previous current SMS challenge or active barcode
-   for the same phone.
-8. Enforce SMS request throttling: no more than one SMS request per 5 seconds
-   for the same phone/current runtime row.
+5. Derive the opaque phone runtime key for the normalized phone. This key is
+   deterministic for **any** well-formed phone number, whether or not a saved
+   customer profile exists for it, so the following steps never branch on
+   profile existence before this point.
+6. Atomically apply SMS send rate limiting for the phone runtime key (see
+   below) using optimistic concurrency on the runtime row. This happens
+   **before** looking up the customer profile, so the 429 response and its
+   timing are identical for registered and non-registered phone numbers.
+7. Only after a send slot is successfully reserved, search for an existing
+   saved customer profile by normalized phone.
+8. If a profile exists, generate an SMS verification code and send it to the
+   phone. Store its hash only when the provider accepts the send; otherwise
+   store a random undeliverable hash and record `sms_send_failed` internally.
+9. If no profile exists, store audit event `profile_not_found`, generate a
+   random undeliverable code, and store its hash in the runtime row **without**
+   contacting the SMS provider. The runtime row still exists so a subsequent
+   `sms-verifications` call behaves identically (same status codes, same
+   timing) whether or not the phone was registered.
+10. Return the same `200 OK` success response for a missing profile, an
+   accepted SMS, and an SMS-provider rejection. A configurable minimum response
+   duration (`SmsResponseFloorMilliseconds`, 1500 ms by default) masks the
+   normal provider latency difference.
+
+This design intentionally prevents an attacker from enumerating registered
+phone numbers via this endpoint: the only externally observable difference
+between a registered and non-registered phone is that a registered phone
+actually receives an SMS, which is unavoidable and out of scope for an HTTP
+response/timing side channel.
+
+SMS send rate limiting (per phone runtime key, not per IP — see
+[architecture-decisions.md](./architecture-decisions.md) for why IP is not a
+reliable rate-limit key for this app's shared Wi-Fi / mobile CGNAT usage
+pattern):
+
+- Minimum interval between sends: `SmsRetryAfterSeconds` (180s in
+  production).
+- Maximum sends per fixed one-hour window: `SmsMaxPerHour` (5 in production).
+- Maximum sends per fixed 24-hour window: `SmsMaxPerDay` (10 in production).
+
+Any of the three limits being exceeded returns `429 sms_retry_too_soon`
+uniformly, regardless of profile existence.
 
 Request body:
 
 ```json
 {
-  "phone": "+380501234567"
+  "phone": "+380501234567",
+  "turnstileToken": "0.AAAA..."
 }
 ```
 
@@ -137,6 +177,7 @@ Fields:
 | Field | Type | Required | Description |
 | --- | --- | --- | --- |
 | `phone` | string | yes | Customer-entered phone number. Must be accepted and normalized as a Ukrainian phone number. |
+| `turnstileToken` | string | no | Token produced by the invisible Cloudflare Turnstile widget on the frontend. Only checked when the backend `TurnstileEnabled` app setting is `true`; ignored (treated as passed) otherwise. |
 
 Success response:
 
@@ -161,39 +202,40 @@ Response fields:
 | --- | --- | --- |
 | `redemptionKey` | string | Public flow key used by the frontend for the next SMS verification request. It is the opaque phone runtime key, not a raw phone number. A new flow for the same phone returns the same key but replaces the current runtime data. |
 | `correlationId` | string | 10-character uppercase base32 trace identifier for this redemption attempt. The public frontend must keep it immediately after the first response and use it for the admin-support QR button even before any barcode exists. |
-| `smsSent` | boolean | `true` when the SMS send request was accepted. |
+| `smsSent` | boolean | Always `true` when the request was accepted. This means the request was accepted for processing, **not** that an SMS was necessarily delivered to a real customer (see step 8 above). |
 | `retryAfterSeconds` | number | Minimum delay before another SMS request can be attempted for this flow. |
 | `smsExpiresAt` | string | ISO 8601 UTC timestamp when the SMS code expires. |
 
-Profile not found response:
-
-```http
-HTTP/1.1 404 Not Found
-Content-Type: application/json
-```
-
-```json
-{
-  "error": {
-    "code": "profile_not_found",
-    "message": "Profile was not found for this phone.",
-    "correlationId": "QPS7O7KCNM"
-  }
-}
-```
+There is intentionally no distinct "profile not found" response for this
+endpoint; see the backend behavior notes above.
 
 Other expected errors:
 
+- `400 turnstile_verification_failed`: Cloudflare Turnstile rejected or could
+  not validate `turnstileToken` while verification is enabled
+  (`TurnstileEnabled=true`). Returned before phone normalization, so it never
+  reveals profile existence. The error response includes `correlationId`.
 - `400 invalid_phone`: phone is missing or cannot be normalized to an accepted
   Ukrainian phone format. Because `correlationId` is created before phone
   normalization, the error response should include it unless the request failed
   before business handling started, for example unreadable JSON or an
   infrastructure failure.
-- `429 sms_retry_too_soon`: repeated SMS request is blocked by the 5 second
-  limit. The error response includes `correlationId`.
-- `502 sms_send_failed`: SMS provider failed or did not accept the message; the
-  frontend should show a retryable error. The error response includes
-  `correlationId`.
+- `429 sms_retry_too_soon`: the interval/hour/day rate limit was exceeded for
+  this phone runtime key. Applies uniformly regardless of profile existence.
+  The error response includes `correlationId`.
+- `409 redemption_conflict`: the reserved runtime row was removed or replaced
+  before its SMS challenge could be finalized.
+
+### Public redemption configuration
+
+```http
+GET /api/public/redemptions/config
+```
+
+Returns the runtime `turnstileEnabled` flag and public `turnstileSiteKey` used
+by the frontend. The site key is intentionally public; the secret key is never
+returned.
+
 
 ### Verify SMS
 
