@@ -85,6 +85,15 @@
     "smsFlySender": {
       "value": ""
     },
+    "smsMaxPerHour": {
+      "value": 5
+    },
+    "smsMaxPerDay": {
+      "value": 10
+    },
+    "smsResponseFloorMilliseconds": {
+      "value": 1500
+    },
     "deployCleanupScheduler": {
       "value": true
     },

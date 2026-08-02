@@ -446,7 +446,10 @@ az staticwebapp appsettings set `
     SmsFlyApiKey="$smsFlyApiKey" `
     SmsFlySender="$smsFlySender" `
     SmsCodeTtlSeconds=180 `
-    SmsRetryAfterSeconds=5 `
+    SmsRetryAfterSeconds=180 `
+    SmsMaxPerHour=5 `
+    SmsMaxPerDay=10 `
+    SmsResponseFloorMilliseconds=1500 `
     BarcodeTtlSeconds=180 `
     DiscountRuntimeRetentionHours=24 `
     AuditEventsRetentionDays=30 `

@@ -139,12 +139,15 @@ When enabled, the template expects secure values for:
   scheduler is enabled;
 - `smsFlyApiKey`.
 
-It also writes non-secret table-name settings:
+It also writes non-secret runtime settings:
 
 - `ScannerSurveyTableName`;
 - `CustomerProfilesTableName`;
 - `DiscountRuntimeTableName`;
-- `AuditEventsTableName`.
+- `AuditEventsTableName`;
+- `SmsMaxPerHour`;
+- `SmsMaxPerDay`;
+- `SmsResponseFloorMilliseconds`.
 
 For an already connected Static Web App, prefer adding settings with Azure CLI
 instead of enabling `manageStaticWebAppSettings`. The CLI command updates named
@@ -163,7 +166,10 @@ az staticwebapp appsettings set `
     PosMainClientId=main-pos-system `
     PosRequestFreshnessToleranceSeconds=300 `
     SmsCodeTtlSeconds=180 `
-    SmsRetryAfterSeconds=5 `
+    SmsRetryAfterSeconds=180 `
+    SmsMaxPerHour=5 `
+    SmsMaxPerDay=10 `
+    SmsResponseFloorMilliseconds=1500 `
     BarcodeTtlSeconds=180 `
     DiscountRuntimeRetentionHours=24 `
     AuditEventsRetentionDays=30
@@ -184,7 +190,10 @@ az staticwebapp appsettings set `
     PosMainClientId=main-pos-system `
     PosRequestFreshnessToleranceSeconds=300 `
     SmsCodeTtlSeconds=180 `
-    SmsRetryAfterSeconds=5 `
+    SmsRetryAfterSeconds=180 `
+    SmsMaxPerHour=5 `
+    SmsMaxPerDay=10 `
+    SmsResponseFloorMilliseconds=1500 `
     BarcodeTtlSeconds=180 `
     DiscountRuntimeRetentionHours=24 `
     AuditEventsRetentionDays=30 `

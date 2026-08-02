@@ -86,6 +86,9 @@ $parameterDocument = [ordered]@{
         discountRuntimeTableName = @{ value = 'DiscountRuntime' }
         auditEventsTableName = @{ value = 'AuditEvents' }
         smsFlySender = @{ value = '' }
+        smsMaxPerHour = @{ value = 5 }
+        smsMaxPerDay = @{ value = 10 }
+        smsResponseFloorMilliseconds = @{ value = 1500 }
         deployCleanupScheduler = @{ value = $false }
         cleanupLogicAppName = @{ value = "la-sdv-cleanup-$TenantSlug" }
         cleanupEndpointUrl = @{ value = '' }

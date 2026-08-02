@@ -20,6 +20,9 @@ try {
 
     if ($parameters.parameters.branch.value -cne 'release/testtenant') { throw 'Generated branch is incorrect.' }
     if ($parameters.parameters.storageAccountName.value -cne 'sdvstoragetesttenant') { throw 'Generated storage name is incorrect.' }
+    if ($parameters.parameters.smsMaxPerHour.value -ne 5) { throw 'Generated hourly SMS limit is incorrect.' }
+    if ($parameters.parameters.smsMaxPerDay.value -ne 10) { throw 'Generated daily SMS limit is incorrect.' }
+    if ($parameters.parameters.smsResponseFloorMilliseconds.value -ne 1500) { throw 'Generated SMS response floor is incorrect.' }
     if ($parameters.parameters.deployCleanupScheduler.value) { throw 'Cleanup scheduler must be disabled initially.' }
     if ($workflow -notmatch 'AZURE_STATIC_WEB_APPS_API_TOKEN_TESTTENANT') { throw 'Generated GitHub secret name is incorrect.' }
     if ($workflow -notmatch 'production_branch: "release/testtenant"') { throw 'Generated production branch is incorrect.' }
