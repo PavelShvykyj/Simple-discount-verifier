@@ -16,6 +16,10 @@ public sealed record DiscountRuntimeRecord(
     DateTimeOffset? BarcodeExpiresAtUtc,
     DateTimeOffset? BarcodeConsumedAtUtc,
     string? ConsumedByScanId,
+    DateTimeOffset HourWindowStartUtc,
+    int HourWindowCount,
+    DateTimeOffset DayWindowStartUtc,
+    int DayWindowCount,
     DateTimeOffset CreatedAtUtc,
     DateTimeOffset UpdatedAtUtc,
     string? ConcurrencyToken = null);

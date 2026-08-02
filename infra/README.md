@@ -8,8 +8,16 @@ resources described in `docs/architecture/azure-environments.md`.
 - `main.bicep` creates or updates the Azure resources for one environment.
 - `parameters/develop.example.json` matches the currently inspected
   development environment.
-- `parameters/production.example.json` is a starting point for the future
-  `master` production-pilot environment.
+- `parameters/production.example.json` records the first tenant production
+  baseline and is retained for compatibility.
+- `scripts/New-TenantDeploymentFiles.ps1` generates a tenant parameter file
+  and deployment workflow from the project naming rules.
+- `templates/azure-static-web-apps-tenant.yml` is the inactive workflow
+  template used by that generator.
+
+For every new tenant, use the approval-gated runbook in
+`docs/process/deploy-azure-tenant.md`. It supersedes the old assumption that
+`master` deploys one shared production pilot.
 
 ## What The Template Manages
 
@@ -40,7 +48,8 @@ resources described in `docs/architecture/azure-environments.md`.
 - Static Web Apps `admin` role invitations.
 - GitHub Actions secrets.
 - Custom domains and DNS validation.
-- Availability/health alert wiring until `GET /api/system/health` exists.
+- Availability/health alert wiring; the endpoint exists, but the alert remains
+  an optional per-tenant decision.
 - Enabling the cleanup Logic App until the backend maintenance cleanup endpoint
   exists and has been smoke-tested.
 
@@ -112,10 +121,10 @@ For a future SWA resource change:
    targeted Azure CLI or Portal change and then record the decision in
    `docs/architecture/azure-environments.md`.
 
-For a brand-new environment, such as the future `master` production pilot,
-`manageStaticWebAppResource=true` is appropriate for initial creation. After
-the SWA is created and connected, normal drift-control deployments can set it
-back to `false`.
+For a brand-new tenant, the validated runbook creates an empty SWA separately
+with Azure CLI and keeps `manageStaticWebAppResource=false`. This prevents
+Azure from creating or changing GitHub workflows. Enable Bicep SWA management
+only for an intentional SWA resource change after reviewing `what-if`.
 
 When enabled, the template expects secure values for:
 
@@ -130,12 +139,15 @@ When enabled, the template expects secure values for:
   scheduler is enabled;
 - `smsFlyApiKey`.
 
-It also writes non-secret table-name settings:
+It also writes non-secret runtime settings:
 
 - `ScannerSurveyTableName`;
 - `CustomerProfilesTableName`;
 - `DiscountRuntimeTableName`;
-- `AuditEventsTableName`.
+- `AuditEventsTableName`;
+- `SmsMaxPerHour`;
+- `SmsMaxPerDay`;
+- `SmsResponseFloorMilliseconds`.
 
 For an already connected Static Web App, prefer adding settings with Azure CLI
 instead of enabling `manageStaticWebAppSettings`. The CLI command updates named
@@ -155,7 +167,11 @@ az staticwebapp appsettings set `
     PosRequestFreshnessToleranceSeconds=300 `
     SmsCodeTtlSeconds=180 `
     SmsRetryAfterSeconds=180 `
+    SmsMaxPerHour=5 `
+    SmsMaxPerDay=10 `
+    SmsResponseFloorMilliseconds=1500 `
     BarcodeTtlSeconds=180 `
+    TurnstileEnabled=false `
     DiscountRuntimeRetentionHours=24 `
     AuditEventsRetentionDays=30
 ```
@@ -176,7 +192,11 @@ az staticwebapp appsettings set `
     PosRequestFreshnessToleranceSeconds=300 `
     SmsCodeTtlSeconds=180 `
     SmsRetryAfterSeconds=180 `
+    SmsMaxPerHour=5 `
+    SmsMaxPerDay=10 `
+    SmsResponseFloorMilliseconds=1500 `
     BarcodeTtlSeconds=180 `
+    TurnstileEnabled=false `
     DiscountRuntimeRetentionHours=24 `
     AuditEventsRetentionDays=30 `
     PosMainClientHmacSecret=CHANGE_ME_MANUALLY `
@@ -186,7 +206,10 @@ az staticwebapp appsettings set `
     AuditPhoneHashSecret=CHANGE_ME_MANUALLY `
     CleanupAutomationKey=CHANGE_ME_MANUALLY `
     SmsFlyApiKey=CHANGE_ME_MANUALLY `
-    SmsFlySender=CHANGE_ME_MANUALLY
+    SmsFlySender=CHANGE_ME_MANUALLY `
+    TurnstileSecretKey=CHANGE_ME_MANUALLY `
+    TurnstileSiteKey=CHANGE_ME_MANUALLY `
+    TurnstileExpectedHostname=CHANGE_ME_MANUALLY
 ```
 
 The bootstrap command intentionally does not set these existing critical
@@ -199,6 +222,28 @@ connection settings:
 Do not overwrite connection strings with placeholder values in an environment
 that already works. Azure CLI also prints Static Web Apps app-setting values as
 `null`; that is value masking, not proof that the setting is empty.
+
+### Turnstile kill switch (outage runbook)
+
+`TurnstileEnabled` is a hard kill switch for Cloudflare Turnstile verification
+on `POST /api/public/redemptions`. If Cloudflare Turnstile itself is down or
+misbehaving, legitimate customers would otherwise be blocked (verification is
+fail-closed while enabled). To restore the redemption flow immediately:
+
+```powershell
+az staticwebapp appsettings set `
+  --name swa-simple-discount-verifier `
+  --resource-group rg-simple-discount-verifier `
+  --setting-names `
+    TurnstileEnabled=false
+```
+
+No redeploy or code change is required. Re-enable the same way with
+`TurnstileEnabled=true` once the outage is resolved. Before enabling it, set
+`TurnstileSecretKey`, the public `TurnstileSiteKey`, and
+`TurnstileExpectedHostname`. The frontend reads the public site key at runtime
+from `GET /api/public/redemptions/config`; rebuilding the frontend is not
+required.
 
 Set or replace connection settings only with real values:
 
@@ -237,6 +282,7 @@ committed or pasted into chat/logs:
 - `CleanupAutomationKey`;
 - `SmsFlyApiKey`;
 - `SmsFlySender`, if the sender value is operationally sensitive.
+- `TurnstileSecretKey`.
 
 ### Secret App Settings
 
@@ -244,18 +290,21 @@ Set these on the Azure Static Web App under
 **Settings -> Environment variables**, or with Azure CLI
 `az staticwebapp appsettings set`.
 
-| Setting | Purpose | Source |
-| --- | --- | --- |
-| `AppStorageConnectionString` | Lets managed Functions access Azure Table Storage. Already configured in `develop`; required in every environment. | Azure Storage Account access key connection string. |
-| `APPLICATIONINSIGHTS_CONNECTION_STRING` | Connects backend telemetry to Application Insights. Already configured in `develop`; required in every environment. | Application Insights connection string. |
-| `PosMainClientHmacSecret` | Shared secret for validating POS HMAC requests from `main-pos-system`. | Generate a long random secret and provision the same value to the POS integration owner. |
-| `PhoneRuntimeKeySecret` | Derives deterministic opaque phone runtime keys without exposing raw phone numbers. | Generate a long random backend-only secret per environment. |
-| `SmsCodeHashSecret` | Hashes SMS codes so raw SMS codes are not stored. | Generate a long random backend-only secret per environment. |
-| `BarcodeHashSecret` | Hashes barcode values so raw active barcodes are not stored. | Generate a long random backend-only secret per environment. |
-| `AuditPhoneHashSecret` | Hashes phone values for `AuditEvents` diagnostics without storing raw phones. | Generate a long random backend-only secret per environment. |
-| `CleanupAutomationKey` | Authorizes the scheduled Logic App call to the maintenance cleanup endpoint. This is not a POS credential. | Generate a long random cleanup-only secret per environment. Store the same value in the Logic App secure workflow parameter. |
-| `SmsFlyApiKey` | Authenticates requests to SMS-Fly. | SMS-Fly account/API credentials. |
-| `SmsFlySender` | Sender id/name used for SMS messages. | SMS-Fly-approved sender value. Treat as sensitive if the provider or operations policy requires it. |
+| Setting                                 | Purpose                                                                                                             | Source                                                                                                                       |
+| --------------------------------------- | ------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| `AppStorageConnectionString`            | Lets managed Functions access Azure Table Storage. Already configured in `develop`; required in every environment.  | Azure Storage Account access key connection string.                                                                          |
+| `APPLICATIONINSIGHTS_CONNECTION_STRING` | Connects backend telemetry to Application Insights. Already configured in `develop`; required in every environment. | Application Insights connection string.                                                                                      |
+| `PosMainClientHmacSecret`               | Shared secret for validating POS HMAC requests from `main-pos-system`.                                              | Generate a long random secret and provision the same value to the POS integration owner.                                     |
+| `PhoneRuntimeKeySecret`                 | Derives deterministic opaque phone runtime keys without exposing raw phone numbers.                                 | Generate a long random backend-only secret per environment.                                                                  |
+| `SmsCodeHashSecret`                     | Hashes SMS codes so raw SMS codes are not stored.                                                                   | Generate a long random backend-only secret per environment.                                                                  |
+| `BarcodeHashSecret`                     | Hashes barcode values so raw active barcodes are not stored.                                                        | Generate a long random backend-only secret per environment.                                                                  |
+| `AuditPhoneHashSecret`                  | Hashes phone values for `AuditEvents` diagnostics without storing raw phones.                                       | Generate a long random backend-only secret per environment.                                                                  |
+| `CleanupAutomationKey`                  | Authorizes the scheduled Logic App call to the maintenance cleanup endpoint. This is not a POS credential.          | Generate a long random cleanup-only secret per environment. Store the same value in the Logic App secure workflow parameter. |
+| `SmsFlyApiKey`                          | Authenticates requests to SMS-Fly.                                                                                  | SMS-Fly account/API credentials.                                                                                             |
+| `SmsFlySender`                          | Sender id/name used for SMS messages.                                                                               | SMS-Fly-approved sender value. Treat as sensitive if the provider or operations policy requires it.                          |
+| `TurnstileSecretKey`                    | Validates Turnstile tokens on the backend.                                                                          | Secret key from the Cloudflare Turnstile widget.                                                                             |
+| `TurnstileSiteKey`                      | Lets the frontend render the configured Turnstile widget; safe to expose publicly.                                  | Site key from the same Cloudflare Turnstile widget.                                                                          |
+| `TurnstileExpectedHostname`             | Binds accepted Turnstile tokens to the deployed application hostname.                                               | Hostname only, for example `example.com`, without scheme or path.                                                            |
 
 Recommended random secret generation from PowerShell:
 
@@ -472,71 +521,26 @@ az monitor app-insights component show `
   --output json
 ```
 
-## Prepare Production Pilot
+## Deploy A Tenant Production Environment
 
-Production pilot is deployed from `master` into a separate Azure account or
-subscription.
+Tenant production is deployed from `release/<tenant>` into that tenant's own
+Azure account or subscription. `master` is only the stable code baseline.
 
-One-time preparation:
+Use the complete human-and-agent stepper:
 
-1. Sign in to the production Azure account.
-2. Set the production subscription:
+- `docs/process/deploy-azure-tenant.md`;
+- `$deploy-azure-tenant` when running through Codex.
 
-   ```powershell
-   az account set --subscription <production-subscription-id>
-   ```
-
-3. Create or choose the production resource group:
-
-   ```powershell
-   az group create `
-     --name <production-resource-group> `
-     --location westeurope
-   ```
-
-4. Copy `parameters/production.example.json` to a local, uncommitted parameter
-   file if real production names differ from the example.
-5. Replace placeholder resource names and alert emails in that local parameter
-   file.
-6. Keep `manageStaticWebAppResource=true` for the first production deployment
-   if Bicep should create the Static Web App.
-7. Supply a secure `repositoryToken` when creating a brand-new SWA through
-   Bicep, or create/connect the SWA through Azure Portal and then set
-   `manageStaticWebAppResource=false` for later drift-control deployments.
-
-Preview production:
+The generator is intentionally local-only and writes no secrets:
 
 ```powershell
-az deployment group what-if `
-  --resource-group <production-resource-group> `
-  --template-file infra/main.bicep `
-  --parameters "@<local-production-parameters.json>" `
-  --parameters repositoryToken="<github-token>"
+.\infra\scripts\New-TenantDeploymentFiles.ps1 `
+  -TenantSlug <lowercase-latin-slug> `
+  -ReleaseBranch release/<lowercase-latin-slug> `
+  -Location eastus2
 ```
 
-Apply production:
-
-```powershell
-az deployment group create `
-  --resource-group <production-resource-group> `
-  --template-file infra/main.bicep `
-  --parameters "@<local-production-parameters.json>" `
-  --parameters repositoryToken="<github-token>"
-```
-
-After production infrastructure exists:
-
-1. Add production Static Web Apps app settings, including real secrets, from a
-   secure local source.
-2. Invite production administrators to the Static Web Apps `admin` custom role.
-3. Get the production Static Web Apps deployment token.
-4. Add a production GitHub Actions secret, for example
-   `AZURE_STATIC_WEB_APPS_API_TOKEN_PRODUCTION`.
-5. Add a separate GitHub Actions workflow for `master`.
-6. Run the first `master` deployment.
-7. Verify the public site, protected admin routes, storage tables, Application
-   Insights retention/cap, and telemetry.
-
-After the first production SWA is created and connected, normal production
-infrastructure deployments should usually set `manageStaticWebAppResource=false`
-unless the task is intentionally changing SWA resource properties.
+Do not copy the old single-`master` production commands. The stepper creates an
+empty SWA without GitHub integration, reviews Bicep `what-if`, applies one
+deployment at a time, provisions runtime settings from local secret variables,
+and enables cleanup only after endpoint smoke testing.

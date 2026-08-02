@@ -1,0 +1,4 @@
+interface:
+  display_name: "Deploy Azure Tenant"
+  short_description: "Stepwise Azure tenant deployment for this project"
+  default_prompt: "Use $deploy-azure-tenant to deploy a new tenant environment one approved step at a time."

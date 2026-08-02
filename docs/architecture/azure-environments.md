@@ -6,24 +6,29 @@ model for the project environments.
 ## Scope
 
 - `develop` deploys to a development Azure environment.
-- `master` deploys to a separate production-pilot Azure environment in a
-  separate Azure account or subscription.
-- Both environments use the same application architecture unless a requirement
-  explicitly says otherwise.
+- `master` is the stable common baseline and does not deploy a concrete client.
+- Every client uses `release/<tenant>` and a separate Azure account or
+  subscription.
+- Development and tenant environments use the same application architecture
+  unless a tenant requirement explicitly says otherwise.
 - Environment-specific values, secrets, resource names, role invitations, and
   domains must not be committed to the repository.
 
 ## Current Repository State
 
-- The existing GitHub Actions workflow deploys only pushes to `develop`.
+- The common GitHub Actions workflow deploys only pushes to `develop`.
+- Tenant deployment workflows exist only in their `release/<tenant>` branches
+  and authenticate with tenant-specific SWA deployment tokens.
 - The workflow deploys the Angular/Ionic frontend from `frontend`.
 - The workflow deploys the managed Static Web Apps API from `functions`.
 - The deployed frontend output is `dist/app/browser`.
 - The workflow uses a Static Web Apps deployment token stored in GitHub
   Secrets as `AZURE_STATIC_WEB_APPS_API_TOKEN_BLACK_POND_085834203`.
 - Initial infrastructure-as-code files are present under `infra/`.
-- `infra/main.bicep` is the first Azure resource baseline for the current
-  `develop` environment and the future `master` production-pilot environment.
+- `infra/main.bicep` is the Azure resource baseline for `develop` and every
+  tenant environment.
+- `docs/process/deploy-azure-tenant.md` is the canonical approval-gated tenant
+  deployment procedure.
 
 ## Current Development Azure Inventory
 
@@ -44,13 +49,13 @@ Resource group:
 
 Resources:
 
-| Resource | Type | Location | Notes |
-| --- | --- | --- | --- |
-| `swa-simple-discount-verifier` | `Microsoft.Web/staticSites` | `westeurope` | Static Web App for `develop`. |
-| `sdvstorageaccount` | `Microsoft.Storage/storageAccounts` | `westeurope` | Table Storage account. |
-| `ws-simple-discount-verifier` | `Microsoft.OperationalInsights/workspaces` | `westeurope` | Log Analytics workspace for Application Insights. |
-| `ins-simple-discount-verifier` | `microsoft.insights/components` | `westeurope` | Workspace-based Application Insights component. |
-| `Application Insights Smart Detection` | `microsoft.insights/actiongroups` | `global` | Automatically created Smart Detection action group. |
+| Resource                               | Type                                       | Location     | Notes                                               |
+| -------------------------------------- | ------------------------------------------ | ------------ | --------------------------------------------------- |
+| `swa-simple-discount-verifier`         | `Microsoft.Web/staticSites`                | `westeurope` | Static Web App for `develop`.                       |
+| `sdvstorageaccount`                    | `Microsoft.Storage/storageAccounts`        | `westeurope` | Table Storage account.                              |
+| `ws-simple-discount-verifier`          | `Microsoft.OperationalInsights/workspaces` | `westeurope` | Log Analytics workspace for Application Insights.   |
+| `ins-simple-discount-verifier`         | `microsoft.insights/components`            | `westeurope` | Workspace-based Application Insights component.     |
+| `Application Insights Smart Detection` | `microsoft.insights/actiongroups`          | `global`     | Automatically created Smart Detection action group. |
 
 Static Web App:
 
@@ -70,9 +75,9 @@ Configured Static Web Apps application settings:
 
 Configured Static Web Apps users and roles:
 
-| Provider | Roles |
-| --- | --- |
-| `aad` | `admin`, `anonymous`, `authenticated` |
+| Provider | Roles                                 |
+| -------- | ------------------------------------- |
+| `aad`    | `admin`, `anonymous`, `authenticated` |
 
 Storage Account:
 
@@ -108,7 +113,7 @@ Application Insights:
   `dailyDataCapInGB: null`; verify the cap through
   `Microsoft.Insights/components/CurrentBillingFeatures`.
 
-Application Insights differences from the target production-pilot baseline:
+Application Insights differences from the target tenant-production baseline:
 
 - The existing Smart Detection action group has no email receivers configured.
 - No metric alert rules are currently configured.
@@ -186,7 +191,7 @@ Temporary scanner compatibility data:
 ## Observability Configuration
 
 Application Insights is enabled for backend Azure Functions/API telemetry only.
-Frontend/browser telemetry is out of scope for the production pilot.
+Frontend/browser telemetry is out of scope for the tenant-production baseline.
 
 Application Insights configuration:
 
@@ -234,10 +239,11 @@ browser-delivered assets.
 
 ## Environment Matrix
 
-| Environment | Git branch | Azure account/subscription | Resource group | Static Web App | Storage account | Application Insights | GitHub secret |
-| --- | --- | --- | --- | --- | --- | --- | --- |
-| Development | `develop` | `Subscription 1978` / `33427c73-b710-48a3-99a2-82217072bd94` | `rg-simple-discount-verifier` | `swa-simple-discount-verifier` | `sdvstorageaccount` | `ins-simple-discount-verifier` | `AZURE_STATIC_WEB_APPS_API_TOKEN_BLACK_POND_085834203` |
-| Production pilot | `master` | Separate working account/subscription, to be confirmed | To be confirmed | To be created | To be created | To be created | To be created |
+| Environment       | Git branch         | Azure account/subscription                                   | Resource group                | Static Web App                          | Storage account      | Application Insights           | GitHub secret                                          |
+| ----------------- | ------------------ | ------------------------------------------------------------ | ----------------------------- | --------------------------------------- | -------------------- | ------------------------------ | ------------------------------------------------------ |
+| Development       | `develop`          | `Subscription 1978` / `33427c73-b710-48a3-99a2-82217072bd94` | `rg-simple-discount-verifier` | `swa-simple-discount-verifier`          | `sdvstorageaccount`  | `ins-simple-discount-verifier` | `AZURE_STATIC_WEB_APPS_API_TOKEN_BLACK_POND_085834203` |
+| Stable baseline   | `master`           | None                                                         | None                          | None                                    | None                 | None                           | None                                                   |
+| Tenant production | `release/<tenant>` | Separate tenant account/subscription                         | `rg-simple-discount-verifier` | `swa-simple-discount-verifier-<tenant>` | `sdvstorage<tenant>` | `ins-simple-discount-verifier` | `AZURE_STATIC_WEB_APPS_API_TOKEN_<TENANT>`             |
 
 ## Manual Portal Steps To Confirm
 
@@ -264,21 +270,27 @@ repository shape is:
 ```text
 infra/
   main.bicep
+  scripts/
+    New-TenantDeploymentFiles.ps1
+  templates/
+    azure-static-web-apps-tenant.yml
   parameters/
     develop.example.json
     production.example.json
+    tenants/
+      <tenant>.json
 ```
 
-Automation should eventually cover:
+The current stepper covers:
 
-- resource group-level deployment;
-- Static Web App creation;
-- Storage Account creation;
-- Azure Table creation;
-- Application Insights creation;
-- retention and daily cap configuration where supported;
-- Static Web Apps app settings that are safe to automate;
-- GitHub Actions workflow separation for `develop` and `master`.
+- release branch and tenant deployment-file generation;
+- empty Static Web App creation without GitHub mutation;
+- resource group-level Bicep what-if/deployment;
+- Storage Account and Azure Table creation;
+- Application Insights retention and daily cap;
+- runtime settings from local secret variables;
+- tenant-specific GitHub Actions workflow;
+- cleanup endpoint verification and Logic App scheduler.
 
 Automation may still leave these as documented manual steps if Azure tooling
 does not support them cleanly for this project phase:
@@ -289,14 +301,8 @@ does not support them cleanly for this project phase:
 
 ## Next Decisions
 
-- Confirm actual Azure resource names for the existing `develop` environment.
-- Confirm whether the current `develop` Static Web App and Storage Account are
-  in the final development Azure account/subscription.
-- Confirm the production-pilot Azure account/subscription for `master`.
-- Decide whether to provision the production-pilot environment before or after
-  Bicep is introduced.
-- Decide whether to keep deployment-token based SWA deployment or move toward
-  a fuller OIDC/service-principal deployment model for infrastructure changes.
-- Define exact environment variable names for all upcoming backend secrets.
-- Define the first backend health endpoint used by the Application Insights
-  availability alert.
+- Decide per tenant whether custom domain and Standard SWA SKU are required.
+- Decide whether tenant alerts should be enabled and which operations email
+  receives them.
+- Revisit deployment-token authentication only if the number of tenants or
+  token-rotation burden justifies a different CI/CD model.
