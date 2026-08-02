@@ -21,7 +21,7 @@
       "value": "https://github.com/PavelShvykyj/Simple-discount-verifier"
     },
     "branch": {
-      "value": "master"
+      "value": "release/nakhmari"
     },
     "appLocation": {
       "value": "./frontend"
@@ -86,13 +86,13 @@
       "value": ""
     },
     "deployCleanupScheduler": {
-      "value": false
+      "value": true
     },
     "cleanupLogicAppName": {
       "value": "la-sdv-cleanup-production"
     },
     "cleanupEndpointUrl": {
-      "value": ""
+      "value": "https://ambitious-water-04999d60f.7.azurestaticapps.net/api/system/maintenance/cleanup"
     },
     "cleanupScheduleFrequency": {
       "value": "Day"
