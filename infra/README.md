@@ -130,12 +130,15 @@ When enabled, the template expects secure values for:
   scheduler is enabled;
 - `smsFlyApiKey`.
 
-It also writes non-secret table-name settings:
+It also writes non-secret runtime settings:
 
 - `ScannerSurveyTableName`;
 - `CustomerProfilesTableName`;
 - `DiscountRuntimeTableName`;
-- `AuditEventsTableName`.
+- `AuditEventsTableName`;
+- `SmsMaxPerHour`;
+- `SmsMaxPerDay`;
+- `SmsResponseFloorMilliseconds`.
 
 For an already connected Static Web App, prefer adding settings with Azure CLI
 instead of enabling `manageStaticWebAppSettings`. The CLI command updates named
