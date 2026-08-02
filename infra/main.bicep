@@ -133,6 +133,18 @@ param cleanupAutomationKey string = ''
 @description('SMS-Fly sender name or id.')
 param smsFlySender string = ''
 
+@minValue(1)
+@description('Maximum SMS sends allowed per phone in a fixed one-hour window.')
+param smsMaxPerHour int = 5
+
+@minValue(1)
+@description('Maximum SMS sends allowed per phone in a fixed 24-hour window.')
+param smsMaxPerDay int = 10
+
+@minValue(1)
+@description('Minimum public SMS-start response duration in milliseconds.')
+param smsResponseFloorMilliseconds int = 1500
+
 @description('Additional non-secret Static Web Apps app settings to merge when manageStaticWebAppSettings is true.')
 param additionalAppSettings object = {}
 
@@ -273,6 +285,9 @@ var managedAppSettings = union({
   CleanupAutomationKey: cleanupAutomationKey
   SmsFlyApiKey: smsFlyApiKey
   SmsFlySender: smsFlySender
+  SmsMaxPerHour: string(smsMaxPerHour)
+  SmsMaxPerDay: string(smsMaxPerDay)
+  SmsResponseFloorMilliseconds: string(smsResponseFloorMilliseconds)
 }, additionalAppSettings)
 
 resource staticWebAppSettings 'Microsoft.Web/staticSites/config@2023-12-01' = if (manageStaticWebAppResource && manageStaticWebAppSettings) {

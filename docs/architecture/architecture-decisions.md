@@ -206,3 +206,79 @@
   the SMS through the existing provider, and stores no challenge or verification
   result. Changing the phone clears the frontend confirmation state; edit mode
   does not require confirmation.
+
+## Public redemption hardening: phone enumeration and SMS bombing
+
+- `POST /api/public/redemptions` returns a uniform `200 OK` regardless of
+  whether a customer profile exists for the entered phone. There is no
+  distinct "profile not found" HTTP response on this endpoint; see
+  `docs/architecture/api-contract.md` for the full behavior.
+- SMS send rate limiting is keyed by the deterministic phone runtime key
+  (derived from the normalized phone), not by client IP address. IP address
+  was rejected as the primary rate-limit key because this app's primary usage
+  scenario is a customer connecting to a restaurant/venue's shared Wi-Fi (all
+  patrons share one NAT/public IP) or to a mobile carrier using carrier-grade
+  NAT (many unrelated subscribers share one public IP), both of which make
+  IP-based limits either falsely block unrelated customers or fail to isolate
+  a single abusive client. IP MAY still be logged as a secondary monitoring
+  signal but must not gate legitimate requests.
+- SMS send rate limits: minimum 180 seconds between sends, maximum 5 sends per
+  fixed one-hour window, maximum 10 sends per fixed 24-hour window, all per phone runtime key.
+  Configured via the `SmsRetryAfterSeconds`, `SmsMaxPerHour`, and
+  `SmsMaxPerDay` app settings.
+- The rate limit is enforced with an atomic optimistic-concurrency
+  reserve-then-act pattern on the `DiscountRuntime` row (insert-if-absent or
+  ETag-conditional replace with a bounded retry loop) so a burst of parallel
+  requests for the same phone cannot bypass the limit through a
+  check-then-act race condition.
+- CAPTCHA/bot-challenge on this endpoint was initially deferred; it is now
+  covered by invisible Cloudflare Turnstile (see the dedicated section below).
+  Mass cross-number enumeration by an operator running a real browser/headless
+  Turnstile-capable client, each request individually under the rate limit,
+  remains a known, accepted residual gap.
+- SMS-provider rejection is audit-only and returns the same generic `200 OK` as
+  the registered-success and profile-not-found paths. A configurable response
+  floor masks normal SMS-provider latency without introducing a queue.
+
+## Invisible Cloudflare Turnstile with a config kill switch
+
+- `POST /api/public/redemptions` verifies an optional `turnstileToken`
+  (produced by an invisible Cloudflare Turnstile widget on the frontend)
+  against Cloudflare's `siteverify` endpoint. This runs before phone
+  normalization/profile lookup so a failed check never leaks profile
+  existence, and reuses the enumeration-safe design established above.
+- The check is fully gated by a single backend app setting,
+  `TurnstileEnabled` (bound to `TurnstileOptions.Enabled`). When `false`
+  (the default), `CloudflareTurnstileVerifier.VerifyAsync` returns `true`
+  immediately with **no network call** and without reading `TurnstileSecretKey`
+  at all — the endpoint behaves exactly as it did before Turnstile existed.
+  This is a deliberate, explicit operator-controlled kill switch: if Cloudflare
+  Turnstile itself has an outage or starts misbehaving, an operator flips
+  `TurnstileEnabled=false` via `az staticwebapp appsettings set` (see
+  `infra/README.md`) and the redemption flow is immediately restored for
+  legitimate customers, with no redeploy.
+- While `TurnstileEnabled=true`, verification is intentionally **fail-closed**:
+  a missing/oversized/invalid token, missing Turnstile settings, a non-success
+  Cloudflare response, or a transport failure/timeout talking to Cloudflare all
+  result in the request being rejected (`400 turnstile_verification_failed`).
+  Automatically falling back to "allow" on any verification error was
+  considered and rejected: an attacker could trivially trigger transport
+  errors (e.g. sending garbage tokens, or exhausting the shared `HttpClient`)
+  to auto-disable the very check meant to stop them. The kill switch is
+  therefore a manual, operator-initiated action tied to a real incident, not an
+  automatic behavior triggered by request-level failures. Siteverify calls
+  have a 10-second application timeout; successful responses must match the
+  `start_redemption` action and configured hostname.
+- `GET /api/public/redemptions/config` supplies the enabled flag and public site
+  key at runtime. The frontend blocks start/resend while Turnstile is required
+  but a one-time token is not ready. A deployment can therefore enable or
+  disable Turnstile without rebuilding the static frontend.
+- The frontend widget uses Turnstile's default `execution: 'render'` mode
+  (auto-runs once mounted, invisible, no visible UI in the normal case) rather
+  than `execution: 'execute'` bound to the submit button, to avoid adding
+  latency at the moment the customer taps submit. Tokens are single-use
+  server-side, so the widget is reset (a fresh token requested) after every
+  `startRedemption`/`resendSms` attempt, successful or not.
+- Requests rejected by Turnstile are not persisted to `AuditEvents`; this
+  avoids one storage write per anonymous bot request. The generated
+  `correlationId` is still returned in the error response.

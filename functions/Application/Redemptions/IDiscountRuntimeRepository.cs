@@ -12,7 +12,12 @@ public interface IDiscountRuntimeRepository
         string correlationId,
         CancellationToken cancellationToken);
 
-    Task<StorageWriteResult> UpsertCurrentAsync(
+    /// <summary>
+    /// Inserts a brand-new current runtime row. Fails with <see cref="StorageWriteStatus.Conflict"/>
+    /// if a row already exists for the phone runtime key, so callers can safely use this as the
+    /// "no existing row yet" branch of an optimistic-concurrency reserve loop.
+    /// </summary>
+    Task<StorageWriteResult> InsertCurrentAsync(
         DiscountRuntimeRecord record,
         CancellationToken cancellationToken);
 

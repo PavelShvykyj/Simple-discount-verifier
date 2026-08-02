@@ -1,4 +1,11 @@
-import { AfterViewInit, Component, inject, viewChild } from '@angular/core';
+import {
+  AfterViewInit,
+  Component,
+  ElementRef,
+  effect,
+  inject,
+  viewChild,
+} from '@angular/core';
 import {
   AlertController,
   IonButton,
@@ -24,6 +31,7 @@ import { isSupportCorrelationId } from '../../../features/redemption-flow/model/
 import { PhoneEntryScreenComponent } from '../../../features/redemption-flow/ui/phone-entry-screen/phone-entry-screen.component';
 import { SupportQrDialogComponent } from '../../../features/redemption-flow/ui/support-qr-dialog/support-qr-dialog.component';
 import { ThemeModeSelectorComponent } from '../../../shared/theme/ui/theme-mode-selector.component';
+import { TurnstileWidgetService } from '../../../shared/lib/turnstile/turnstile-widget.service';
 
 const PRE_CORRELATION_SUPPORT_MESSAGE =
   'Код підтримки з\'явиться після початку перевірки телефону. До цього моменту зверніться до працівника напряму.';
@@ -47,6 +55,7 @@ const INVALID_CORRELATION_SUPPORT_MESSAGE =
     PublicRedemptionApi,
     PublicRedemptionNavService,
     PublicRedemptionSignalStore,
+    TurnstileWidgetService,
     {
       provide: PUBLIC_REDEMPTION_FLOW_STORE,
       useExisting: PublicRedemptionSignalStore,
@@ -60,16 +69,26 @@ export class PublicRedemptionPage implements AfterViewInit {
   protected readonly flow = inject(PUBLIC_REDEMPTION_FLOW_STORE);
 
   private readonly flowNav = viewChild.required<IonNav>('flowNav');
+  private readonly turnstileHost = viewChild.required<ElementRef<HTMLDivElement>>('turnstileHost');
   private readonly nav = inject(PublicRedemptionNavService);
+  private readonly turnstile = inject(TurnstileWidgetService);
   private readonly alertController = inject(AlertController);
   private readonly modalController = inject(ModalController);
 
   constructor() {
     addIcons({ helpCircleOutline });
+
+    effect(() => this.flow.setTurnstileToken(this.turnstile.token()));
+    effect(() => this.flow.setTurnstileRequired(this.turnstile.required()));
+    effect(() => {
+      this.flow.turnstileRefreshRequested();
+      this.turnstile.refresh();
+    });
   }
 
   ngAfterViewInit(): void {
     this.nav.setNav(this.flowNav());
+    void this.turnstile.render(this.turnstileHost().nativeElement);
   }
 
   protected async openSupport(): Promise<void> {
