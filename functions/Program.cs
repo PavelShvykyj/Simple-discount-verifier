@@ -13,6 +13,7 @@ using SimpleDiscountVerifier.Api.Infrastructure;
 using SimpleDiscountVerifier.Api.Infrastructure.Options;
 using SimpleDiscountVerifier.Api.Infrastructure.Sms;
 using SimpleDiscountVerifier.Api.Infrastructure.Storage;
+using SimpleDiscountVerifier.Api.Infrastructure.Turnstile;
 using SimpleDiscountVerifier.Api.Storage;
 
 var host = new HostBuilder()
@@ -33,6 +34,7 @@ var host = new HostBuilder()
         services.AddSingleton<SystemCleanupService>();
         services.AddSingleton<HttpClient>();
         services.AddSingleton<ISmsSender, SmsFlyClient>();
+        services.AddSingleton<ITurnstileVerifier, CloudflareTurnstileVerifier>();
         services.AddSingleton<IClock, SystemClock>();
         services.AddSingleton<IScannerSurveyTableWriter, ScannerSurveyTableWriter>();
     })

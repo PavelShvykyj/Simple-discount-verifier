@@ -155,7 +155,11 @@ az staticwebapp appsettings set `
     PosRequestFreshnessToleranceSeconds=300 `
     SmsCodeTtlSeconds=180 `
     SmsRetryAfterSeconds=180 `
+    SmsMaxPerHour=5 `
+    SmsMaxPerDay=10 `
+    SmsResponseFloorMilliseconds=1500 `
     BarcodeTtlSeconds=180 `
+    TurnstileEnabled=false `
     DiscountRuntimeRetentionHours=24 `
     AuditEventsRetentionDays=30
 ```
@@ -176,7 +180,11 @@ az staticwebapp appsettings set `
     PosRequestFreshnessToleranceSeconds=300 `
     SmsCodeTtlSeconds=180 `
     SmsRetryAfterSeconds=180 `
+    SmsMaxPerHour=5 `
+    SmsMaxPerDay=10 `
+    SmsResponseFloorMilliseconds=1500 `
     BarcodeTtlSeconds=180 `
+    TurnstileEnabled=false `
     DiscountRuntimeRetentionHours=24 `
     AuditEventsRetentionDays=30 `
     PosMainClientHmacSecret=CHANGE_ME_MANUALLY `
@@ -186,7 +194,10 @@ az staticwebapp appsettings set `
     AuditPhoneHashSecret=CHANGE_ME_MANUALLY `
     CleanupAutomationKey=CHANGE_ME_MANUALLY `
     SmsFlyApiKey=CHANGE_ME_MANUALLY `
-    SmsFlySender=CHANGE_ME_MANUALLY
+    SmsFlySender=CHANGE_ME_MANUALLY `
+    TurnstileSecretKey=CHANGE_ME_MANUALLY `
+    TurnstileSiteKey=CHANGE_ME_MANUALLY `
+    TurnstileExpectedHostname=CHANGE_ME_MANUALLY
 ```
 
 The bootstrap command intentionally does not set these existing critical
@@ -199,6 +210,28 @@ connection settings:
 Do not overwrite connection strings with placeholder values in an environment
 that already works. Azure CLI also prints Static Web Apps app-setting values as
 `null`; that is value masking, not proof that the setting is empty.
+
+### Turnstile kill switch (outage runbook)
+
+`TurnstileEnabled` is a hard kill switch for Cloudflare Turnstile verification
+on `POST /api/public/redemptions`. If Cloudflare Turnstile itself is down or
+misbehaving, legitimate customers would otherwise be blocked (verification is
+fail-closed while enabled). To restore the redemption flow immediately:
+
+```powershell
+az staticwebapp appsettings set `
+  --name swa-simple-discount-verifier `
+  --resource-group rg-simple-discount-verifier `
+  --setting-names `
+    TurnstileEnabled=false
+```
+
+No redeploy or code change is required. Re-enable the same way with
+`TurnstileEnabled=true` once the outage is resolved. Before enabling it, set
+`TurnstileSecretKey`, the public `TurnstileSiteKey`, and
+`TurnstileExpectedHostname`. The frontend reads the public site key at runtime
+from `GET /api/public/redemptions/config`; rebuilding the frontend is not
+required.
 
 Set or replace connection settings only with real values:
 
@@ -237,6 +270,7 @@ committed or pasted into chat/logs:
 - `CleanupAutomationKey`;
 - `SmsFlyApiKey`;
 - `SmsFlySender`, if the sender value is operationally sensitive.
+- `TurnstileSecretKey`.
 
 ### Secret App Settings
 
@@ -256,6 +290,9 @@ Set these on the Azure Static Web App under
 | `CleanupAutomationKey` | Authorizes the scheduled Logic App call to the maintenance cleanup endpoint. This is not a POS credential. | Generate a long random cleanup-only secret per environment. Store the same value in the Logic App secure workflow parameter. |
 | `SmsFlyApiKey` | Authenticates requests to SMS-Fly. | SMS-Fly account/API credentials. |
 | `SmsFlySender` | Sender id/name used for SMS messages. | SMS-Fly-approved sender value. Treat as sensitive if the provider or operations policy requires it. |
+| `TurnstileSecretKey` | Validates Turnstile tokens on the backend. | Secret key from the Cloudflare Turnstile widget. |
+| `TurnstileSiteKey` | Lets the frontend render the configured Turnstile widget; safe to expose publicly. | Site key from the same Cloudflare Turnstile widget. |
+| `TurnstileExpectedHostname` | Binds accepted Turnstile tokens to the deployed application hostname. | Hostname only, for example `example.com`, without scheme or path. |
 
 Recommended random secret generation from PowerShell:
 

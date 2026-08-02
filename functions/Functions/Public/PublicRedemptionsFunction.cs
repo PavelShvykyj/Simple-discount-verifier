@@ -3,10 +3,12 @@ using System.Text.Json;
 using Microsoft.Azure.Functions.Worker;
 using Microsoft.Azure.Functions.Worker.Http;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using SimpleDiscountVerifier.Api.Application.Common;
 using SimpleDiscountVerifier.Api.Application.Redemptions;
 using SimpleDiscountVerifier.Api.Contracts.Public;
 using SimpleDiscountVerifier.Api.Functions.Http;
+using SimpleDiscountVerifier.Api.Infrastructure.Options;
 
 namespace SimpleDiscountVerifier.Api.Functions.Public;
 
@@ -15,15 +17,33 @@ public sealed class PublicRedemptionsFunction
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
 
     private readonly PublicRedemptionService _redemptions;
+    private readonly TurnstileOptions _turnstileOptions;
     private readonly ILogger<PublicRedemptionsFunction> _logger;
 
     public PublicRedemptionsFunction(
         PublicRedemptionService redemptions,
+        IOptions<TurnstileOptions> turnstileOptions,
         ILogger<PublicRedemptionsFunction> logger)
     {
         _redemptions = redemptions;
+        _turnstileOptions = turnstileOptions.Value;
         _logger = logger;
     }
+
+    [Function(nameof(GetConfig))]
+    public Task<HttpResponseData> GetConfig(
+        [HttpTrigger(AuthorizationLevel.Anonymous, "get", Route = "public/redemptions/config")]
+        HttpRequestData request,
+        CancellationToken cancellationToken) =>
+        HttpResponseWriter.WriteJsonAsync(
+            request,
+            HttpStatusCode.OK,
+            new
+            {
+                turnstileEnabled = _turnstileOptions.Enabled,
+                turnstileSiteKey = _turnstileOptions.Enabled ? _turnstileOptions.SiteKey : null
+            },
+            cancellationToken);
 
     [Function(nameof(StartRedemption))]
     public async Task<HttpResponseData> StartRedemption(
@@ -39,7 +59,7 @@ public sealed class PublicRedemptionsFunction
         }
 
         var result = await _redemptions.StartAsync(
-            new StartRedemptionCommand(body.Value?.Phone),
+            new StartRedemptionCommand(body.Value?.Phone, body.Value?.TurnstileToken),
             cancellationToken);
 
         return result.IsSuccess

@@ -39,6 +39,9 @@ public static class BackendOptionsServiceCollectionExtensions
             options.SmsFlySender = GetValue(configuration, "SmsFlySender");
             options.CodeTtlSeconds = GetInt(configuration, "SmsCodeTtlSeconds");
             options.RetryAfterSeconds = GetInt(configuration, "SmsRetryAfterSeconds");
+            options.MaxPerHour = GetInt(configuration, "SmsMaxPerHour");
+            options.MaxPerDay = GetInt(configuration, "SmsMaxPerDay");
+            options.ResponseFloorMilliseconds = GetInt(configuration, "SmsResponseFloorMilliseconds", 1500);
         });
 
         services.Configure<RuntimeOptions>(options =>
@@ -56,6 +59,14 @@ public static class BackendOptionsServiceCollectionExtensions
                 "APPLICATIONINSIGHTS_CONNECTION_STRING");
         });
 
+        services.Configure<TurnstileOptions>(options =>
+        {
+            options.Enabled = GetBool(configuration, "TurnstileEnabled");
+            options.SecretKey = GetValue(configuration, "TurnstileSecretKey");
+            options.SiteKey = GetValue(configuration, "TurnstileSiteKey");
+            options.ExpectedHostname = GetValue(configuration, "TurnstileExpectedHostname");
+        });
+
         return services;
     }
 
@@ -65,17 +76,31 @@ public static class BackendOptionsServiceCollectionExtensions
         return string.IsNullOrWhiteSpace(value) ? string.Empty : value;
     }
 
-    private static int GetInt(IConfiguration configuration, string name)
+    private static int GetInt(IConfiguration configuration, string name, int defaultValue = 0)
     {
         var value = configuration[name];
 
         if (string.IsNullOrWhiteSpace(value))
         {
-            return 0;
+            return defaultValue;
         }
 
         return int.TryParse(value, out var parsed)
             ? parsed
             : throw new InvalidOperationException($"Application setting '{name}' must be a valid integer.");
+    }
+
+    private static bool GetBool(IConfiguration configuration, string name)
+    {
+        var value = configuration[name];
+
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return false;
+        }
+
+        return bool.TryParse(value, out var parsed)
+            ? parsed
+            : throw new InvalidOperationException($"Application setting '{name}' must be true or false.");
     }
 }

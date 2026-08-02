@@ -9,4 +9,10 @@ public sealed class SmsOptions
     public int CodeTtlSeconds { get; set; }
 
     public int RetryAfterSeconds { get; set; }
+
+    public int MaxPerHour { get; set; }
+
+    public int MaxPerDay { get; set; }
+
+    public int ResponseFloorMilliseconds { get; set; }
 }

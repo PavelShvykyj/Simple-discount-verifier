@@ -19,6 +19,9 @@ public sealed class PublicRedemptionService
     private const string BarcodeHashSecretSettingName = "BarcodeHashSecret";
     private const string SmsCodeTtlSecondsSettingName = "SmsCodeTtlSeconds";
     private const string SmsRetryAfterSecondsSettingName = "SmsRetryAfterSeconds";
+    private const string SmsMaxPerHourSettingName = "SmsMaxPerHour";
+    private const string SmsMaxPerDaySettingName = "SmsMaxPerDay";
+    private const string SmsResponseFloorMillisecondsSettingName = "SmsResponseFloorMilliseconds";
     private const string BarcodeTtlSecondsSettingName = "BarcodeTtlSeconds";
     private const string SmsMessageTemplate = "Ваш код підтвердження: {0}";
 
@@ -26,6 +29,7 @@ public sealed class PublicRedemptionService
     private readonly IDiscountRuntimeRepository _runtime;
     private readonly IAuditWriter _auditWriter;
     private readonly ISmsSender _smsSender;
+    private readonly ITurnstileVerifier _turnstileVerifier;
     private readonly HashingOptions _hashingOptions;
     private readonly SmsOptions _smsOptions;
     private readonly RuntimeOptions _runtimeOptions;
@@ -36,6 +40,7 @@ public sealed class PublicRedemptionService
         IDiscountRuntimeRepository runtime,
         IAuditWriter auditWriter,
         ISmsSender smsSender,
+        ITurnstileVerifier turnstileVerifier,
         IOptions<HashingOptions> hashingOptions,
         IOptions<SmsOptions> smsOptions,
         IOptions<RuntimeOptions> runtimeOptions,
@@ -45,6 +50,7 @@ public sealed class PublicRedemptionService
         _runtime = runtime;
         _auditWriter = auditWriter;
         _smsSender = smsSender;
+        _turnstileVerifier = turnstileVerifier;
         _hashingOptions = hashingOptions.Value;
         _smsOptions = smsOptions.Value;
         _runtimeOptions = runtimeOptions.Value;
@@ -56,6 +62,18 @@ public sealed class PublicRedemptionService
         CancellationToken cancellationToken)
     {
         var correlationId = CorrelationIdGenerator.Create();
+
+        if (!await _turnstileVerifier.VerifyAsync(command.TurnstileToken, cancellationToken))
+        {
+            return Failure<StartRedemptionResult>(
+                RedemptionErrorCodes.TurnstileVerificationFailed,
+                "Bot verification failed.",
+                HttpStatusCode.BadRequest,
+                correlationId);
+        }
+
+        // Invalid bot-challenge traffic is intentionally not persisted: otherwise this anonymous
+        // endpoint turns every rejected token into an AuditEvents write-amplification primitive.
         await WriteAuditAsync(correlationId, RedemptionAuditEventTypes.RedemptionStarted, null, cancellationToken);
 
         if (!NormalizedPhoneNumber.TryCreate(command.Phone, out var phone))
@@ -68,28 +86,37 @@ public sealed class PublicRedemptionService
                 correlationId);
         }
 
-        var profile = await _profiles.GetByPhoneAsync(phone, cancellationToken);
-
-        if (profile is null)
-        {
-            await WriteAuditAsync(correlationId, RedemptionAuditEventTypes.ProfileNotFound, phone, cancellationToken);
-            return Failure<StartRedemptionResult>(
-                RedemptionErrorCodes.ProfileNotFound,
-                "Profile was not found for this phone.",
-                HttpStatusCode.NotFound,
-                correlationId);
-        }
-
-        await WriteAuditAsync(correlationId, RedemptionAuditEventTypes.ProfileFound, phone, cancellationToken);
-
+        // Phone validity and the rate-limit decision below must not depend on whether a customer
+        // profile exists for this number: doing the profile lookup first (or branching the HTTP
+        // response on it) would let an attacker enumerate registered phone numbers by observing
+        // different status codes/timing. The phoneRuntimeKey is deterministic for ANY well-formed
+        // phone, so the reservation below is applied uniformly before we ever look at the profile.
         var phoneRuntimeKey = PhoneRuntimeKeyGenerator.Derive(
             phone,
             RequireSetting(_hashingOptions.PhoneRuntimeKeySecret, PhoneRuntimeKeySecretSettingName));
         var now = _clock.UtcNow;
-        var retryAfter = RequirePositiveSeconds(_smsOptions.RetryAfterSeconds, SmsRetryAfterSecondsSettingName);
-        var existingRuntime = await _runtime.GetCurrentAsync(phoneRuntimeKey, cancellationToken);
+        var minIntervalSeconds = RequirePositiveValue(_smsOptions.RetryAfterSeconds, SmsRetryAfterSecondsSettingName);
+        var maxPerHour = RequirePositiveValue(_smsOptions.MaxPerHour, SmsMaxPerHourSettingName);
+        var maxPerDay = RequirePositiveValue(_smsOptions.MaxPerDay, SmsMaxPerDaySettingName);
+        var codeTtl = RequirePositiveValue(_smsOptions.CodeTtlSeconds, SmsCodeTtlSecondsSettingName);
+        var responseFloorMilliseconds = RequirePositiveValue(
+            _smsOptions.ResponseFloorMilliseconds,
+            SmsResponseFloorMillisecondsSettingName);
+        var smsExpiresAt = now.AddSeconds(codeTtl);
+        var responseNotBefore = now.AddMilliseconds(responseFloorMilliseconds);
 
-        if (existingRuntime is not null && now < existingRuntime.SmsSentAtUtc.AddSeconds(retryAfter))
+        var reservation = await ReserveSendSlotAsync(
+            phoneRuntimeKey,
+            phone,
+            correlationId,
+            now,
+            smsExpiresAt,
+            minIntervalSeconds,
+            maxPerHour,
+            maxPerDay,
+            cancellationToken);
+
+        if (reservation is null)
         {
             await WriteAuditAsync(correlationId, RedemptionAuditEventTypes.SmsRetryTooSoon, phone, cancellationToken);
             return Failure<StartRedemptionResult>(
@@ -99,59 +126,196 @@ public sealed class PublicRedemptionService
                 correlationId);
         }
 
-        var codeTtl = RequirePositiveSeconds(_smsOptions.CodeTtlSeconds, SmsCodeTtlSecondsSettingName);
-        var smsCode = SmsCodeGenerator.Create();
-        var smsResult = await _smsSender.SendAsync(
-            new SmsSendRequest(phone, string.Format(SmsMessageTemplate, smsCode)),
-            cancellationToken);
+        var profile = await _profiles.GetByPhoneAsync(phone, cancellationToken);
 
-        if (!smsResult.Accepted)
+        var smsCodeHashSecret = RequireSetting(
+            _hashingOptions.SmsCodeHashSecret,
+            SmsCodeHashSecretSettingName);
+        string finalCodeHash;
+        SmsSendResult? smsResult = null;
+
+        if (profile is null)
         {
-            await WriteAuditAsync(
-                correlationId,
-                RedemptionAuditEventTypes.SmsSendFailed,
-                phone,
+            await WriteAuditAsync(correlationId, RedemptionAuditEventTypes.ProfileNotFound, phone, cancellationToken);
+            finalCodeHash = SecretHasher.HashSmsCode(SmsCodeGenerator.Create(), smsCodeHashSecret);
+        }
+        else
+        {
+            await WriteAuditAsync(correlationId, RedemptionAuditEventTypes.ProfileFound, phone, cancellationToken);
+
+            var smsCode = SmsCodeGenerator.Create();
+            smsResult = await _smsSender.SendAsync(
+                new SmsSendRequest(phone, string.Format(SmsMessageTemplate, smsCode)),
                 cancellationToken);
 
+            finalCodeHash = SecretHasher.HashSmsCode(
+                smsResult.Accepted ? smsCode : SmsCodeGenerator.Create(),
+                smsCodeHashSecret);
+
+            if (!smsResult.Accepted)
+            {
+                await WriteAuditAsync(
+                    correlationId,
+                    RedemptionAuditEventTypes.SmsSendFailed,
+                    phone,
+                    cancellationToken);
+            }
+        }
+
+        if (!await FinalizeReservationAsync(reservation, finalCodeHash, cancellationToken))
+        {
             return Failure<StartRedemptionResult>(
-                RedemptionErrorCodes.SmsSendFailed,
-                "SMS provider failed or did not accept the message.",
-                HttpStatusCode.BadGateway,
+                RedemptionErrorCodes.RedemptionConflict,
+                "Redemption could not be finalized.",
+                HttpStatusCode.Conflict,
                 correlationId);
         }
 
-        var smsExpiresAt = now.AddSeconds(codeTtl);
-        var runtime = new DiscountRuntimeRecord(
-            phoneRuntimeKey,
-            phone,
-            correlationId,
-            SecretHasher.HashSmsCode(
-                smsCode,
-                RequireSetting(_hashingOptions.SmsCodeHashSecret, SmsCodeHashSecretSettingName)),
-            SmsAttempts: 0,
-            RedemptionDefaults.SmsMaxAttempts,
-            now,
-            smsExpiresAt,
-            PhoneVerifiedAtUtc: null,
-            BarcodeHash: null,
-            BarcodeExpiresAtUtc: null,
-            BarcodeConsumedAtUtc: null,
-            ConsumedByScanId: null,
-            now,
-            now);
+        if (smsResult?.Accepted == true)
+        {
+            await WriteAuditAsync(
+                correlationId,
+                RedemptionAuditEventTypes.SmsSent,
+                phone,
+                cancellationToken,
+                smsResult.ProviderMessageId is null
+                    ? null
+                    : new Dictionary<string, string?> { ["providerMessageId"] = smsResult.ProviderMessageId });
+        }
 
-        await _runtime.UpsertCurrentAsync(runtime, cancellationToken);
-        await WriteAuditAsync(
-            correlationId,
-            RedemptionAuditEventTypes.SmsSent,
-            phone,
-            cancellationToken,
-            smsResult.ProviderMessageId is null
-                ? null
-                : new Dictionary<string, string?> { ["providerMessageId"] = smsResult.ProviderMessageId });
+        await DelayUntilAsync(responseNotBefore, cancellationToken);
 
         return ApplicationResult<StartRedemptionResult>.Success(
-            new StartRedemptionResult(phoneRuntimeKey, correlationId, SmsSent: true, retryAfter, smsExpiresAt));
+            new StartRedemptionResult(phoneRuntimeKey, correlationId, SmsSent: true, minIntervalSeconds, smsExpiresAt));
+    }
+
+    /// <summary>
+    /// Atomically claims an SMS send slot for <paramref name="phoneRuntimeKey"/> by evaluating the
+    /// fixed-window rate-limit counters and writing them back with optimistic concurrency (insert for a
+    /// brand-new row, ETag-conditional replace otherwise). Only the request that wins the write
+    /// proceeds to look up the profile / call the SMS provider; concurrent duplicates re-read the
+    /// freshly-committed counters and correctly observe themselves as throttled. Returns null when
+    /// throttled, or the committed placeholder row (still needing <see cref="FinalizeReservationAsync"/>)
+    /// when a slot was claimed.
+    /// </summary>
+    private async Task<DiscountRuntimeRecord?> ReserveSendSlotAsync(
+        string phoneRuntimeKey,
+        NormalizedPhoneNumber phone,
+        string correlationId,
+        DateTimeOffset now,
+        DateTimeOffset smsExpiresAt,
+        int minIntervalSeconds,
+        int maxPerHour,
+        int maxPerDay,
+        CancellationToken cancellationToken)
+    {
+        for (var attempt = 0; attempt < RedemptionDefaults.RateLimitMaxAttempts; attempt++)
+        {
+            var existing = await _runtime.GetCurrentAsync(phoneRuntimeKey, cancellationToken);
+            var rateLimitState = existing is null
+                ? null
+                : new SmsRateLimitState(
+                    existing.SmsSentAtUtc,
+                    existing.HourWindowStartUtc,
+                    existing.HourWindowCount,
+                    existing.DayWindowStartUtc,
+                    existing.DayWindowCount);
+
+            var decision = SmsSendRateLimiter.Evaluate(rateLimitState, now, minIntervalSeconds, maxPerHour, maxPerDay);
+
+            if (!decision.Allowed)
+            {
+                return null;
+            }
+
+            var claim = new DiscountRuntimeRecord(
+                phoneRuntimeKey,
+                phone,
+                correlationId,
+                SmsCodeHash: string.Empty,
+                SmsAttempts: 0,
+                RedemptionDefaults.SmsMaxAttempts,
+                decision.State.LastSentAtUtc,
+                smsExpiresAt,
+                PhoneVerifiedAtUtc: null,
+                BarcodeHash: null,
+                BarcodeExpiresAtUtc: null,
+                BarcodeConsumedAtUtc: null,
+                ConsumedByScanId: null,
+                decision.State.HourWindowStartUtc,
+                decision.State.HourWindowCount,
+                decision.State.DayWindowStartUtc,
+                decision.State.DayWindowCount,
+                existing?.CreatedAtUtc ?? now,
+                now,
+                existing?.ConcurrencyToken);
+
+            var writeResult = existing is null
+                ? await _runtime.InsertCurrentAsync(claim, cancellationToken)
+                : await _runtime.ReplaceCurrentAsync(claim, existing.ConcurrencyToken!, cancellationToken);
+
+            if (writeResult.Succeeded)
+            {
+                return await _runtime.GetCurrentAsync(phoneRuntimeKey, cancellationToken);
+            }
+
+            // Conflict/PreconditionFailed: another concurrent request won this attempt. Loop and
+            // re-read the freshly-committed counters; a genuine burst will correctly resolve to
+            // "throttled" on the next iteration instead of allowing a second real SMS send.
+        }
+
+        // Could not safely claim a slot under heavy contention: fail closed (throttled).
+        return null;
+    }
+
+    /// <summary>
+    /// Fills in the final SMS code hash for a claimed reservation. A short bounded retry re-reads
+    /// the row on conflict, since only benign, non-throttled writers (e.g. this same request) are
+    /// expected to touch the row again this soon.
+    /// </summary>
+    private async Task<bool> FinalizeReservationAsync(
+        DiscountRuntimeRecord reservation,
+        string smsCodeHash,
+        CancellationToken cancellationToken)
+    {
+        var current = reservation;
+
+        for (var attempt = 0; attempt < RedemptionDefaults.RateLimitMaxAttempts; attempt++)
+        {
+            if (!string.Equals(current.CorrelationId, reservation.CorrelationId, StringComparison.Ordinal))
+            {
+                return false;
+            }
+
+            var updated = current with
+            {
+                SmsCodeHash = smsCodeHash,
+                UpdatedAtUtc = _clock.UtcNow
+            };
+
+            var result = await _runtime.ReplaceCurrentAsync(updated, current.ConcurrencyToken!, cancellationToken);
+
+            if (result.Succeeded)
+            {
+                return true;
+            }
+
+            if (result.Status != StorageWriteStatus.PreconditionFailed)
+            {
+                return false;
+            }
+
+            var refreshed = await _runtime.GetCurrentAsync(current.PhoneRuntimeKey, cancellationToken);
+
+            if (refreshed is null)
+            {
+                return false;
+            }
+
+            current = refreshed;
+        }
+
+        return false;
     }
 
     public async Task<ApplicationResult<SmsVerificationResult>> VerifySmsAsync(
@@ -184,6 +348,15 @@ public sealed class PublicRedemptionService
                 RedemptionErrorCodes.InvalidRequest,
                 "SMS code is missing or malformed.",
                 HttpStatusCode.BadRequest,
+                runtime.CorrelationId);
+        }
+
+        if (string.IsNullOrEmpty(runtime.SmsCodeHash))
+        {
+            return Failure<SmsVerificationResult>(
+                RedemptionErrorCodes.RedemptionConflict,
+                "SMS challenge is not ready yet.",
+                HttpStatusCode.Conflict,
                 runtime.CorrelationId);
         }
 
@@ -286,7 +459,7 @@ public sealed class PublicRedemptionService
         CancellationToken cancellationToken)
     {
         var barcodeValue = WebBarcode.Create(runtime.PhoneRuntimeKey, runtime.CorrelationId);
-        var barcodeTtl = RequirePositiveSeconds(_runtimeOptions.BarcodeTtlSeconds, BarcodeTtlSecondsSettingName);
+        var barcodeTtl = RequirePositiveValue(_runtimeOptions.BarcodeTtlSeconds, BarcodeTtlSecondsSettingName);
         var expiresAt = now.AddSeconds(barcodeTtl);
         var updated = runtime with
         {
@@ -376,6 +549,18 @@ public sealed class PublicRedemptionService
             cancellationToken);
     }
 
+    private async Task DelayUntilAsync(DateTimeOffset notBefore, CancellationToken cancellationToken)
+    {
+        var remaining = notBefore - _clock.UtcNow;
+
+        if (remaining > TimeSpan.Zero)
+        {
+            // ponytail: a configurable response floor masks normal provider latency; use a queue
+            // if measurements show the provider regularly exceeds it.
+            await Task.Delay(remaining, cancellationToken);
+        }
+    }
+
     private static ApplicationResult<T> Failure<T>(
         string code,
         string message,
@@ -393,7 +578,7 @@ public sealed class PublicRedemptionService
         return value;
     }
 
-    private static int RequirePositiveSeconds(int value, string settingName)
+    private static int RequirePositiveValue(int value, string settingName)
     {
         if (value <= 0)
         {
