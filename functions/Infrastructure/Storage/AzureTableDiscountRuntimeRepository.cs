@@ -52,12 +52,19 @@ public sealed class AzureTableDiscountRuntimeRepository : IDiscountRuntimeReposi
         return null;
     }
 
-    public async Task<StorageWriteResult> UpsertCurrentAsync(
+    public async Task<StorageWriteResult> InsertCurrentAsync(
         DiscountRuntimeRecord record,
         CancellationToken cancellationToken)
     {
-        await _tableClient.UpsertEntityAsync(ToEntity(record), TableUpdateMode.Replace, cancellationToken);
-        return StorageWriteResult.Updated;
+        try
+        {
+            await _tableClient.AddEntityAsync(ToEntity(record), cancellationToken);
+            return StorageWriteResult.Created;
+        }
+        catch (RequestFailedException exception) when (TableStorageWriteResultMapper.IsConflict(exception))
+        {
+            return StorageWriteResult.Conflict;
+        }
     }
 
     public async Task<StorageWriteResult> ReplaceCurrentAsync(
@@ -154,6 +161,10 @@ public sealed class AzureTableDiscountRuntimeRepository : IDiscountRuntimeReposi
             [StorageConstants.Properties.SmsMaxAttempts] = record.SmsMaxAttempts,
             [StorageConstants.Properties.SmsSentAtUtc] = record.SmsSentAtUtc,
             [StorageConstants.Properties.SmsExpiresAtUtc] = record.SmsExpiresAtUtc,
+            [StorageConstants.Properties.HourWindowStartUtc] = record.HourWindowStartUtc,
+            [StorageConstants.Properties.HourWindowCount] = record.HourWindowCount,
+            [StorageConstants.Properties.DayWindowStartUtc] = record.DayWindowStartUtc,
+            [StorageConstants.Properties.DayWindowCount] = record.DayWindowCount,
             [StorageConstants.Properties.CreatedAtUtc] = record.CreatedAtUtc,
             [StorageConstants.Properties.UpdatedAtUtc] = record.UpdatedAtUtc
         };
@@ -170,6 +181,9 @@ public sealed class AzureTableDiscountRuntimeRepository : IDiscountRuntimeReposi
     private static DiscountRuntimeRecord ToRecord(TableEntity entity)
     {
         var phoneValue = TableStorageMapper.GetRequiredString(entity, StorageConstants.Properties.Phone);
+        var smsSentAtUtc = TableStorageMapper.GetRequiredDateTimeOffset(
+            entity,
+            StorageConstants.Properties.SmsSentAtUtc);
 
         if (!NormalizedPhoneNumber.TryCreate(phoneValue, out var phone))
         {
@@ -183,13 +197,19 @@ public sealed class AzureTableDiscountRuntimeRepository : IDiscountRuntimeReposi
             TableStorageMapper.GetRequiredString(entity, StorageConstants.Properties.SmsCodeHash),
             TableStorageMapper.GetRequiredInt32(entity, StorageConstants.Properties.SmsAttempts),
             TableStorageMapper.GetRequiredInt32(entity, StorageConstants.Properties.SmsMaxAttempts),
-            TableStorageMapper.GetRequiredDateTimeOffset(entity, StorageConstants.Properties.SmsSentAtUtc),
+            smsSentAtUtc,
             TableStorageMapper.GetRequiredDateTimeOffset(entity, StorageConstants.Properties.SmsExpiresAtUtc),
             TableStorageMapper.GetOptionalDateTimeOffset(entity, StorageConstants.Properties.PhoneVerifiedAtUtc),
             TableStorageMapper.GetOptionalString(entity, StorageConstants.Properties.BarcodeHash),
             TableStorageMapper.GetOptionalDateTimeOffset(entity, StorageConstants.Properties.BarcodeExpiresAtUtc),
             TableStorageMapper.GetOptionalDateTimeOffset(entity, StorageConstants.Properties.BarcodeConsumedAtUtc),
             TableStorageMapper.GetOptionalString(entity, StorageConstants.Properties.ConsumedByScanId),
+            TableStorageMapper.GetOptionalDateTimeOffset(entity, StorageConstants.Properties.HourWindowStartUtc)
+                ?? smsSentAtUtc,
+            TableStorageMapper.GetOptionalInt32(entity, StorageConstants.Properties.HourWindowCount) ?? 1,
+            TableStorageMapper.GetOptionalDateTimeOffset(entity, StorageConstants.Properties.DayWindowStartUtc)
+                ?? smsSentAtUtc,
+            TableStorageMapper.GetOptionalInt32(entity, StorageConstants.Properties.DayWindowCount) ?? 1,
             TableStorageMapper.GetRequiredDateTimeOffset(entity, StorageConstants.Properties.CreatedAtUtc),
             TableStorageMapper.GetRequiredDateTimeOffset(entity, StorageConstants.Properties.UpdatedAtUtc),
             TableStorageMapper.ToConcurrencyToken(entity.ETag));

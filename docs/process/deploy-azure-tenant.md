@@ -38,16 +38,17 @@ develop -> master -> release/<tenant> -> Azure tenant environment
 
 До шага 1 подготовьте:
 
-| Значение                  | Правило                                              |
-| ------------------------- | ---------------------------------------------------- |
-| Tenant slug               | 3–14 строчных латинских букв, например `nakhmari`    |
-| Release branch            | строго `release/<tenant-slug>`                       |
-| Microsoft Entra Tenant ID | из Azure Portal                                      |
-| Azure Subscription ID     | из Azure Portal                                      |
-| Azure region              | по умолчанию `eastus2`; подтвердить для подписки     |
-| SMS-Fly API key и sender  | из аккаунта провайдера                               |
-| GitHub access             | право создавать ветки, workflow и repository secrets |
-| Administrator email       | конкретный пользователь для роли SWA `admin`         |
+| Значение                  | Правило                                                |
+| ------------------------- | ------------------------------------------------------ |
+| Tenant slug               | 3–14 строчных латинских букв, например `nakhmari`      |
+| Release branch            | строго `release/<tenant-slug>`                         |
+| Microsoft Entra Tenant ID | из Azure Portal                                        |
+| Azure Subscription ID     | из Azure Portal                                        |
+| Azure region              | по умолчанию `eastus2`; подтвердить для подписки       |
+| SMS-Fly API key и sender  | из аккаунта провайдера                                 |
+| Cloudflare Turnstile      | доступ для создания widget и получения site/secret key |
+| GitHub access             | право создавать ветки, workflow и repository secrets   |
+| Administrator email       | конкретный пользователь для роли SWA `admin`           |
 
 Обычный суффикс ресурса — `-<tenant-slug>`. Для Storage Account дефис
 запрещён Azure, поэтому используется `sdvstorage<tenant-slug>`.
@@ -407,6 +408,13 @@ $applicationInsightsConnectionString = az monitor app-insights component show `
   --query connectionString `
   --output tsv
 
+$SwaHostname = az staticwebapp show `
+  --name $SwaName `
+  --resource-group $ResourceGroup `
+  --subscription $SubscriptionId `
+  --query defaultHostname `
+  --output tsv
+
 $posMainClientHmacSecret = New-RandomSecret
 $phoneRuntimeKeySecret = New-RandomSecret
 $smsCodeHashSecret = New-RandomSecret
@@ -415,10 +423,13 @@ $auditPhoneHashSecret = New-RandomSecret
 $cleanupAutomationKey = New-RandomSecret
 $smsFlyApiKey = Read-HiddenSecret 'SMS-Fly API key'
 $smsFlySender = Read-Host 'SMS-Fly sender'
+$turnstileSecretKey = Read-HiddenSecret 'Cloudflare Turnstile secret key'
+$turnstileSiteKey = Read-Host 'Cloudflare Turnstile site key'
 ```
 
 **Пользователь:** ввести SMS-Fly values локально и сохранить POS HMAC secret в
-одобренном secret manager для последующей настройки POS.
+одобренном secret manager для последующей настройки POS. В Cloudflare создать
+Turnstile widget для `$SwaHostname` и локально ввести ключи этого widget.
 
 После проверки заполненности агент показывает следующую единственную
 state-changing команду и отдельно получает разрешение:
@@ -450,6 +461,10 @@ az staticwebapp appsettings set `
     SmsMaxPerHour=5 `
     SmsMaxPerDay=10 `
     SmsResponseFloorMilliseconds=1500 `
+    TurnstileEnabled=true `
+    TurnstileSecretKey="$turnstileSecretKey" `
+    TurnstileSiteKey="$turnstileSiteKey" `
+    TurnstileExpectedHostname="$SwaHostname" `
     BarcodeTtlSeconds=180 `
     DiscountRuntimeRetentionHours=24 `
     AuditEventsRetentionDays=30 `
@@ -729,7 +744,7 @@ Remove-Variable `
   storageConnectionString, applicationInsightsConnectionString, `
   posMainClientHmacSecret, phoneRuntimeKeySecret, smsCodeHashSecret, `
   barcodeHashSecret, auditPhoneHashSecret, cleanupAutomationKey, `
-  smsFlyApiKey, smsFlySender `
+  smsFlyApiKey, smsFlySender, turnstileSecretKey, turnstileSiteKey `
   -ErrorAction SilentlyContinue
 ```
 

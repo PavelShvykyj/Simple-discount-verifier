@@ -55,7 +55,10 @@ describe('PublicRedemptionSignalStore', () => {
 
     await expect(firstValueFrom(store.startRedemption())).resolves.toBe('advanced');
 
-    expect(api.startRedemption).toHaveBeenCalledWith({ phone: '+380501112233' });
+    expect(api.startRedemption).toHaveBeenCalledWith({
+      phone: '+380501112233',
+      turnstileToken: null,
+    });
     expect(store.currentStep()).toBe('sms');
     expect(store.canAccessSmsStep()).toBe(true);
     expect(store.correlationId()).toBe('QPS7O7KCNM');
@@ -76,7 +79,10 @@ describe('PublicRedemptionSignalStore', () => {
 
     await expect(firstValueFrom(store.startRedemption())).resolves.toBe('advanced');
 
-    expect(api.startRedemption).toHaveBeenCalledWith({ phone: '+380501112233' });
+    expect(api.startRedemption).toHaveBeenCalledWith({
+      phone: '+380501112233',
+      turnstileToken: null,
+    });
     expect(store.phoneValidationError()).toBeNull();
   });
 
@@ -95,7 +101,10 @@ describe('PublicRedemptionSignalStore', () => {
 
     await expect(firstValueFrom(store.startRedemption())).resolves.toBe('advanced');
 
-    expect(api.startRedemption).toHaveBeenCalledWith({ phone: '+380501112233' });
+    expect(api.startRedemption).toHaveBeenCalledWith({
+      phone: '+380501112233',
+      turnstileToken: null,
+    });
     expect(store.phoneValidationError()).toBeNull();
   });
 
@@ -107,6 +116,17 @@ describe('PublicRedemptionSignalStore', () => {
     expect(api.startRedemption).not.toHaveBeenCalled();
     expect(store.canSubmitPhone()).toBe(false);
     expect(store.phoneValidationError()).toBe('Введіть український номер у форматі +380501234567.');
+  });
+
+  it('waits for a Turnstile token only when runtime configuration requires it', () => {
+    store.setPhone('+380501112233');
+    store.setTurnstileRequired(true);
+
+    expect(store.canSubmitPhone()).toBe(false);
+
+    store.setTurnstileToken('one-time-token');
+
+    expect(store.canSubmitPhone()).toBe(true);
   });
 
   it('keeps the phone step and stores the correlation id when phone submit fails', async () => {
@@ -179,7 +199,10 @@ describe('PublicRedemptionSignalStore', () => {
 
     await expect(firstValueFrom(store.resendSms())).resolves.toBe('advanced');
 
-    expect(api.startRedemption).toHaveBeenLastCalledWith({ phone: '+380501112233' });
+    expect(api.startRedemption).toHaveBeenLastCalledWith({
+      phone: '+380501112233',
+      turnstileToken: null,
+    });
     expect(store.currentStep()).toBe('sms');
     expect(store.smsCode()).toBe('');
     expect(store.redemptionKey()).toBe('new-redemption-key');
@@ -187,18 +210,18 @@ describe('PublicRedemptionSignalStore', () => {
     expect(store.retryAfterSeconds()).toBe(180);
   });
 
-  it('keeps the SMS step open when requesting a new SMS code fails', async () => {
+  it('keeps the SMS step open when a new SMS reservation cannot be finalized', async () => {
     await arrangeStartedRedemption();
 
     api.startRedemption.mockReturnValue(
       throwError(
         () =>
           new HttpErrorResponse({
-            status: 502,
+            status: 409,
             error: {
               error: {
-                code: 'sms_send_failed',
-                message: 'Не вдалося надіслати SMS.',
+                code: 'redemption_conflict',
+                message: 'Не вдалося завершити запит.',
                 correlationId: 'QPS7O7KCNM',
               },
             },
@@ -210,7 +233,7 @@ describe('PublicRedemptionSignalStore', () => {
 
     expect(store.currentStep()).toBe('sms');
     expect(store.phoneStatus()).toBe('error');
-    expect(store.error()?.code).toBe('sms_send_failed');
+    expect(store.error()?.code).toBe('redemption_conflict');
     expect(store.error()?.isRestartRequired).toBe(false);
   });
 

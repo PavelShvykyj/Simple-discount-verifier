@@ -1,6 +1,6 @@
 namespace SimpleDiscountVerifier.Api.Application.Redemptions;
 
-public sealed record StartRedemptionCommand(string? Phone);
+public sealed record StartRedemptionCommand(string? Phone, string? TurnstileToken);
 
 public sealed record StartRedemptionResult(
     string RedemptionKey,

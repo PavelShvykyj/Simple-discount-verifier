@@ -44,6 +44,13 @@ internal static class TableStorageMapper
             : throw new InvalidOperationException($"Table entity property '{propertyName}' is required.");
     }
 
+    public static int? GetOptionalInt32(TableEntity entity, string propertyName)
+    {
+        return entity.TryGetValue(propertyName, out var value) && value is int number
+            ? number
+            : null;
+    }
+
     public static void AddIfNotNull(TableEntity entity, string propertyName, object? value)
     {
         if (value is not null)

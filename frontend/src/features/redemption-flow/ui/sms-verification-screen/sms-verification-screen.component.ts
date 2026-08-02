@@ -115,7 +115,7 @@ export class SmsVerificationScreenComponent {
     return (
       this.flow.canAccessSmsStep() &&
       this.resendRemainingSeconds() === 0 &&
-      this.flow.phoneStatus() !== 'submitting'
+      this.flow.canSubmitPhone()
     );
   });
   protected readonly canGoNext = computed(() => this.flow.canAccessBarcodeStep());
