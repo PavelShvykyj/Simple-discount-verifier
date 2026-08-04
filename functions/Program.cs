@@ -17,7 +17,7 @@ using SimpleDiscountVerifier.Api.Infrastructure.Turnstile;
 using SimpleDiscountVerifier.Api.Storage;
 
 var host = new HostBuilder()
-    .ConfigureFunctionsWebApplication(builder =>
+    .ConfigureFunctionsWorkerDefaults(builder =>
     {
         builder.UseMiddleware<GlobalExceptionMiddleware>();
     })
