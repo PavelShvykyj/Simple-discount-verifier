@@ -1,0 +1,119 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentParameters.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "environmentName": {
+      "value": "chili"
+    },
+    "location": {
+      "value": "eastus2"
+    },
+    "staticWebAppName": {
+      "value": "swa-simple-discount-verifier-chili"
+    },
+    "manageStaticWebAppResource": {
+      "value": false
+    },
+    "staticWebAppSkuName": {
+      "value": "Free"
+    },
+    "repositoryUrl": {
+      "value": "https://github.com/PavelShvykyj/Simple-discount-verifier"
+    },
+    "branch": {
+      "value": "release/chili"
+    },
+    "appLocation": {
+      "value": "./frontend"
+    },
+    "apiLocation": {
+      "value": "./functions"
+    },
+    "outputLocation": {
+      "value": "/dist/app/browser"
+    },
+    "storageAccountName": {
+      "value": "sdvstoragechili"
+    },
+    "storageSkuName": {
+      "value": "Standard_LRS"
+    },
+    "tableNames": {
+      "value": [
+        "ScannerSurveyResults",
+        "CustomerProfiles",
+        "DiscountRuntime",
+        "AuditEvents"
+      ]
+    },
+    "logAnalyticsWorkspaceName": {
+      "value": "ws-simple-discount-verifier"
+    },
+    "appInsightsName": {
+      "value": "ins-simple-discount-verifier"
+    },
+    "appInsightsRetentionInDays": {
+      "value": 30
+    },
+    "appInsightsDailyCapGB": {
+      "value": "0.1"
+    },
+    "appInsightsDailyCapWarningThreshold": {
+      "value": 90
+    },
+    "appInsightsStopSendNotificationWhenHitCap": {
+      "value": false
+    },
+    "manageStaticWebAppSettings": {
+      "value": false
+    },
+    "auditEventsRetentionDays": {
+      "value": 30
+    },
+    "scannerSurveyTableName": {
+      "value": "ScannerSurveyResults"
+    },
+    "customerProfilesTableName": {
+      "value": "CustomerProfiles"
+    },
+    "discountRuntimeTableName": {
+      "value": "DiscountRuntime"
+    },
+    "auditEventsTableName": {
+      "value": "AuditEvents"
+    },
+    "smsFlySender": {
+      "value": ""
+    },
+    "smsMaxPerHour": {
+      "value": 5
+    },
+    "smsMaxPerDay": {
+      "value": 10
+    },
+    "smsResponseFloorMilliseconds": {
+      "value": 1500
+    },
+    "deployCleanupScheduler": {
+      "value": false
+    },
+    "cleanupLogicAppName": {
+      "value": "la-sdv-cleanup-chili"
+    },
+    "cleanupEndpointUrl": {
+      "value": ""
+    },
+    "cleanupScheduleFrequency": {
+      "value": "Day"
+    },
+    "cleanupScheduleInterval": {
+      "value": 1
+    },
+    "alertEmailReceivers": {
+      "value": []
+    },
+    "enableScheduledQueryAlerts": {
+      "value": false
+    }
+  }
+}
