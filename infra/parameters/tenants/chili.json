@@ -95,13 +95,13 @@
       "value": 1500
     },
     "deployCleanupScheduler": {
-      "value": false
+      "value": true
     },
     "cleanupLogicAppName": {
       "value": "la-sdv-cleanup-chili"
     },
     "cleanupEndpointUrl": {
-      "value": ""
+      "value": "https://calm-stone-0b84f910f.7.azurestaticapps.net/api/system/maintenance/cleanup"
     },
     "cleanupScheduleFrequency": {
       "value": "Day"
