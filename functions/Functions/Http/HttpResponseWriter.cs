@@ -13,8 +13,8 @@ public static class HttpResponseWriter
         T body,
         CancellationToken cancellationToken)
     {
-        var response = request.CreateResponse();
-        await response.WriteAsJsonAsync(body, statusCode, cancellationToken);
+        var response = request.CreateResponse(statusCode);
+        await response.WriteAsJsonAsync(body, cancellationToken);
         return response;
     }
 
