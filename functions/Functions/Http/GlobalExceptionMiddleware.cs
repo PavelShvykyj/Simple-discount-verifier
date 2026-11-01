@@ -42,14 +42,13 @@ public sealed class GlobalExceptionMiddleware : IFunctionsWorkerMiddleware
 
             try
             {
-                var response = request.CreateResponse();
+                var response = request.CreateResponse(HttpStatusCode.InternalServerError);
                 await response.WriteAsJsonAsync(
                     new ApiErrorResponse(
                         new ApiError(
                             InternalErrorCode,
                             InternalErrorMessage,
-                            context.InvocationId)),
-                    HttpStatusCode.InternalServerError);
+                            context.InvocationId)));
 
                 context.GetInvocationResult().Value = response;
             }
