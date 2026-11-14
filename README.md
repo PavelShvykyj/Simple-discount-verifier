@@ -1,5 +1,7 @@
 # Simple Discount Verifier
 
+Агентское расширение: [статус и следующий шаг](agent-extension/STATUS.md), [рабочая документация](agent-extension/README.md).
+
 ## Customer profile import
 
 The repository includes a separate console utility for direct bulk import into

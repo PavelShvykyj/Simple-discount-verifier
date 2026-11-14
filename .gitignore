@@ -21,3 +21,7 @@ functions/obj/
 # Keep project-owned Spec Kit artifacts tracked:
 # /.specify/memory/
 # /.specify/specs/
+
+# Local worktrees and preparation artifacts.
+/.worktrees/
+/.local/

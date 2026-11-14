@@ -1,0 +1,71 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentParameters.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "environmentName": {
+      "value": "develop"
+    },
+    "location": {
+      "value": "westeurope"
+    },
+    "resourceGroupName": {
+      "value": "rg-sdv-agent-develop-example"
+    },
+    "names": {
+      "value": {
+        "foundry": "ai-sdv-devexample01",
+        "project": "sdv-agent-develop",
+        "serviceBus": "sb-sdv-agent-devexample01",
+        "routerPlan": "plan-sdv-router-devexample01",
+        "router": "func-sdv-router-devexample01",
+        "storage": "stsdvdevexample01",
+        "deploymentContainer": "router-packages",
+        "pubSub": "wps-sdv-agent-devexample01",
+        "workspace": "log-sdv-agent-devexample01",
+        "insights": "appi-sdv-agent-devexample01"
+      }
+    },
+    "branchIds": {
+      "value": [
+        "101",
+        "102"
+      ]
+    },
+    "inputQueueName": {
+      "value": "input"
+    },
+    "resultsQueueName": {
+      "value": "results"
+    },
+    "commandsQueuePrefix": {
+      "value": "commands"
+    },
+    "foundrySku": {
+      "value": "S0"
+    },
+    "serviceBusSku": {
+      "value": "Basic"
+    },
+    "routerSku": {
+      "value": "FC1"
+    },
+    "storageSku": {
+      "value": "Standard_LRS"
+    },
+    "pubSubSku": {
+      "value": "Free_F1"
+    },
+    "pubSubCapacity": {
+      "value": 1
+    },
+    "workspaceRetentionDays": {
+      "value": 30
+    },
+    "workspaceDailyCapGb": {
+      "value": 1
+    },
+    "insightsDailyCapGb": {
+      "value": 1
+    }
+  }
+}
