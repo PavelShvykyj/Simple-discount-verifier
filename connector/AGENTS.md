@@ -11,3 +11,5 @@
 - Queue-scoped Listen own commands/Send results. Telegram allowlist/freshness и общий gate с lookup, manual stoplistener; без SCM/process restart/business retry. Enabled flags — конфигурация окружения.
 
 Ручные install/update; SYSTEM из repo не запускать. Protected helpers/live/SB/Telegram/права/расходы требуют отдельного scope; PID только после ownership/startTime/readback. У приложения нет self-test/test modes. Перед выпуском проверить branch/expiry/envelope/lost result, AlreadyFiscalized, повторы/parallel/ambiguity и реальную гарантию1С.
+
+Перед live проверять совместимость установленного Connector с Worker по версиям [D2](../_bmad-output/specs/spec-agent-extension/message-contracts.md).

@@ -9,4 +9,6 @@ Worker владеет guard/MAF/tools/state/финалом: custom Invocations, 
 - Бизнес-успех определяет1С. Неоднозначный Send/API не разрешает retry; финал через Web PubSub в исходном deadline.
 - Deadline, TTL и удаление upload независимы. Telemetry без содержимого чатов/фото/секретов, включая auto-capture.
 
-Локальные подмены не доказывают Hosted isolation/CAS/TTL/MAF/E2E. Новые cloud окна/права/расходы согласуются отдельно; старые разрешения не переиспользуются. Done5 открыт; историю6 не начинать.
+Локальные подмены не доказывают Hosted isolation/CAS/TTL/MAF/E2E. Новые cloud окна/права/расходы согласуются отдельно; старые разрешения не переиспользуются. Порядок совместной приёмки историй 5 и 6 — в [плане](../_bmad-output/specs/spec-agent-extension/stories.yaml).
+
+Настройки/публичная схема/миграция конфигурации — [CONFIGURATION](CONFIGURATION.md). Fixtures и assertions — только отдельный xUnit-проект `tests/worker-client`; у рабочего Worker нет test profile/signer/mode.

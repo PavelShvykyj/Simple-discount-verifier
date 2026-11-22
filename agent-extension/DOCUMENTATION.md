@@ -10,6 +10,9 @@
 | AC / порядок и обязательные checkpoints | [Критерии](../_bmad-output/specs/spec-agent-extension/acceptance-criteria.md) / [план](../_bmad-output/specs/spec-agent-extension/stories.yaml) |
 | Открытая история | [Спецификация5](../_bmad-output/specs/spec-agent-extension/story-05-specification.md) |
 | Исполнение | [Worker](../_bmad-output/specs/spec-agent-extension/worker-runbook.md), [Connector](../_bmad-output/specs/spec-agent-extension/connector-runbook.md), [IaC](infra/README.md) |
+| Конфигурация Worker | [Схема, источники и переход на новые настройки](../agent-worker/CONFIGURATION.md) |
+| Подготовка Hosted monitoring | [Связь Foundry → Insights, Entra grants и preflight](infra/hosted-monitoring.md) — обязательный шаг после IaC |
+| Runtime identity Hosted Worker | [Автоматическое назначение identity и подготовка RBAC](infra/README.md#identity-hosted-worker) |
 | Ресурсы develop | [Inventory](../_bmad-output/specs/spec-agent-extension/environment-inventory.md); параметры IaC — примеры |
 | Ветки/worktree | [GIT-WORKFLOW](GIT-WORKFLOW.md) |
 

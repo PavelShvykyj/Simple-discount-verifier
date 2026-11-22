@@ -1,4 +1,5 @@
 using System.Text;
+using System.Security.Cryptography;
 using System.Text.Json;
 using Sdv.Connector.Configuration;
 
@@ -14,8 +15,10 @@ internal static class CommandParser
     {
         if (mime != "application/json") throw new InvalidDataException();
         var e = StrictJson.Parse(bytes, MaxEnvelopeBytes);
-        StrictJson.Shape(e, EnvelopeFields);
-        if (e.GetProperty("schemaVersion").GetRawText() != "1" || StrictJson.Text(e.GetProperty("kind")) != "tool.command") throw new InvalidDataException();
+        StrictJson.Shape(e, EnvelopeFields, "commandDataHash");
+        var version = e.GetProperty("schemaVersion").GetRawText();
+        StrictJson.Shape(e, version == "2" ? [.. EnvelopeFields, "commandDataHash"] : EnvelopeFields);
+        if (version is not ("1" or "2") || StrictJson.Text(e.GetProperty("kind")) != "tool.command") throw new InvalidDataException();
         foreach (var name in new[] { "eventId", "requestId", "operationId", "commandId" })
         {
             var id = StrictJson.Text(e.GetProperty(name));
@@ -32,6 +35,9 @@ internal static class CommandParser
         if (!Patterns.Route().IsMatch(StrictJson.Text(e.GetProperty("route")))) throw new InvalidDataException();
         var commandType = StrictJson.Text(e.GetProperty("commandType"));
         var data = StrictJson.Text(e.GetProperty("dataB64"));
+        if (version == "2" && StrictJson.Text(e.GetProperty("commandDataHash")) !=
+            Convert.ToHexStringLower(SHA256.HashData(StrictJson.FromBase64Url(data))))
+            throw new InvalidDataException();
 
         var request = new CommandRequest(e, expiry, null, null, null);
         if (branch != branchId) return request with { Rejection = ReasonCodes.AccessDenied };

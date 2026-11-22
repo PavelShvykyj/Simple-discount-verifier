@@ -16,5 +16,8 @@
     <PackageReference Include="Azure.Messaging.ServiceBus" Version="[7.21.0]" />
     <PackageReference Include="Azure.Messaging.WebPubSub" Version="[1.7.0]" />
     <InternalsVisibleTo Include="WorkerClient" />
+    <Content Update="appsettings.json" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+    <Content Update="appsettings.*.json" CopyToOutputDirectory="Never" CopyToPublishDirectory="Never" />
+    <Content Update="appsettings.Development.json" CopyToOutputDirectory="PreserveNewest" Condition="'$(Configuration)' == 'Debug'" />
   </ItemGroup>
 </Project>

@@ -18,54 +18,72 @@ internal interface IState
     Task<bool> Delete(Caller caller, Category category, string key, string etag, CancellationToken ct);
 }
 
-internal sealed class FoundryState(TokenCredential credential, Uri endpoint) : IState
+internal sealed class FoundryState(TokenCredential credential, Uri endpoint, ILogger<FoundryState> logger) : IState, IDisposable
 {
-    private static async Task<FoundryStateStore> Open(Category category, TokenCredential credential,
-        Uri endpoint, CancellationToken ct)
+    private readonly SemaphoreSlim storeGate = new(1);
+    private readonly Dictionary<Category, FoundryStateStore> stores = new();
+
+    private async Task<FoundryStateStore> Open(Category category, CancellationToken ct)
     {
-        ct.ThrowIfCancellationRequested();
-        if (!FoundryEnvironment.IsHosted) throw new IOException("Foundry State Store requires Hosted.");
-        var (name, ttl) = category switch
+        await storeGate.WaitAsync(ct);
+        try
         {
-            Category.Catalog => ("agent-maintenance-v1", -1),
-            Category.Control => ("agent-control-v1", 604800),
-            Category.Receipts => ("agent-receipts-v1", 604800),
-            Category.Pending => ("agent-pending-v1", 300),
-            _ => ("agent-success-v1", 259200)
-        };
-        var isolated = category != Category.Catalog;
-        var store = await FoundryStateStore.GetOrCreateAsync(name, credential, endpoint,
-            userIsolation: isolated, itemTtlSeconds: ttl, cancellationToken: ct);
-        ct.ThrowIfCancellationRequested();
-        var descriptor = await store.GetAsync(ct);
-        if (descriptor is null || descriptor.UserIsolation != isolated || descriptor.ItemTtlSeconds != ttl)
-            throw new IOException("State store configuration mismatch.");
-        return store;
+            if (stores.TryGetValue(category, out var cached)) return cached;
+            if (!FoundryEnvironment.IsHosted) throw new IOException("Foundry State Store requires Hosted.");
+            var (name, ttl) = category switch
+            {
+                Category.Catalog => ("agent-maintenance-v1", -1),
+                Category.Control => ("agent-control-v1", 604800),
+                Category.Receipts => ("agent-receipts-v1", 604800),
+                Category.Pending => ("agent-pending-v1", 300),
+                _ => ("agent-success-v1", (int)LookupTiming.SuccessHistoryLifetime.TotalSeconds)
+            };
+            var isolated = category != Category.Catalog;
+            var store = await FoundryStateStore.GetOrCreateAsync(name, credential, endpoint,
+                userIsolation: isolated, itemTtlSeconds: ttl, cancellationToken: ct);
+            ct.ThrowIfCancellationRequested();
+            var descriptor = await store.GetAsync(ct);
+            if (descriptor is null || descriptor.UserIsolation != isolated || descriptor.ItemTtlSeconds != ttl)
+                throw new IOException("State store configuration mismatch.");
+            stores.Add(category, store);
+            return store;
+        }
+        finally
+        {
+            storeGate.Release();
+        }
     }
+
+    public void Dispose() => storeGate.Dispose();
 
     public async Task<Item?> Read(Caller caller, Category category, string key, CancellationToken ct)
     {
-        var store = await Open(category, credential, endpoint, ct);
+        var store = await Open(category, ct);
         ct.ThrowIfCancellationRequested();
         var item = await store.GetItemAsync(key, callId: caller.CallId, cancellationToken: ct);
+        WorkerLog.StateRead(logger, category, item is not null);
         return item is null ? null : new(item.Value["record"].ToArray(), Etag(item.Etag));
     }
 
     public async Task<string?> Create(Caller caller, Category category, string key, byte[] value, CancellationToken ct)
     {
-        var store = await Open(category, credential, endpoint, ct);
+        var store = await Open(category, ct);
         try
         {
             ct.ThrowIfCancellationRequested();
             var item = await store.CreateItemAsync(key, Value(value), tags: null, callId: caller.CallId, cancellationToken: ct);
             return Etag(item.Etag);
         }
-        catch (Exception error) when (Status(error) is 409 or 412) { return null; }
+        catch (Exception error) when (Status(error) is 409 or 412)
+        {
+            WorkerLog.StateConflict(logger, nameof(Create), category, Status(error));
+            return null;
+        }
     }
 
     public async Task<string?> Replace(Caller caller, Category category, string key, string etag, byte[] value, CancellationToken ct)
     {
-        var store = await Open(category, credential, endpoint, ct);
+        var store = await Open(category, ct);
         try
         {
             ct.ThrowIfCancellationRequested();
@@ -73,19 +91,27 @@ internal sealed class FoundryState(TokenCredential credential, Uri endpoint) : I
                 requireExists: false, callId: caller.CallId, cancellationToken: ct);
             return Etag(item.Etag);
         }
-        catch (Exception error) when (Status(error) is 404 or 409 or 412) { return null; }
+        catch (Exception error) when (Status(error) is 404 or 409 or 412)
+        {
+            WorkerLog.StateConflict(logger, nameof(Replace), category, Status(error));
+            return null;
+        }
     }
 
     public async Task<bool> Delete(Caller caller, Category category, string key, string etag, CancellationToken ct)
     {
-        var store = await Open(category, credential, endpoint, ct);
+        var store = await Open(category, ct);
         try
         {
             ct.ThrowIfCancellationRequested();
             var item = await store.DeleteItemAsync(key, ifMatch: Etag(etag), callId: caller.CallId, cancellationToken: ct);
             return item.Deleted;
         }
-        catch (Exception error) when (Status(error) is 404 or 409 or 412) { return false; }
+        catch (Exception error) when (Status(error) is 404 or 409 or 412)
+        {
+            WorkerLog.StateConflict(logger, nameof(Delete), category, Status(error));
+            return false;
+        }
     }
 
     private static string Etag(string? value) =>

@@ -4,7 +4,7 @@
 
 ## Общие типы
 
-JSON UTF-8, schemaVersion=1; UTC RFC3339 с Z. Duplicate properties, неверные типы/версии и неизвестные поля отклоняются; optional additions допускаются только явным правилом версии. Несовместимость обязательных полей/outcomes/семантики требует major и проверки всех производителей/потребителей; общего runtime-пакета нет.
+JSON UTF-8; input/ACK/final schemaVersion=1, command/result v2 описаны ниже; UTC RFC3339 с Z. Duplicate properties, неверные типы/версии и неизвестные поля отклоняются; optional additions допускаются только явным правилом версии. Несовместимость обязательных полей/outcomes/семантики требует major и проверки всех производителей/потребителей; общего runtime-пакета нет.
 
 | Тип | Формат |
 |---|---|
@@ -16,24 +16,49 @@ JSON UTF-8, schemaVersion=1; UTC RFC3339 с Z. Duplicate properties, невер�
 
 ## Серверные сообщения
 
-Envelope ≤64 KiB: обязательны `schemaVersion,kind,eventId,requestId,operationId,branchId,issuedAt,expiresAt,route,dataB64`. Command/result добавляют `commandId,toolCallId,commandType` — всего14 полей. Command eventId=commandId; result получает новый eventId/issuedAt, сохраняет остальные correlation/command поля, expiry и route побайтно.
+Envelope ≤64 KiB: общие поля `schemaVersion,kind,eventId,requestId,operationId,branchId,issuedAt,expiresAt,route,dataB64`. Command/result добавляют `commandId,toolCallId,commandType`. Command eventId=commandId; result получает новый eventId/issuedAt, сохраняет correlation/command поля, expiry и route побайтно.
 
-`dataB64` — base64url без padding точных UTF-8 JSON bytes, строгий object без duplicate keys; поле data одновременно запрещено. Start `dataHash` и command `commandDataHash` — SHA256 decoded bytes без повторной сериализации. Binary фото в очередях запрещено, start text ≤8 KiB.
+Версии на границах:
+- SWA→Router→Worker: prepare/start v1 (10 полей), decoded prepare `{}`, start `{text,upload?:{sessionId,path,uploadedAt}}`. Текущий S5 без моделей допускает только `{text:"<номер заказа>"}` (1–64 цифры); это валидация LookupOrder, не список fixtures.
+- Worker→Connector: command v2 (14 полей), дополнительные к общим+tool `commandDataHash` = lowercase hex SHA256 точных decoded command bytes. Connector проверяет hash до API. Новый Connector принимает также старый v1 без этого поля, но новый Worker выпускает только v2.
+- Connector→results→Router: result v2 (14 полей), Connector сохраняет `commandDataHash` исходной команды, заменяет только kind/eventId/issuedAt/dataB64. Для старого command v1 возвращает result v1; они не допускаются новым Worker.
+- Router→Worker: result v2 + обязательный `resultProof` (15 полей). Router добавляет proof только после чтения доверенной results queue; v2 без proof Worker отвергает. Другие source queues не могут стать Result по kind тела.
 
-Route — compact JWS: protected header `alg:PS256,kid`, v1 claims; RSA≥2048. Start: `v,iss:"sdv-swa",aud:"sdv-hosted-start",userKey,agentSessionId,branchId,requestId,operationId,issuedAt,expiresAt,dataHash`. Command/result: `iss:"sdv-backend",aud:"sdv-hosted-tool-result"`, те же identity/correlation/times плюс `commandId,toolCallId,commandType,commandDataHash` вместо dataHash. Endpoint/key URL в claims нет. Все дублирующиеся поля сверяются с envelope/control; source queue, подпись, owner и expiry проверяются до effects. Подпись command route не подписывает result outcome: нужны trusted results queue и точное WaitingTool.
+`dataB64` — base64url без padding точных UTF-8 JSON bytes, строгий object без duplicate keys; поле data одновременно запрещено. Start `dataHash`, command `commandDataHash`, result `resultDataHash` — SHA256 decoded bytes без повторной сериализации. Binary фото в очередях запрещено, start text ≤8 KiB (текущий S5 дополнительно ограничен номером заказа).
+
+Подписи — compact JWS, protected header ровно `alg:PS256,kid`, v=1 claims; RSA≥2048, без endpoint/key URL. SWA имеет private key, Worker — только public verifier. Prepare claims: `v,iss:"sdv-swa",aud:"sdv-hosted-prepare",userKey,agentSessionId,branchId,requestId,operationId,issuedAt,expiresAt,dataHash`. Start имеет тот же набор с `aud:"sdv-hosted-start"`.
+
+Command route — исходный проверенный SWA start JWS, сохранённый побайтно. Он связывает исходный запрос/owner/session/branch, но не подписывает новые command fields или outcome. Worker не имеет private signing key. Доверие к команде обеспечивается разрешённым Sender очереди commands, входными проверками Connector и полным WaitingTool до Send.
+
+`resultProof` подписывает Router отдельным private key, `iss:"sdv-router",aud:"sdv-hosted-tool-result"`. Claims ровно: `v,iss,aud,userKey,agentSessionId,branchId,requestId,operationId,issuedAt,expiresAt,eventId,commandId,toolCallId,commandType,commandDataHash,resultDataHash,routeHash`. `routeHash` — SHA256 UTF-8 bytes исходного route. Все дубли полей побайтно совпадают с envelope; resultDataHash защищает именно bytes результата, commandDataHash — сохранённую привязку к команде. issuedAt — время результата, expiresAt наследуется без продления и сверяется с WaitingTool; исходный deadline ограничен start/command, отдельного продления по времени подписи нет.
+
+Перед делегацией owner Router проверяет исходную подпись SWA и совпадение identity/correlation/expiry route с результатом; подпись Router выпускает только после source admission results queue. Worker проверяет Router public kid/issuer/audience/result bytes/route hash до state/effects, затем точные owner/session/branch/request/operation/command/tool/route/commandDataHash/expiry из WaitingTool. Подпись SWA, подпись Router, queue RBAC и WaitingTool дополняют друг друга.
+
+Это несовместимая версия command/result; перед новым окном нужны Connector v2 и Router с proof. Старый Connector v1 новые команды отвергает. Нет миграции активных waiting, fallback к старой подписи или replay. Фактическая готовность — в [STATUS](../../../agent-extension/STATUS.md).
 
 | Путь | Тело / ответ |
 |---|---|
 | POST `/api/backoffice/agent/negotiate` | branchId, optional свой handle → `{schemaVersion:1,sessionHandle,connectUrl}`; проверенный principal/owner, prepare без моделей/1С;401/403 без чужих данных |
 | POST `/api/backoffice/agent/turns` | requestId, свой sessionHandle, branchId, text, clientSentAt; фото через контролируемый upload своей session/path, не arbitrary URL |
 | SWA → UI | Подтверждённое enqueue →202 `{requestId,operationId,deadline}`; ошибка `{requestId,code,message}`:400format,401/403access,409conflict,413size,503unconfirmed. AcceptanceUnknown запрещает auto retry |
-| input → Hosted | kind=`turn.start`, decoded `{text,upload?:{sessionId,path,uploadedAt}}`; start не создаёт missing control |
-| Hosted → commands | kind=`tool.command`, commandType=`LookupOrder` или целевой `FiscalizeReceipt`; decoded `{orderNumber,amountHint?}` |
-| results → Hosted | kind=`tool.result`, decoded `{outcome,reasonCode,order?}`; только ожидаемые command/tool/branch/owner/session/operation/expiry |
+| input → Router → Hosted | `turn.start` по матрице версий выше. S5 принимает `{text}`; upload относится к целевому профилю. Start не создаёт отсутствующий control |
+| Hosted → commands | S5: `tool.command`, `commandType=LookupOrder`, decoded `{orderNumber}`. `FiscalizeReceipt` и `amountHint` относятся к целевому профилю |
+| results → Router → Hosted | `tool.result`, decoded `{outcome,reasonCode,order?}`. Router добавляет `resultProof`. Worker сверяет результат с сохранённым ожиданием |
 | Hosted → Router | HTTP200 application/json `{schemaVersion:1,eventId,disposition}`; disposition=`Processed\|Duplicate\|Discarded` |
-| Hosted → PubSub → UI | `{schemaVersion:1,kind:"turn.final",requestId,operationId,status,answer?,errorCode?}`, status=`Answered\|Failed`; server owner/session group, без route/raw tool output |
+| Hosted → PubSub → UI | Общие поля `schemaVersion:1,kind:"turn.final",requestId,operationId,status`. `Answered` содержит только `answer`, `Failed` — только `errorCode` из двух полей результата. Публикация в server owner/session group без route и raw tool output |
 
-Processed завершает этап, включая waiting после одной попытки Send. Только полный ACK исходного eventId разрешает Router Complete: SSE/detached202/disconnect/иной ID не ACK. Conflict решается Hosted CAS, синхронный409 без authoritative check не обещается. Первый terminal финален; late/old request UI игнорирует. Deadline наследуется без продления; issuedAt≤now+5s, issuedAt<expiresAt, интервал≤120s, now<expiresAt. Skew не grace после expiry.
+Без ACK возвращаются `400` для неразбираемого JSON или недопустимого eventId, `403` для несовпавшего контекста, `413` для превышения лимита, `415` для неподдерживаемого Content-Type. Ошибки обработки: `504` для таймаута, `503` для дошедшего до обработчика ответа SDK 429/503, `500` для прочих внутренних ошибок. Отказы и неопределённые исходы Send/Publish диагностируются отдельно и сами по себе не запрещают ACK этапа.
+
+`Processed` подтверждает завершение этапа. Он возможен после записи `WaitingTool`, даже если истёкший дедлайн исключил Send. Сам ACK не подтверждает Send, выполнение 1С или доставку подписчику и не разрешает повтор эффекта. Только полный ACK исходного eventId разрешает Router Complete: SSE/detached202/disconnect/иной ID не ACK. Conflict решается Hosted CAS, синхронный409 без authoritative check не обещается. Первый terminal финален; late/old request UI игнорирует. Deadline наследуется без продления; issuedAt≤now+5s, issuedAt<expiresAt, now<expiresAt; интервал start/command≤120s. Result наследует исходный deadline и сверяется с WaitingTool. Skew не grace после expiry.
+
+### Группа Web PubSub для turn.final
+
+Сервер выдаёт браузеру подключение к той же группе, в которую публикует Worker. Вход алгоритма — пара `[userKey, agentSessionId]` в этом порядке, без нормализации или изменения регистра. Сериализовать её как компактный JSON-массив строк в UTF-8 без BOM через `System.Text.Json` с `JsonSerializerDefaults.Web` и стандартным экранированием `JavaScriptEncoder.Default`. Имя группы — префикс `sdv-worker-` и SHA-256 этих байтов в нижнем hex. Сервис выдачи подключения вычисляет имя из проверенных значений владельца и сессии и разрешает клиенту доступ только к его группе.
+
+| userKey | Точные байты UTF-8 при agentSessionId = sandbox-a | Имя группы |
+|---|---|---|
+| `sdv:test:alice` | `["sdv:test:alice","sandbox-a"]` | `sdv-worker-c71e04710c72032b08cb7da273ab24b5d28aec47bb7db20cf6c0b61897bb296e` |
+| `sdv:test:alice&bob` | `["sdv:test:alice\u0026bob","sandbox-a"]` | `sdv-worker-15f50b529cb666b90666561f5ffd5f7373993888de185816cb8d487703bda43e` |
 
 ## Текущий API 1С: LookupOrder
 

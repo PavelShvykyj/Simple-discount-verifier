@@ -1,10 +1,10 @@
 # История5: завершить основу Hosted Worker
 
-Spec checkpoint пройден; done checkpoint открыт. Локальная основа/298 проверок и Hosted signed session.prepare A/B подтверждены; это не CAS/TTL/isolation/MAF/E2E PASS. Cloud turn.start/tool.result закрыты до доказанной границы доверия источника.
+Spec checkpoint пройден; done checkpoint открыт. Текущее состояние и границы проверенного — в [STATUS](../../../agent-extension/STATUS.md).
 
 ## Задача и границы
 
-Server-only develop LookupOrder: prepare→start→одна command→точный result→один turn.final собственному подписчику. Без models/guard/photo/fiscalization, Router/SWA/UI реализации, maintenance workflow, production. Технический профиль — фиксированный allowlist входов/отдельный signer/caller, не браузерный переключатель. Источник тестовых данных и сценарий с текущим Connector согласуются до live; удалённая API3-подстановка не восстанавливается автоматически.
+Server-only develop LookupOrder: prepare→start→одна command→точный result→один turn.final собственному подписчику. Без models/guard/photo/fiscalization, SWA/UI реализации, maintenance workflow и production. Router реализуется в истории 6. Технический профиль ограничен configured branches и единственным действием LookupOrder; текущий start.text — номер заказа (1–64 цифры), без model/извлечения из произвольного текста. Конкретные synthetic заказы/сценарии — только в отдельном xUnit-проекте; отдельного test signer/mode в Worker нет. Доверие и подписи SWA/Router — по D2, не браузерный переключатель. Источник тестовых данных и сценарий с текущим Connector согласуются до live; удалённая API3-подстановка не восстанавливается автоматически.
 
 Форматы — [message-contracts](message-contracts.md); state/deadline/identity — [архитектура](../../planning-artifacts/architecture/architecture-agent-extension/ARCHITECTURE-SPINE.md), разделы «Состояние», «Отказы», «Доверие». Исполнение — [worker-runbook](worker-runbook.md). Контракты здесь повторно не описываются.
 
@@ -26,4 +26,4 @@ Server-only develop LookupOrder: prepare→start→одна command→точны
 | S5-AC06 | Store outage/ambiguous write/crash до-после receipt/CAS/waiting/Send/result/final: нет replay/второго эффекта; недоступные Hosted fault-точки явно выделены |
 | S5-AC07 | Подписчик подключён заранее, один correlated turn.final только owner; потеря доставки не recovery. Проверены whitelist и отсутствие raw payload/route/identity/tokens/connect URLs в logs/traces |
 
-До окна отдельно согласовать identities/roles/ресурсы/версию, ограничения вызовов/времени и расходы (включая Store/SB/WPS/idle), остановку/cleanup. Prerequisites/capacity не равны runtime PASS. Следующая история6 — после явной приёмки5, без автоматического deployment или выдачи прав.
+До окна отдельно согласовать identities/roles/ресурсы/версию, ограничения вызовов/времени и расходы (включая Store/SB/WPS/idle), остановку/cleanup. Prerequisites/capacity не равны runtime PASS. Историю 6 можно начать до Done5. В рамках истории 6 можно дополнить и завершить работы истории 5. Done5 и Done6 проходят совместно после проверки критериев обеих историй и явной приёмки.

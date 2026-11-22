@@ -39,7 +39,9 @@ internal sealed class Snapshot
             Wire.Shape(root, ["schemaVersion", "mafVersion", "agentDefinitionVersion", "serializedSession"]);
             Wire.Require(root.GetProperty("schemaVersion").GetRawText() == "1" &&
                 Wire.Text(root, "mafVersion") == "1.26.0" && Wire.Text(root, "agentDefinitionVersion") == Definition);
-            var session = await agent.DeserializeSessionAsync(root.GetProperty("serializedSession"), cancellationToken: ct);
+            var serialized = root.GetProperty("serializedSession");
+            Wire.Require(serialized.ValueKind == JsonValueKind.Object);
+            var session = await agent.DeserializeSessionAsync(serialized, cancellationToken: ct);
             var state = Read(session);
             Wire.Require(state.Owner == caller.Owner && state.Session == caller.Session && state.Branch == branch &&
                 state.SuccessfulLookups < int.MaxValue);

@@ -1,4 +1,5 @@
 using System.Text;
+using System.Security.Cryptography;
 using System.Text.Json.Nodes;
 using Sdv.Connector.Contracts;
 
@@ -6,6 +7,36 @@ namespace Sdv.Connector;
 
 public class CommandParserTests
 {
+    [Theory]
+    [InlineData(1, true)]
+    [InlineData(2, false)]
+    public void CommandHashMustMatchTheEnvelopeVersion(int version, bool includeHash)
+    {
+        var envelope = TestData.Envelope();
+        envelope["schemaVersion"] = version;
+        if (includeHash)
+            envelope["commandDataHash"] = Convert.ToHexStringLower(SHA256.HashData(StrictJson.FromBase64Url(envelope["dataB64"]!.ToString())));
+        Assert.Throws<InvalidDataException>(() => CommandParser.Parse(TestData.Bytes(envelope), "application/json", "101", TestData.Now));
+    }
+
+    [Fact]
+    public void VersionTwoPreservesCommandHashAndRouteInTheResult()
+    {
+        var envelope = TestData.Envelope();
+        envelope["schemaVersion"] = 2;
+        var hash = Convert.ToHexStringLower(SHA256.HashData(StrictJson.FromBase64Url(envelope["dataB64"]!.ToString())));
+        envelope["commandDataHash"] = hash;
+        var command = CommandParser.Parse(TestData.Bytes(envelope), "application/json", "101", TestData.Now);
+        Assert.Null(command.Rejection);
+        var result = JsonNode.Parse(ResultEnvelope.Create(command,
+            new LookupResult(Outcomes.NotFound, ReasonCodes.OrderMissing), TestData.Now, Guid.NewGuid().ToString("D")))!;
+        Assert.Equal(2, result["schemaVersion"]!.GetValue<int>());
+        Assert.Equal(hash, result["commandDataHash"]!.ToString());
+        Assert.Equal(envelope["route"]!.ToString(), result["route"]!.ToString());
+        envelope["dataB64"] = StrictJson.ToBase64Url("{\"orderNumber\":\"99999\"}"u8.ToArray());
+        Assert.Throws<InvalidDataException>(() => CommandParser.Parse(TestData.Bytes(envelope), "application/json", "101", TestData.Now));
+    }
+
     [Fact]
     public void ValidLookupCommandIsParsed()
     {

@@ -141,6 +141,8 @@ flowchart LR
 | agent-pending-v1 / true | Снимок этапа и полного ожидания | 300 секунд; без recovery |
 | agent-maintenance-v1 / false | OwnerKey/session/branch/registeredAt/schemaVersion/agent-version, без content/credentials/callId | Без expiry до безопасного удаления |
 
+Foundry ограничивает ключ item 128 символами. Составные ключи receipts и snapshots сохраняют прежний вид `session + суффикс`, если укладываются в лимит. Для более длинного ключа используется `sha256-` и SHA-256 полного составного ключа в UTF-8, в нижнем hex. Старые допустимые ключи receipts доступны по прежним адресам. Сохранённая `snapshotRef` остаётся непрозрачным ключом для чтения.
+
 Snapshot: schemaVersion=1, mafVersion=1.26.0, agentDefinitionVersion, serializedSession; ≤900 KiB UTF-8 при service item ≤1 MB. Сначала immutable snapshot, затем control+ref одним CAS. Проигравший оставляет сироту без эффекта. Отсутствующий/несовместимый/слишком большой снимок закрывает turn, без молчаливой потери истории.
 
 | Переход | Барьер перед эффектом |
@@ -202,9 +204,13 @@ MI используется где поддержана; MI managed SWA API не
 
 Invocations: fixed endpoint, query agent_session_id, доверенный server x-ms-user-identity и свежий opaque platform call ID на Store call. Call ID не хранится/не передаётся Connector. Делегированный user сам по себе не доказывает source tool.result: проверяются source queue, bytes/route и ожидаемое state.
 
-Route — JWS compact v1, kid, только PS256/RSA≥2048. Verify точных ASCII base64url(header).base64url(claims) до строгого разбора claims; без duplicate keys/jku/x5u/network key lookup. Start iss=sdv-swa/aud=sdv-hosted-start, owner/session/branch/request/operation/times/dataHash; command/result iss=sdv-backend/aud=sdv-hosted-tool-result плюс command/tool/type/commandDataHash. Endpoint не из claims.
+Гибрид доверия: вызвать Worker может только managed identity Router с `Foundry Agent Consumer` и отдельной ролью с data action `Microsoft.CognitiveServices/accounts/AIServices/agents/endpoints/UserIdentityImpersonation/action` на scope конкретного агента. [Разрешения Hosted Agent](https://learn.microsoft.com/en-us/azure/foundry/agents/concepts/hosted-agent-permissions#delegate-the-end-user-identity). Input Sender — SWA; results Sender — Connector; их читает Router. Это требование доступа, не доказанный live RBAC. Делегированный owner не заменяет проверку источника.
 
-SWA/Backend имеют разные PKCS#8 private keys в protected settings; verifiers только public. Нет private keys в source/ZIP/Store/model. Connector возвращает route неизменённым. Ротация: public kid доставляется раньше switch signer, old verify key держится до max expiry+skew; compromised key revoke даёт ошибку, не replay.
+SWA подписывает Prepare/Start; Router отдельным private key подписывает Result только после source admission results queue. Worker хранит только public keys обоих issuer и проверяет bytes результата, correlation/route/command hash/expiry против полного WaitingTool. Connector не имеет signing keys и возвращает route/commandDataHash неизменёнными. Command route сохраняет исходный SWA JWS, а не подпись Worker; команды защищены queue-scoped Sender и validation Connector. Точные версии/claims — [D2](../../../specs/spec-agent-extension/message-contracts.md).
+
+Verify PS256/RSA≥2048 точных ASCII base64url(header).base64url(claims), без duplicate keys/jku/x5u/network key lookup. Private keys SWA/Router — разные, в protected settings; нет private keys в Worker/source/ZIP/Store/model. Ротация: public kid доставляется раньше switch signer, old verify key держится до max expiry+skew; compromised key revoke даёт ошибку, не replay. RBAC и source admission обязательны даже при правильной подписи.
+
+Остаточные риски: возможность прямого обходного доступа к контейнеру не доказана; широкие административные роли позволяют менять RBAC; при проверке учитывать унаследованные назначения; Router — единая точка доверия к сопоставлению queue→тип и делегированному owner. Hosted Start/Result остаются закрыты до отдельного допуска и негативных RBAC-проверок.
 
 ## Connector и данные
 

@@ -36,4 +36,4 @@ companions: [acceptance-criteria.md, stories.yaml]
 | Запуск/обслуживание Connector | [Connector runbook](connector-runbook.md) |
 | Конкретные ресурсы develop | [Окружение](environment-inventory.md), только перед работой с ним |
 
-Истории1–4 приняты;5 открыта,6 не начинать до её приёмки. Build done не закрывает историю. Локальные проверки не доказывают Hosted CAS/TTL/isolation/E2E. Не требуются журналы, старые review/verification, handoff или прежние разрешения.
+Истории 1–4 приняты. Историю 6 можно начать при открытой истории 5. Порядок совместной приёмки — в [плане](stories.yaml). Build done не закрывает историю. Локальные проверки не доказывают Hosted CAS/TTL/isolation/E2E. Не требуются журналы, старые review/verification, handoff или прежние разрешения.

@@ -25,13 +25,13 @@
   invoke_dev_with: ''
 - id: '5'
   title: Разработать и развернуть основу Backend без моделей
-  description: 'Завершить Worker без моделей: bundled ZIP dotnet_10 в Hosted, CAS/history/waiting/ACK/PubSub, trusted source и серверный клиент. AC-08,10–16,18–19; подробности story-05-specification.md.'
+  description: 'Завершить Worker без моделей: bundled ZIP dotnet_10 в Hosted, CAS/history/waiting/ACK/PubSub, trusted source и серверный клиент. AC-08,10–16,18–19; подробности story-05-specification.md. Done5 проходит совместно с Done6 после подтверждения критериев обеих историй.'
   spec_checkpoint: true
   done_checkpoint: true
   invoke_dev_with: ''
 - id: '6'
   title: Разработать и развернуть Router
-  description: 'Function Router: PeekLock input/results, source/route/delegation/fixed endpoint, terminal ACK/settlement/DLQ без business replay. AC-10–16,19.'
+  description: 'Function Router: PeekLock input/results, source/route/delegation/fixed endpoint, terminal ACK/settlement/DLQ без business replay. AC-10–16,19. Можно начать до Done5. В рамках истории 6 можно дополнить и завершить оставшиеся работы истории 5. Done5 и Done6 проходят совместно после подтверждения критериев обеих историй.'
   spec_checkpoint: true
   done_checkpoint: true
   invoke_dev_with: ''

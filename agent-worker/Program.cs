@@ -1,95 +1,80 @@
-using System.Security.Cryptography;
 using Azure.AI.AgentServer.Core;
 using Azure.AI.AgentServer.Invocations;
 using Azure.Core;
 using Azure.Identity;
-using OpenTelemetry.Trace;
+using Microsoft.Extensions.Options;
 
 namespace Sdv.Worker;
 
 internal static class Program
 {
-    private static void Main(string[] args) => BuildHost(args).Run();
+    internal const string LogCategory = "Sdv.Worker.Program";
+
+    private static async Task<int> Main(string[] args)
+    {
+        AgentHostApp host;
+        try
+        {
+            Directory.SetCurrentDirectory(AppContext.BaseDirectory);
+            host = BuildHost(args);
+        }
+        catch (Exception error)
+        {
+            // The logging pipeline is not available if host construction fails.
+            Console.Error.WriteLine($"WorkerBootstrapFailed ErrorType={error.GetType().FullName} StackTrace={error.StackTrace}");
+            return 1;
+        }
+
+        await using var app = host.App;
+        var log = app.Services.GetRequiredService<ILoggerFactory>().CreateLogger(LogCategory);
+        try
+        {
+            await app.RunAsync();
+            return 0;
+        }
+        catch (OptionsValidationException error)
+        {
+            foreach (var failure in error.Failures) WorkerLog.InvalidConfiguration(log, failure);
+            return 1;
+        }
+        catch (Exception error)
+        {
+            WorkerLog.Terminated(log, error);
+            return 1;
+        }
+    }
 
     internal static AgentHostApp BuildHost(string[] args)
     {
         var builder = AgentHost.CreateBuilder(args);
         builder.AddInvocations<Invocation>();
         var services = builder.Services;
-        services.AddSingleton<IAuthority, HostedAuthority>();
+        services.AddOptions<WorkerOptions>()
+            .BindConfiguration(WorkerOptions.SectionName)
+            .ValidateOnStart();
+        services.AddSingleton<IValidateOptions<WorkerOptions>, WorkerOptionsValidator>();
+        services.AddSingleton(_ => new FoundryHostIdentity(
+            FoundryEnvironment.IsHosted, FoundryEnvironment.AgentName, FoundryEnvironment.AgentVersion, FoundryEnvironment.SessionId));
         services.AddSingleton(TimeProvider.System);
         services.AddSingleton<TokenCredential, ManagedIdentityCredential>();
         services.AddSingleton<Snapshot>();
-        services.AddSingleton(sp => SettingsFrom(sp.GetRequiredService<IConfiguration>()));
-        services.AddSingleton(sp => WireFrom(sp.GetRequiredService<IConfiguration>()));
+        services.AddSingleton(sp => new Wire(sp.GetRequiredService<IOptions<WorkerOptions>>().Value));
         services.AddScoped<IState>(sp => new FoundryState(sp.GetRequiredService<TokenCredential>(),
-            Endpoint(sp.GetRequiredService<IConfiguration>(), "FOUNDRY_PROJECT_ENDPOINT")));
+            new Uri(sp.GetRequiredService<IOptions<WorkerOptions>>().Value.ProjectEndpoint),
+            sp.GetRequiredService<ILogger<FoundryState>>()));
         services.AddSingleton<ITransport>(sp =>
         {
-            var config = sp.GetRequiredService<IConfiguration>();
-            return new AzureTransport(sp.GetRequiredService<TokenCredential>(), Required(config, "WORKER_SERVICE_BUS_NAMESPACE"),
-                Endpoint(config, "WORKER_PUBSUB_ENDPOINT"), Required(config, "WORKER_PUBSUB_HUB"),
-                sp.GetRequiredService<Settings>(), sp.GetRequiredService<TimeProvider>());
+            var options = sp.GetRequiredService<IOptions<WorkerOptions>>().Value;
+            return new AzureTransport(sp.GetRequiredService<TokenCredential>(), options.ServiceBusNamespace,
+                new Uri(options.PubSubEndpoint), options.PubSubHub, options,
+                sp.GetRequiredService<TimeProvider>(), sp.GetRequiredService<ILogger<AzureTransport>>());
         });
         services.AddScoped<Lookup>();
-        builder.ConfigureTracing(tracing => tracing.SetSampler(new AlwaysOffSampler()));
-        builder.WebApplicationBuilder.Logging.ClearProviders();
-        return builder.Build();
-    }
 
-    private static Settings SettingsFrom(IConfiguration config)
-    {
-        if (config["WORKER_PROFILE"] != "develop-synthetic") throw new InvalidOperationException();
-        var queues = new Dictionary<string, string>();
-        foreach (var branch in new[] { "101", "102" })
-            if (config["WORKER_QUEUE_" + branch] is { } queue && Wire.Match(queue, "[A-Za-z0-9._-]{1,260}"))
-                queues.Add(branch, queue);
-        if (queues.Count == 0 || queues.Values.Distinct(StringComparer.OrdinalIgnoreCase).Count() != queues.Count)
-            throw new InvalidOperationException();
-        return new(Required(config, "WORKER_AGENT"), Required(config, "WORKER_VERSION"), queues, new Dictionary<string, string>
-        {
-            ["lookup-fixture-00042"] = "00042", ["lookup-fixture-00044"] = "00044", ["lookup-fixture-99999"] = "99999"
-        });
+        var host = builder.Build();
+        var log = host.App.Services.GetRequiredService<ILoggerFactory>().CreateLogger(LogCategory);
+        host.App.Lifetime.ApplicationStarted.Register(() => WorkerLog.Started(log));
+        host.App.Lifetime.ApplicationStopped.Register(() => WorkerLog.Stopped(log));
+        return host;
     }
-
-    internal static Wire WireFrom(IConfiguration config)
-    {
-        RSA? backend = null;
-        var fixture = RSA.Create();
-        try
-        {
-            fixture.ImportFromPem(Required(config, "WORKER_TEST_PUBLIC_KEY"));
-            if (fixture.KeySize < 2048) throw new InvalidOperationException();
-            var keys = new Dictionary<string, RSA> { [Required(config, "WORKER_TEST_KID")] = fixture };
-            var backendPem = config["WORKER_BACKEND_PRIVATE_KEY"];
-            var backendKid = config["WORKER_BACKEND_KID"];
-            if (backendPem is null && backendKid is null) return new(keys);
-            if (string.IsNullOrEmpty(backendPem) || string.IsNullOrEmpty(backendKid))
-                throw new InvalidOperationException("Incomplete backend signing key configuration.");
-            backend = RSA.Create();
-            backend.ImportFromPem(backendPem);
-            if (backend.KeySize < 2048 ||
-                backend.ExportSubjectPublicKeyInfo().AsSpan().SequenceEqual(fixture.ExportSubjectPublicKeyInfo()))
-                throw new InvalidOperationException();
-            _ = backend.SignData("worker-key-check"u8, HashAlgorithmName.SHA256, RSASignaturePadding.Pss);
-            return new(keys, backendKid, backend);
-        }
-        catch
-        {
-            backend?.Dispose();
-            fixture.Dispose();
-            throw;
-        }
-    }
-
-    private static Uri Endpoint(IConfiguration config, string key)
-    {
-        var endpoint = new Uri(Required(config, key), UriKind.Absolute);
-        if (endpoint.Scheme != Uri.UriSchemeHttps || endpoint.UserInfo.Length != 0 || endpoint.Query.Length != 0)
-            throw new InvalidOperationException();
-        return endpoint;
-    }
-
-    private static string Required(IConfiguration config, string key) =>
-        config[key] is { Length: > 0 } value ? value : throw new InvalidOperationException();
 }

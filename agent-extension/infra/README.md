@@ -10,10 +10,32 @@ Subscription wrapper создаёт отдельную RG и локальный 
 | SB Basic: input/results и2commands; TTL120s,lock60s,MaxDelivery3 | Без Sessions/dedup/partitioning; entity Listen own commands/отдельный Send results, без secret outputs/listKeys |
 | Router Linux Flex FC1 isolated10,MI,2048MiB,max1,no always-ready | Private deployment blob/StorageV2 LRS без shared keys; Storage служебный, не БД операций |
 | Router4scoped roles | Receiver input/results, Blob Data Owner своего Storage, Metrics Publisher своего Insights; principalId входит в GUID assignments |
-| Workspace/Insights | Retention30дней,caps1GB/day,AAD ingestion,content flags false; SDK whitelist проверяется отдельно |
+| Workspace/Insights | Retention30дней,caps1GB/day,AAD ingestion; состав SDK telemetry проверяется отдельно; project monitoring/Hosted grants — обязательный post-deployment шаг ниже |
 | Web PubSub | Примеры Free_F1/1,local auth disabled; negotiation/publish grants не созданы |
 
 SWA credential/input Sender/upload/delegation, Hosted Store/files/commands Sender/publisher, Router invoke/UserIdentityImpersonation, отдельные PS256 signing keys, Windows ACL/credentials и maintenance identity/Logic App — отдельные runtime задачи. Не выдавать placeholder broad roles, не добавлять Queue/Table host roles заранее. IAM/resources metadata не доказывают SDK access, two-user isolation, 1С или E2E.
+
+## Identity Hosted Worker
+
+Foundry автоматически создаёт отдельную Agent Identity при создании Hosted agent и связывает её с его исполнением. Она не создаётся нашим Bicep и не является managed identity проекта или Router. Для обычного Hosted Worker вручную прикреплять произвольную ранее созданную identity или задавать её ID в appsettings не требуется. Основание — [Hosted agent identity](https://learn.microsoft.com/en-us/azure/foundry/agents/concepts/hosted-agents#agent-identity-and-endpoint).
+
+| Identity | Где возникает | Назначение |
+|---|---|---|
+| Foundry project managed identity | Foundry project в `modules/resources.bicep` | Операции платформы; не runtime identity кода Worker |
+| Hosted Agent Identity | Создание агента платформой Foundry | Токены для обращений Worker к downstream-сервисам |
+| Router managed identity | Function App в `modules/resources.bicep` | Собственные обращения Router; её grants не распространяются на Worker |
+
+Worker использует `ManagedIdentityCredential` без client ID. Foundry предоставляет сервис токенов текущей Agent Identity. `IDENTITY_ENDPOINT` и `IDENTITY_HEADER` принадлежат платформе. Их значения и токены не сохраняют в appsettings, ZIP или логах. [Hosted agent token service](https://learn.microsoft.com/en-us/azure/foundry/agents/concepts/hosted-agent-token-service).
+
+### Подготовка доступа после создания агента
+
+1. Получить metadata через `GET {project_endpoint}/agents/{agent_name}?api-version=v1` и взять `instance_identity.principal_id` целевого агента. [Manage hosted agents](https://learn.microsoft.com/en-us/azure/foundry/agents/how-to/manage-hosted-agent#retrieve-the-agent-identity-for-role-assignments).
+2. Проверить назначения этому principal на конкретных ресурсах по [архитектуре](../../_bmad-output/planning-artifacts/architecture/architecture-agent-extension/ARCHITECTURE-SPINE.md). Недостающие права назначать после согласования.
+3. Перед live сверить agent/version и scopes. Подтвердить доступ фактическим вызовом в согласованном окне.
+
+## Monitoring Hosted Worker
+
+После IaC выполнить [подключение Foundry к существующему Insights](hosted-monitoring.md). Процедура задаёт connection, права обеих identity, Entra mode и проверку доставки.
 
 ## Локальная проверка
 

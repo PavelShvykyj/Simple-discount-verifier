@@ -4,12 +4,13 @@
 
 ## Локально
 
-Из корня своего worktree, .NET SDK10.0.403 и PowerShell7:
+Из корня репозитория, с .NET 10 SDK и PowerShell 7:
 
 ```powershell
 dotnet restore agent-worker/Worker.csproj --locked-mode
 dotnet build agent-worker/Worker.csproj --no-restore
-dotnet run --project tests/worker-client/WorkerClient.csproj -- --self-test
+dotnet test tests/worker-client/WorkerClient.csproj
+dotnet test tests/connector-tests/Connector.Tests.csproj
 dotnet publish agent-worker/Worker.csproj -c Release -r linux-x64 --self-contained false --no-restore
 dotnet restore tests/worker-hosted-smoke/HostedSmoke.csproj --locked-mode
 dotnet build tests/worker-hosted-smoke/HostedSmoke.csproj --no-restore
@@ -17,15 +18,47 @@ pwsh -NoProfile -File tests/worker-hosted-smoke/Test-Local.ps1 -AssemblyPath tes
 pwsh -NoProfile -File tests/worker-hosted-smoke/Test-Local.ps1 -AssemblyPath tests/worker-hosted-smoke/bin/Debug/net10.0/HostedSmoke.dll -StateReadGuards
 ```
 
-Локальная матрица Worker ранее дала298 checks на подменах; её результат не Hosted PASS. Test-Local запускает временный loopback process/ключи и negative guards; StateReadGuards не вызывает настоящий Store и не доказывает isolation/CAS/TTL. Не запускать при занятых артефактах чужой задачи, не завершать процессы по историческим PID.
+Worker и Connector проверяются отдельными xUnit-проектами. `Test-Local.ps1` запускает отдельный loopback-процесс. `-StateReadGuards` проверяет отказы на подменах. Реальные isolation/CAS/TTL проверяются в Hosted. [Настройки Worker](../../../agent-worker/CONFIGURATION.md).
 
-## Hosted ZIP
+## Просмотр логов в Application Insights
+
+Сначала выполнить [подключение Hosted monitoring](../../../agent-extension/infra/hosted-monitoring.md). В Application Insights → Logs:
+
+```kusto
+traces
+| order by timestamp desc
+| take 100
+```
+
+В Log Analytics workspace:
+
+```kusto
+AppTraces
+| order by TimeGenerated desc
+| take 100
+```
+
+Для поиска неподтверждённых эффектов использовать `traces | where message has "no confirmed completion"`. Сопоставлять `MessageEventId`, `RequestId`, `OperationId` и `CommandId` с ключами корреляции SDK. Числовой EventId логгера — идентификатор типа записи. Для подробной диагностики CAS включить Debug только для `Sdv.Worker.FoundryState` и `Sdv.Worker.Lookup`.
+
+## Просмотр технических логов Hosted
+
+Для существующей согласованной сессии:
+
+```powershell
+azd ai agent monitor <agent-name> --session-id <session-id> --follow
+```
+
+Для делегированной сессии требуется тот же `--user-identity`. Предварительные требования и REST-вариант `:logstream` — в [документации Foundry](https://learn.microsoft.com/en-us/azure/foundry/agents/how-to/monitor-hosted-agent-logs). В stdout/stderr доступна также диагностика запуска до регистрации провайдеров логов.
+
+## Состав Hosted ZIP
 
 Публиковать framework-dependent linux-x64. ZIP — содержимое publish на верхнем уровне, не внешняя папка, ≤250MB; entry `dotnet Worker.dll`, `code_configuration`, runtime=`dotnet_10`, dependency_resolution=`bundled`, multipart. Проверить состав, отсутствие secrets/локальных settings, Linux native dependencies и ASP.NET shared framework. Записать SHA256 и соответствие active agent/version; source build без deployed SHA не доказывает проверенную версию. Действительные pins/protocol versions — в архитектуре.
 
 HostedSmoke — отдельный диагностический проект/ZIP, не подмена Worker. StateReadProbe входит в тот же HostedSmoke.dll; отдельного MSBuild-флага HostedStateRead нет. Перед загрузкой диагностической версии проверить назначение, закрытые endpoints и минимальный scope; не включать основной бизнес-вход ради диагностики.
 
 ## Новое облачное окно
+
+До окна получить актуальный `instance_identity.principal_id` целевого агента и сверить grants именно Agent Identity по [инфраструктурной процедуре](../../../agent-extension/infra/README.md#identity-hosted-worker). Project/Router MI и их права не являются правами Worker; token-service endpoint/header предоставляет Foundry, в appsettings их не копировать.
 
 Прежние live окна закрыты. Перед Azure читать azure-cli-local, предъявить конкретные version/hash, identities, команды/длительность/stop condition, разрешённые эффекты и стоимость; mutations/расходы/новый сертификат/real transport требуют соответствующего разрешения. Старые metadata/certificates не reusable authorization. Сначала проверить пригодность имеющихся артефактов/signer, использовать существующий agent и роли; не пересоздавать их автоматически.
 
@@ -39,4 +72,4 @@ HostedSmoke — отдельный диагностический проект/Z
 | E2E | Safe LookupOrder → собственный command queue → Connector/API → results → Hosted → собственный PubSub; два пользователя/филиала, faults/ACK/deadline и фактические SDK attempts |
 | Telemetry/stop | Нет content/identity/secrets в spans/errors/Logic App history; окно остановлено, ресурсы/Store не удалять без отдельной команды |
 
-Подготовленная read-диагностика фиксирует project и probe identities `sdv:s5:probe:a/b`; перед вызовом сверить их с текущей реализацией/metadata. Она не готовый общий operational endpoint. При непроверяемом fault injection отметить NOT VERIFIED, не PASS. `turn.start/tool.result` текущего Hosted допуска не считать открытыми по одной успешной session.prepare. Done5 остаётся открытым до явной приёмки; историю6 не начинать.
+Подготовленная read-диагностика фиксирует project и probe identities `sdv:s5:probe:a/b`; перед вызовом сверить их с текущей реализацией/metadata. Она не готовый общий operational endpoint. При непроверяемом fault injection отметить NOT VERIFIED, не PASS. `turn.start/tool.result` текущего Hosted допуска не считать открытыми по одной успешной session.prepare. Условия допуска проверяются отдельно. Совместная приёмка историй 5 и 6 — по [плану](stories.yaml).

@@ -1,3 +1,5 @@
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using System.Collections.Concurrent;
 using System.Net;
 using System.Net.Http.Headers;
@@ -22,23 +24,6 @@ internal sealed class Clock : TimeProvider
     internal void Advance(double seconds) => Interlocked.Add(ref ticks, TimeSpan.FromSeconds(seconds).Ticks);
 }
 
-internal sealed class TestAuthority : IAuthority
-{
-    private readonly ConcurrentDictionary<string, (Scope Scope, Ingress Source)> tokens = new();
-
-    internal string Issue(Scope scope, Ingress source)
-    {
-        var token = Convert.ToHexString(RandomNumberGenerator.GetBytes(32));
-        tokens[token] = (scope, source);
-        return token;
-    }
-
-    public Caller? Resolve(HttpRequest request, InvocationContext invocation) =>
-        AuthenticationHeaderValue.TryParse(request.Headers.Authorization, out var auth) &&
-        auth.Scheme == "Bearer" && auth.Parameter is { } token && tokens.TryGetValue(token, out var value)
-            ? new(value.Scope.Owner, value.Scope.Session, Fixtures.Id(), value.Source) : null;
-}
-
 internal sealed class LocalState(Clock clock) : IState
 {
     private readonly Dictionary<(string Owner, Category Category, string Key), (Item Item, DateTimeOffset? Expiry)> items = new();
@@ -51,8 +36,11 @@ internal sealed class LocalState(Clock clock) : IState
     internal string? LoseAsConflict;
     internal string? ConflictBeforeWrite;
 
-    private static (string, Category, string) Scope(Caller caller, Category category, string key) =>
-        (category == Category.Catalog ? "" : caller.Owner, category, key);
+    private static (string, Category, string) Scope(Caller caller, Category category, string key)
+    {
+        Fixtures.Need(key.Length is > 0 and <= 128, "Foundry Store item key is out of range");
+        return (category == Category.Catalog ? "" : caller.Owner, category, key);
+    }
 
     private Item? Get((string, Category, string) key)
     {
@@ -103,7 +91,7 @@ internal sealed class LocalState(Clock clock) : IState
     {
         ct.ThrowIfCancellationRequested();
         var stage = category == Category.Receipts
-            ? key.EndsWith("/admissions", StringComparison.Ordinal) ? "Index" : "Receipt"
+            ? value.AsSpan().StartsWith("["u8) ? "Index" : "Receipt"
             : category == Category.Control
                 ? JsonSerializer.Deserialize<Control>(value, Wire.Json)!.Phase.ToString() : category.ToString();
         lock (gate)
@@ -176,33 +164,38 @@ internal sealed class LocalSubscriber(Clock clock)
     }
 }
 
-internal sealed class LocalTransport(Clock clock) : ITransport
+internal sealed class LocalTransport(Clock clock, ILogger logger) : ITransport
 {
     internal readonly ConcurrentQueue<Sent> Commands = new();
     internal readonly ConcurrentQueue<Notice> Attempts = new();
     private readonly ConcurrentDictionary<string, LocalSubscriber> subscribers = new();
     internal Func<Sent, Task>? OnSend;
-    internal bool LosePublication;
+    internal Exception? PublicationFailure;
 
     public async Task<bool> Send(string branch, Command command, DateTimeOffset expiry, CancellationToken ct)
     {
-        ct.ThrowIfCancellationRequested();
-        var sent = new Sent(branch, command, expiry);
-        Commands.Enqueue(sent);
-        if (OnSend is not null) await OnSend(sent);
+        if (expiry - clock.GetUtcNow() <= LookupTiming.SendReserve || ct.IsCancellationRequested)
+            return false;
+        await AzureTransport.TryEffect(logger, EffectKind.SendCommand, async () =>
+        {
+            var sent = new Sent(branch, command, expiry);
+            Commands.Enqueue(sent);
+            if (OnSend is not null) await OnSend(sent);
+        });
         return true;
     }
 
-    public Task Publish(Caller caller, byte[] body, CancellationToken ct)
-    {
-        ct.ThrowIfCancellationRequested();
-        var group = AzureTransport.Group(caller);
-        var notice = new Notice(group, JsonNode.Parse(body)!.AsObject());
-        Attempts.Enqueue(notice);
-        if (LosePublication) throw new IOException("Synthetic lost delivery.");
-        if (subscribers.TryGetValue(group, out var subscriber)) subscriber.Receive(notice.Body);
-        return Task.CompletedTask;
-    }
+    public Task Publish(Caller caller, byte[] body, CancellationToken ct) =>
+        AzureTransport.TryEffect(logger, EffectKind.PublishFinal, () =>
+        {
+            ct.ThrowIfCancellationRequested();
+            var group = AzureTransport.Group(caller);
+            var notice = new Notice(group, JsonNode.Parse(body)!.AsObject());
+            Attempts.Enqueue(notice);
+            if (PublicationFailure is { } failure) throw failure;
+            if (subscribers.TryGetValue(group, out var subscriber)) subscriber.Receive(notice.Body);
+            return Task.CompletedTask;
+        });
 
     internal LocalSubscriber Subscribe(Scope scope) => subscribers.GetOrAdd(Group(scope), _ => new(clock));
     internal void Expect(Scope scope, JsonObject body)
@@ -217,60 +210,59 @@ internal sealed class LocalTransport(Clock clock) : ITransport
 internal sealed class Harness : IAsyncDisposable
 {
     private readonly RSA fixtureKey = RSA.Create(2048);
-    private readonly RSA fixtureVerify = RSA.Create();
-    private readonly RSA backendSigner = RSA.Create(2048);
-    internal readonly RSA BackendKey = RSA.Create();
-    private readonly TestAuthority authority = new();
+    private readonly RSA routerSigner = RSA.Create(2048);
+    internal readonly RSA SwaKey = RSA.Create();
+    private const string SandboxHeader = "X-Test-Container-Session";
     private readonly ConcurrentDictionary<Scope, byte> prepared = new();
     private int requests;
     private WebApplication? server;
     private HttpClient? http;
     internal readonly Clock Clock = new();
-    internal LocalTransport Transport { get; }
+    internal LocalTransport Transport { get; private set; } = null!;
     internal int Requests => Volatile.Read(ref requests);
-    internal IConfiguration Configuration => server!.Configuration;
     internal readonly Scope Alice = new("sdv:test:alice", "sandbox-a");
     internal readonly Scope Bob = new("sdv:test:bob", "sandbox-b");
     internal LocalState Store { get; }
+    internal TestLogProvider Logs { get; } = new();
     internal Fixtures Fixtures { get; }
 
     internal Harness()
     {
-        fixtureVerify.ImportSubjectPublicKeyInfo(fixtureKey.ExportSubjectPublicKeyInfo(), out _);
-        BackendKey.ImportSubjectPublicKeyInfo(backendSigner.ExportSubjectPublicKeyInfo(), out _);
+        SwaKey.ImportSubjectPublicKeyInfo(fixtureKey.ExportSubjectPublicKeyInfo(), out _);
         Store = new(Clock);
-        Transport = new(Clock);
-        Fixtures = new(fixtureKey, Clock);
+        Fixtures = new(fixtureKey, Clock, routerSigner);
     }
 
-    internal async Task Start(IReadOnlyDictionary<string, string?>? hosted = null)
+    internal async Task Start(FoundryHostIdentity? hosted = null)
     {
         var builder = WebApplication.CreateBuilder();
         builder.WebHost.ConfigureKestrel(options => options.Listen(IPAddress.Loopback, 0));
         builder.Logging.ClearProviders();
+        builder.Logging.AddProvider(Logs);
+        builder.Logging.AddFilter("Sdv.Worker", LogLevel.Debug);
         builder.Services.AddAgentServerCore();
         builder.Services.AddInvocationsServer();
         builder.Services.AddScoped<InvocationHandler, Invocation>();
-        if (hosted is null)
-            builder.Services.AddSingleton<IAuthority>(authority);
-        else
-        {
-            builder.Configuration.AddInMemoryCollection(hosted);
-            builder.Services.AddSingleton<IAuthority, HostedAuthority>();
-        }
+        builder.Services.AddHttpContextAccessor();
+        builder.Services.AddScoped(services => hosted ?? new FoundryHostIdentity(true, "fixture-agent", "fixture-v1",
+            services.GetRequiredService<IHttpContextAccessor>().HttpContext?.Request.Headers[SandboxHeader].ToString()));
         builder.Services.AddSingleton<TimeProvider>(Clock);
         builder.Services.AddSingleton<IState>(Store);
-        builder.Services.AddSingleton<ITransport>(Transport);
+        builder.Services.AddSingleton<ITransport>(services =>
+            new LocalTransport(Clock, services.GetRequiredService<ILogger<AzureTransport>>()));
         builder.Services.AddScoped<Snapshot>();
         builder.Services.AddScoped<Lookup>();
-        builder.Services.AddSingleton(new Wire(new Dictionary<string, RSA> { ["fixture"] = fixtureVerify }, "backend", backendSigner));
-        builder.Services.AddSingleton(new Settings("fixture-agent", "fixture-v1",
-            new Dictionary<string, string> { ["101"] = "fixture-101", ["102"] = "fixture-102" },
-            new Dictionary<string, string>
-            {
-                ["lookup-fixture-00042"] = "00042", ["lookup-fixture-00044"] = "00044", ["lookup-fixture-99999"] = "99999"
-            }));
+        var options = new WorkerOptions
+        {
+            Agent = "fixture-agent", Version = "fixture-v1",
+            Queues = new() { ["101"] = "fixture-101", ["102"] = "fixture-102" },
+            SwaPublicKeys = new() { ["fixture"] = fixtureKey.ExportSubjectPublicKeyInfoPem() },
+            RouterPublicKeys = new() { ["router"] = routerSigner.ExportSubjectPublicKeyInfoPem() }
+        };
+        builder.Services.AddSingleton<IOptions<WorkerOptions>>(Options.Create(options));
+        builder.Services.AddSingleton(_ => new Wire(options));
         server = builder.Build();
+        Transport = (LocalTransport)server.Services.GetRequiredService<ITransport>();
         server.UseAgentServerCore();
         server.MapInvocationsServer();
         await server.StartAsync();
@@ -278,17 +270,18 @@ internal sealed class Harness : IAsyncDisposable
         http = new HttpClient { BaseAddress = new(url), Timeout = TimeSpan.FromSeconds(15) };
     }
 
-    internal async Task<string> Invoke(Scope scope, Ingress source, JsonObject body, string? selector = null,
-        bool authorized = true, byte[]? raw = null, bool noSelector = false, string? callId = null, bool platformOwner = true)
+    internal async Task<string> Invoke(Scope scope, JsonObject body, string? selector = null,
+        byte[]? raw = null, bool noSelector = false, string? callId = null, bool platformOwner = true,
+        string contentType = "application/json")
     {
         var query = noSelector ? "" : "?agent_session_id=" + Uri.EscapeDataString(selector ?? scope.Session);
         using var request = new HttpRequestMessage(HttpMethod.Post, "/invocations" + query);
+        request.Headers.Add(SandboxHeader, scope.Session);
         if (platformOwner) request.Headers.Add("x-agent-user-id", scope.Owner);
         if (callId != "") request.Headers.Add("x-agent-foundry-call-id", callId ?? Fixtures.Id());
         request.Headers.Add("x-client-user", scope.Owner);
-        if (authorized) request.Headers.Authorization = new("Bearer", authority.Issue(scope, source));
         request.Content = new ByteArrayContent(raw ?? Fixtures.Bytes(body));
-        request.Content.Headers.ContentType = new("application/json");
+        request.Content.Headers.ContentType = MediaTypeHeaderValue.Parse(contentType);
         Interlocked.Increment(ref requests);
         using var reply = await http!.SendAsync(request);
         if (reply.StatusCode != HttpStatusCode.OK) return ((int)reply.StatusCode).ToString();
@@ -303,7 +296,7 @@ internal sealed class Harness : IAsyncDisposable
 
     internal async Task<string> Prepare(Scope scope, string branch = "101")
     {
-        var ack = await Invoke(scope, Ingress.Prepare, Fixtures.Input(scope, Ingress.Prepare, branch: branch));
+        var ack = await Invoke(scope, Fixtures.Input(scope, Ingress.Prepare, branch: branch));
         if (ack == "Processed") prepared.TryAdd(scope, 0);
         return ack;
     }
@@ -312,27 +305,10 @@ internal sealed class Harness : IAsyncDisposable
     {
         if (!prepared.ContainsKey(scope)) return Task.FromResult("NotPrepared");
         Transport.Expect(scope, body);
-        return Invoke(scope, Ingress.Start, body);
+        return Invoke(scope, body);
     }
 
-    internal string ResignBackend(string route)
-    {
-        var input = route[..route.LastIndexOf('.')];
-        return input + "." + Fixtures.B64(backendSigner.SignData(Encoding.ASCII.GetBytes(input),
-            HashAlgorithmName.SHA256, RSASignaturePadding.Pss));
-    }
-
-    internal JsonObject SignedResult(Scope scope, JsonObject start)
-    {
-        var wire = new Wire(new Dictionary<string, RSA> { ["fixture"] = fixtureVerify }, "backend", backendSigner);
-        var caller = Caller(scope);
-        var now = Clock.GetUtcNow();
-        var input = wire.Read(JsonSerializer.SerializeToElement(start), caller, now);
-        var command = wire.CreateCommand(caller, input, "00042", now);
-        return Fixtures.Result(JsonNode.Parse(command.Body)!.AsObject(), WorkerChecks.Fixtures.Missing);
-    }
-
-    internal static Caller Caller(Scope scope) => new(scope.Owner, scope.Session, Fixtures.Id(), Ingress.Start);
+    internal static Caller Caller(Scope scope) => new(scope.Owner, scope.Session, Fixtures.Id());
     internal Task<Item?> Control(Scope scope) => Store.Read(Caller(scope), Category.Control, scope.Session, default);
     internal async Task<Control> State(Scope scope) => Stored<Control>.From(await Control(scope))!.Value;
 
@@ -341,8 +317,7 @@ internal sealed class Harness : IAsyncDisposable
         http?.Dispose();
         if (server is not null) await server.DisposeAsync();
         fixtureKey.Dispose();
-        fixtureVerify.Dispose();
-        backendSigner.Dispose();
-        BackendKey.Dispose();
+        routerSigner.Dispose();
+        SwaKey.Dispose();
     }
 }

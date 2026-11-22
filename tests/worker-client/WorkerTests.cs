@@ -1,27 +1,24 @@
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
-using System.Security.Cryptography;
-using System.Diagnostics;
-using OpenTelemetry.Trace;
+using Azure;
+using Xunit;
 using Sdv.Worker;
 using WorkerChecks;
 
-if (args is not ["--self-test"]) return 2;
-await using var h = new Harness();
-await h.Start();
-var checks = new Checks(h);
-await checks.Run();
-return 0;
-
-internal sealed class Checks(Harness h)
+public sealed class Checks : IAsyncLifetime
 {
+    private readonly Harness h = new();
+    public Task InitializeAsync() => h.Start();
+    public Task DisposeAsync() => h.DisposeAsync().AsTask();
+
     private int passed;
 
-    internal async Task Run()
+    [Fact]
+    public async Task LocalMatrix()
     {
         await Authorization();
-        await HostedPreparation();
+        await HostedInvocation();
         await SigningAndSkew();
         await FastAndConcurrent();
         await HistoryAndFailures();
@@ -40,17 +37,17 @@ internal sealed class Checks(Harness h)
     private void Is(string actual, string expected, string name) =>
         Check(actual == expected, $"{name} (expected {expected}, got {actual})");
     private static Scope Scope(string name) => new("sdv:test:alice", "sandbox-" + name);
-    private JsonObject Input(Scope scope, string text = "lookup-fixture-00042", string branch = "101") =>
+    private JsonObject Input(Scope scope, string text = "00042", string branch = "101") =>
         h.Fixtures.Input(scope, Ingress.Start, text, branch);
     private Task<string> Start(Scope scope, JsonObject body) => h.StartLookup(scope, body);
-    private Task<string> Result(Scope scope, JsonObject body) => h.Invoke(scope, Ingress.Result, body);
+    private Task<string> Result(Scope scope, JsonObject body) => h.Invoke(scope, body);
     private JsonObject Command(Scope scope, JsonObject start, string number = "00042")
     {
         var sent = h.Transport.Commands.Last();
         var branch = start["branchId"]!.ToString();
         Check(sent.Branch == branch && sent.Deadline == DateTimeOffset.Parse(start["expiresAt"]!.ToString()),
             "Branch sender and original deadline");
-        return Fixtures.CommandCheck(sent.Command.Body, branch, number, scope, h.BackendKey, start);
+        return Fixtures.CommandCheck(sent.Command.Body, branch, number, scope, h.SwaKey, start);
     }
 
     private async Task Authorization()
@@ -59,23 +56,25 @@ internal sealed class Checks(Harness h)
         var b = h.Bob;
         var input = Input(a);
         Is(await Start(a, input), "NotPrepared", "Client blocks unprepared start");
-        Is(await h.Invoke(a, Ingress.Start, input), "Discarded", "Worker rejects raw unprepared start");
-        Is(await h.Invoke(a, Ingress.Prepare, h.Fixtures.Input(a, Ingress.Prepare), authorized: false),
+        Is(await h.Invoke(a, input), "Discarded", "Worker rejects raw unprepared start");
+        Is(await h.Invoke(a, h.Fixtures.Input(a, Ingress.Prepare), platformOwner: false),
             "403", "Spoofed platform and forwarded headers");
         Is(await h.Prepare(a), "Processed", "Catalog-first prepare");
         Check(h.Store.Writes.ToArray()[..2].SequenceEqual(new[] { "Catalog", "IdleEmpty" }), "Catalog/control write order");
         Is(await h.Prepare(a), "Discarded", "Cannot reuse prepared session");
         Is(await h.Prepare(b, "102"), "Processed", "Second owner and branch");
         var writes = h.Store.Writes.Count;
-        Is(await h.Invoke(a, Ingress.Start, input, authorized: false), "403", "Direct guard bypass");
-        Is(await h.Invoke(a, Ingress.Start, input, selector: b.Session), "403", "Sandbox selector mismatch");
-        Is(await h.Invoke(a, Ingress.Start, input, noSelector: true), "403", "Sandbox fallback denied");
-        Is(await h.Invoke(new(b.Owner, a.Session), Ingress.Start, input), "Discarded", "Delegated owner mismatch");
+        Is(await h.Invoke(a, input, callId: ""), "403", "Start without the platform call ID");
+        Is(await h.Invoke(a, input, selector: b.Session), "403", "Sandbox selector mismatch");
+        Is(await h.Invoke(a, input, noSelector: true), "403", "Sandbox fallback denied");
+        Is(await h.Invoke(new(b.Owner, a.Session), input), "Discarded", "Delegated owner mismatch");
         var spoof = Input(new(b.Owner, a.Session));
-        Is(await h.Invoke(new(b.Owner, a.Session), Ingress.Start, spoof), "Discarded", "Isolated control with valid foreign owner signature");
-        Is(await h.Invoke(a, Ingress.Result, input), "Discarded", "Wrong authenticated ingress");
+        Is(await h.Invoke(new(b.Owner, a.Session), spoof), "Discarded", "Isolated control with valid foreign owner signature");
+        var wrongKind = Fixtures.Copy(input);
+        wrongKind["kind"] = "session.prepare";
+        Is(await h.Invoke(a, wrongKind), "Discarded", "Start signature cannot authorize prepare");
         Is(await Start(a, Input(a, branch: "102")), "Discarded", "Prepared branch mismatch");
-        Is(await Start(a, Input(a, "ordinary arbitrary request")), "Discarded", "Exact synthetic allowlist");
+        Is(await Start(a, Input(a, "ordinary arbitrary request")), "Discarded", "Non-numeric lookup input is rejected");
         var expired = h.Fixtures.Input(a, Ingress.Start, clientSent: h.Clock.GetUtcNow().AddSeconds(-121));
         Is(await Start(a, expired), "Discarded", "Server rejects elapsed client deadline");
         var overCap = h.Fixtures.Input(a, Ingress.Start, clientSent: h.Clock.GetUtcNow().AddSeconds(180));
@@ -99,53 +98,136 @@ internal sealed class Checks(Harness h)
         badSig["route"] = string.Join('.', route);
         Is(await Start(a, badSig), "Discarded", "PS256 signature tampering");
         var upload = Fixtures.Copy(input);
-        upload["dataB64"] = Fixtures.B64("""{"text":"lookup-fixture-00042","upload":{"path":"bogus"}}"""u8.ToArray());
+        upload["dataB64"] = Fixtures.B64("""{"text":"00042","upload":{"path":"bogus"}}"""u8.ToArray());
         h.Fixtures.Sign(upload, a);
         Is(await Start(a, upload), "Discarded", "Upload rejected even when signed");
         var wrongVersion = Fixtures.Copy(input);
         wrongVersion["schemaVersion"] = JsonNode.Parse("1.0");
         Is(await Start(a, wrongVersion), "Discarded", "Exact JSON integer version");
         var duplicate = Encoding.UTF8.GetBytes(input.ToJsonString()[..^1] + ",\"branchId\":\"101\"}");
-        Is(await h.Invoke(a, Ingress.Start, input, raw: duplicate), "Discarded", "Duplicate envelope property");
-        Is(await h.Invoke(a, Ingress.Start, input, raw: "{"u8.ToArray()), "400", "Malformed JSON");
-        Is(await h.Invoke(a, Ingress.Start, input, raw: [0xff]), "400", "Invalid UTF-8");
-        Is(await h.Invoke(a, Ingress.Start, input, raw: new byte[65537]), "413", "Bounded envelope");
+        Is(await h.Invoke(a, input, raw: duplicate), "Discarded", "Duplicate envelope property");
+        var duplicateEvent = Encoding.UTF8.GetBytes(input.ToJsonString()[..^1] + ",\"eventId\":\"" + Fixtures.Id() + "\"}");
+        Is(await h.Invoke(a, input, raw: duplicateEvent), "400", "Duplicate event ID has no unambiguous ACK");
+        Is(await h.Invoke(a, input, raw: "{"u8.ToArray()), "400", "Malformed JSON");
+        Is(await h.Invoke(a, input, raw: [0xff]), "400", "Invalid UTF-8");
+        Is(await h.Invoke(a, input, raw: new byte[65537]), "413", "Bounded envelope");
         Check(h.Store.Writes.Count == writes && h.Transport.Commands.IsEmpty && h.Transport.Attempts.IsEmpty,
             "Rejected input has no writes or effects");
     }
 
-    private async Task HostedPreparation()
+    [Theory]
+    [InlineData(false, "sandbox-a")]
+    [InlineData(true, null)]
+    [InlineData(true, "sandbox-b")]
+    public async Task HostedPrepareRejectsInvalidPlatformSession(bool isHosted, string? session)
+    {
+        await using var hosted = new Harness();
+        await hosted.Start(new FoundryHostIdentity(isHosted, "fixture-agent", "fixture-v1", session));
+        var owner = hosted.Alice;
+        var prepare = hosted.Fixtures.Input(owner, Ingress.Prepare);
+
+        Assert.Equal("403", await hosted.Invoke(owner, prepare));
+        Assert.Empty(hosted.Store.Writes);
+    }
+
+    [Theory]
+    [InlineData("Application/JSON", "Processed")]
+    [InlineData("application/json; charset=utf-8", "Processed")]
+    [InlineData("application/json; charset=iso-8859-1", "415")]
+    [InlineData("text/plain", "415")]
+    public async Task InvocationChecksMediaTypeAndEncoding(string contentType, string expected)
+    {
+        var prepare = h.Fixtures.Input(h.Alice, Ingress.Prepare);
+        Assert.Equal(expected, await h.Invoke(h.Alice, prepare, contentType: contentType));
+    }
+
+    [Fact]
+    public async Task MaximumLengthSessionKeepsLookupAndReplayKeysWithinStoreLimits()
+    {
+        var scope = new Scope(h.Alice.Owner, new string('s', 128));
+        Assert.Equal("Processed", await h.Prepare(scope));
+        var start = Input(scope);
+
+        Assert.Equal("Processed", await Start(scope, start));
+        Assert.Equal("Duplicate", await Start(scope, start));
+        var command = JsonNode.Parse(Assert.Single(h.Transport.Commands).Command.Body)!.AsObject();
+        var result = h.Fixtures.Result(command, Fixtures.Missing);
+        Assert.Equal("Processed", await Result(scope, result));
+        Assert.Equal(Phase.IdleSuccess, (await h.State(scope)).Phase);
+        Assert.Single(h.Transport.Attempts);
+    }
+
+    [Theory]
+    [InlineData(429)]
+    [InlineData(503)]
+    public async Task TransientStoreFailureReturnsUnavailableWithoutAcknowledgement(int dependencyStatus)
+    {
+        Assert.Equal("Processed", await h.Prepare(h.Alice));
+        var writesBefore = h.Store.Writes.Count;
+        h.Store.AfterRead = (_, _, _, _) => throw new RequestFailedException(dependencyStatus, "Synthetic Store failure.");
+
+        Assert.Equal("503", await Start(h.Alice, Input(h.Alice)));
+        Assert.Equal(writesBefore, h.Store.Writes.Count);
+        Assert.Empty(h.Transport.Commands);
+    }
+
+    [Theory]
+    [InlineData("eventId", false, "400")]
+    [InlineData("requestId", false, "Discarded")]
+    [InlineData("kind", true, "Discarded")]
+    public async Task InvocationRejectsInvalidStringFields(string field, bool remove, string expected)
+    {
+        var input = h.Fixtures.Input(h.Alice, Ingress.Prepare);
+        if (remove) input.Remove(field);
+        else input[field] = 42;
+
+        Assert.Equal(expected, await h.Invoke(h.Alice, input));
+        Assert.Empty(h.Store.Writes);
+    }
+
+    [Theory]
+    [InlineData("eventId", "400")]
+    [InlineData("branchId", "Discarded")]
+    public async Task InvocationRejectsUnpairedUnicodeEscapes(string field, string expected)
+    {
+        var input = h.Fixtures.Input(h.Alice, Ingress.Prepare);
+        var original = input[field]!.ToJsonString();
+        var raw = Encoding.UTF8.GetBytes(input.ToJsonString().Replace(original, "\"\\uD800\"", StringComparison.Ordinal));
+
+        Assert.Equal(expected, await h.Invoke(h.Alice, input, raw: raw));
+        Assert.Empty(h.Store.Writes);
+    }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData("e30=")]
+    [InlineData(" e30")]
+    [InlineData("e31")]
+    [InlineData("e3+")]
+    public async Task PrepareRejectsBase64UrlOutsideCanonicalForm(string encoded)
+    {
+        var input = h.Fixtures.Input(h.Alice, Ingress.Prepare);
+        input["dataB64"] = encoded;
+
+        Assert.Equal("Discarded", await h.Invoke(h.Alice, input));
+        Assert.Empty(h.Store.Writes);
+    }
+
+    private async Task HostedInvocation()
     {
         await using var hosted = new Harness();
         var owner = hosted.Alice;
-        await hosted.Start(new Dictionary<string, string?>
-        {
-            ["WORKER_PROFILE"] = "develop-synthetic",
-            ["WORKER_AGENT"] = "fixture-agent",
-            ["WORKER_VERSION"] = "fixture-v1",
-            ["FOUNDRY_HOSTING_ENVIRONMENT"] = "1",
-            ["FOUNDRY_AGENT_NAME"] = "fixture-agent",
-            ["FOUNDRY_AGENT_VERSION"] = "fixture-v1",
-            ["FOUNDRY_AGENT_SESSION_ID"] = owner.Session
-        });
+        await hosted.Start(new FoundryHostIdentity(true, "fixture-agent", "fixture-v1", owner.Session));
 
         var prepare = hosted.Fixtures.Input(owner, Ingress.Prepare);
-        foreach (var key in new[] { "WORKER_PROFILE", "FOUNDRY_HOSTING_ENVIRONMENT", "FOUNDRY_AGENT_NAME", "FOUNDRY_AGENT_VERSION" })
-        {
-            var original = hosted.Configuration[key];
-            hosted.Configuration[key] = "unexpected";
-            Is(await hosted.Invoke(owner, Ingress.Prepare, prepare, authorized: false),
-                "403", $"Hosted prepare rejects unexpected {key}");
-            hosted.Configuration[key] = original;
-        }
-        Is(await hosted.Invoke(owner, Ingress.Prepare, prepare, authorized: false, callId: ""),
+        Is(await hosted.Invoke(owner, prepare, callId: ""),
             "403", "Hosted prepare requires the platform call ID");
-        Is(await hosted.Invoke(owner, Ingress.Prepare, prepare, authorized: false, platformOwner: false),
+        Is(await hosted.Invoke(owner, prepare, platformOwner: false),
             "403", "Hosted prepare requires the platform owner");
         var other = new Scope(hosted.Bob.Owner, owner.Session);
-        Is(await hosted.Invoke(other, Ingress.Prepare, prepare, authorized: false),
+        Is(await hosted.Invoke(other, prepare),
             "Discarded", "Hosted prepare rejects signed route for another owner");
-        Is(await hosted.Invoke(hosted.Bob, Ingress.Prepare, hosted.Fixtures.Input(hosted.Bob, Ingress.Prepare), authorized: false),
+        Is(await hosted.Invoke(hosted.Bob, hosted.Fixtures.Input(hosted.Bob, Ingress.Prepare)),
             "403", "Hosted prepare rejects a different runtime session");
 
         var tampered = prepare.DeepClone().AsObject();
@@ -153,76 +235,45 @@ internal sealed class Checks(Harness h)
         var firstSignatureByte = route.LastIndexOf('.') + 1;
         tampered["route"] = route[..firstSignatureByte] + (route[firstSignatureByte] == 'A' ? "B" : "A") +
             route[(firstSignatureByte + 1)..];
-        Is(await hosted.Invoke(owner, Ingress.Prepare, tampered, authorized: false),
+        Is(await hosted.Invoke(owner, tampered),
             "Discarded", "Hosted prepare rejects an invalid signature");
         Check(hosted.Store.Writes.IsEmpty, "Hosted rejections make no State Store writes");
 
         var opaqueCallId = new string('a', 200);
         var creates = new List<(string CallId, Category Category)>();
         hosted.Store.BeforeCreate = (caller, category) => creates.Add((caller.CallId, category));
-        Is(await hosted.Invoke(owner, Ingress.Prepare, prepare, authorized: false, callId: opaqueCallId),
+        Is(await hosted.Invoke(owner, prepare, callId: opaqueCallId),
             "Processed", "Hosted prepare accepts the SDK context and opaque platform call ID");
         Check(creates.SequenceEqual(new[] { (opaqueCallId, Category.Catalog), (opaqueCallId, Category.Control) }),
             "Hosted prepare forwards the unchanged opaque call ID to the store");
-        var reads = 0;
-        hosted.Store.AfterRead = (_, _, _, _) => { reads++; return Task.CompletedTask; };
-        var start = hosted.Fixtures.Input(owner, Ingress.Start);
-        Is(await hosted.Invoke(owner, Ingress.Start, start, authorized: false),
-            "Discarded", "Hosted authority admits no lookup start");
-        Is(await hosted.Invoke(owner, Ingress.Result, hosted.SignedResult(owner, start), authorized: false),
-            "Discarded", "Hosted authority admits no signed tool result");
-        Check(reads == 0, "Business requests never reach a control read");
-        hosted.Store.AfterRead = null;
         var control = await hosted.Control(owner);
         Check(control is not null && (await hosted.State(owner)).Phase == Phase.IdleEmpty,
             "Hosted prepare creates the owner control");
-        Is(await hosted.Invoke(owner, Ingress.Prepare, prepare, authorized: false),
+        Is(await hosted.Invoke(owner, prepare),
             "Discarded", "Hosted prepare rejects a replay");
         Check((await hosted.Control(owner))?.Etag == control!.Etag &&
             hosted.Store.Writes.ToArray().SequenceEqual(new[] { "Catalog", "IdleEmpty" }) &&
             hosted.Transport.Commands.IsEmpty && hosted.Transport.Attempts.IsEmpty,
             "Hosted prepare leaves one pair of writes and no business effects");
+
+        var subscriber = hosted.Transport.Subscribe(owner);
+        var start = hosted.Fixtures.Input(owner, Ingress.Start);
+        hosted.Transport.Expect(owner, start);
+        Is(await hosted.Invoke(owner, start), "Processed", "Invocations accepts signed start");
+        var command = JsonNode.Parse(Assert.Single(hosted.Transport.Commands).Command.Body)!.AsObject();
+        var result = hosted.Fixtures.Result(command, Fixtures.Missing);
+        var unsigned = Fixtures.Copy(result);
+        unsigned.Remove("resultProof");
+        Is(await hosted.Invoke(owner, unsigned), "Discarded", "Invocations rejects result without Router proof");
+        Assert.Empty(hosted.Transport.Attempts);
+        Is(await hosted.Invoke(owner, result), "Processed", "Invocations accepts signed result");
+        Assert.Equal("turn.final", Assert.Single(subscriber.Received)["kind"]!.GetValue<string>());
+        Is(await hosted.Invoke(owner, result), "Duplicate", "Invocations recognizes a duplicate result");
+        Assert.Single(hosted.Transport.Attempts);
     }
 
     private async Task SigningAndSkew()
     {
-        using var fixture = RSA.Create(2048);
-        var prepareConfig = new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string?>
-        {
-            ["WORKER_TEST_PUBLIC_KEY"] = fixture.ExportSubjectPublicKeyInfoPem(),
-            ["WORKER_TEST_KID"] = "fixture"
-        }).Build();
-        var prepareWire = Sdv.Worker.Program.WireFrom(prepareConfig);
-        var prepareScope = Scope("public-key-only");
-        var prepare = new Fixtures(fixture, h.Clock).Input(prepareScope, Ingress.Prepare);
-        var caller = Harness.Caller(prepareScope);
-        var envelope = prepareWire.Read(JsonSerializer.SerializeToElement(prepare), caller with { Source = Ingress.Prepare },
-            h.Clock.GetUtcNow());
-        Check(envelope.EventId == prepare["eventId"]!.ToString(), "Prepare can verify with only the test public key");
-        var unsignedStartRejected = false;
-        var signedStart = new Fixtures(fixture, h.Clock).Input(prepareScope, Ingress.Start);
-        try { _ = prepareWire.Read(JsonSerializer.SerializeToElement(signedStart), caller, h.Clock.GetUtcNow()); }
-        catch (InvalidDataException) { unsignedStartRejected = true; }
-        Check(unsignedStartRejected, "Public-key-only configuration does not admit a signed start");
-        var config = new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string?>
-        {
-            ["WORKER_BACKEND_PRIVATE_KEY"] = h.BackendKey.ExportSubjectPublicKeyInfoPem(),
-            ["WORKER_TEST_PUBLIC_KEY"] = fixture.ExportSubjectPublicKeyInfoPem(),
-            ["WORKER_TEST_KID"] = "fixture",
-            ["WORKER_BACKEND_KID"] = "backend"
-        }).Build();
-        var rejected = false;
-        try { _ = Sdv.Worker.Program.WireFrom(config); }
-        catch (CryptographicException) { rejected = true; }
-        Check(rejected, "Public-only backend PEM rejected at configuration load");
-        await using (var host = Sdv.Worker.Program.BuildHost([]).App)
-        {
-            _ = host.Services.GetRequiredService<TracerProvider>();
-            using var source = new ActivitySource("Azure.AI.AgentServer.Invocations");
-            using var trace = source.StartActivity("worker-synthetic-trace");
-            Check(source.HasListeners() && trace?.Recorded != true, "Worker sampler overrides SDK tracing defaults");
-        }
-
         var scope = Scope("skew");
         Is(await h.Prepare(scope), "Processed", "Prepare signed skew scenario");
         var start = Input(scope);
@@ -244,16 +295,9 @@ internal sealed class Checks(Harness h)
 
         var result = h.Fixtures.Result(command, Fixtures.Missing);
         var other = Fixtures.Copy(result);
-        var route = result["route"]!.ToString();
-        var resigned = h.ResignBackend(route);
-        var tokens = new[] { route.Split('.'), resigned.Split('.') };
-        Check(route != resigned && tokens[0][..2].SequenceEqual(tokens[1][..2]) &&
-            h.BackendKey.VerifyData(Encoding.ASCII.GetBytes(tokens[1][0] + "." + tokens[1][1]),
-                Convert.FromBase64String(tokens[1][2].Replace('-', '+').Replace('_', '/') +
-                    new string('=', (4 - tokens[1][2].Length % 4) % 4)), HashAlgorithmName.SHA256, RSASignaturePadding.Pss),
-            "Replacement route independently verifies with identical claims");
-        other["route"] = resigned;
-        Is(await Result(scope, other), "Discarded", "Different valid route cannot claim stored wait");
+        other["route"] = Input(scope)["route"]!.DeepClone();
+        h.Fixtures.SignResult(other);
+        Is(await Result(scope, other), "Discarded", "Router-attested different route cannot claim stored wait");
         Check((await h.State(scope)).Phase == Phase.WaitingTool, "Alternate signed route preserves wait");
         Is(await Result(scope, result), "Processed", "Exact stored route completes valid skew command");
     }
@@ -289,6 +333,7 @@ internal sealed class Checks(Harness h)
         Is(await Result(a, fastResult!), "Duplicate", "Lost result ACK redelivery");
         var another = Fixtures.Copy(fastResult!);
         another["eventId"] = Fixtures.Id();
+        h.Fixtures.SignResult(another);
         Is(await Result(a, another), "Duplicate", "Fresh result event ID cannot repeat final");
         Check(h.Transport.Commands.Count == initialSends + 1 && h.Transport.Attempts.Count == initialPublications + 1 &&
             alice.Count == 1 && bob.IsEmpty,
@@ -300,13 +345,13 @@ internal sealed class Checks(Harness h)
 
         foreach (var field in new[] { "requestId", "eventId", "operationId" })
         {
-            var reuse = Input(a, "lookup-fixture-00044");
+            var reuse = Input(a, "00044");
             reuse[field] = input[field]!.DeepClone();
             h.Fixtures.Sign(reuse, a);
             Is(await Start(a, reuse), "Discarded", "Reserved identity with changed other IDs " + field);
         }
         var changed = Fixtures.Copy(input);
-        changed["dataB64"] = Fixtures.B64("""{"text":"lookup-fixture-00044"}"""u8.ToArray());
+        changed["dataB64"] = Fixtures.B64("""{"text":"00044"}"""u8.ToArray());
         h.Fixtures.Sign(changed, a);
         Is(await Start(a, changed), "Discarded", "Same IDs with changed signed digest");
 
@@ -334,12 +379,16 @@ internal sealed class Checks(Harness h)
         Is(await Result(b, bad), "Discarded", "Changed result expiry");
         bad = h.Fixtures.Result(tool, Fixtures.Missing);
         bad["commandId"] = Fixtures.Id();
+        h.Fixtures.SignResult(bad);
         Is(await Result(b, bad), "Discarded", "Changed command ID");
         bad = h.Fixtures.Result(tool, Fixtures.Missing);
         bad["dataB64"] = Fixtures.B64("""{"outcome":"NotFound","outcome":"Found","reasonCode":"OrderMissing"}"""u8.ToArray());
+        h.Fixtures.SignResult(bad);
         Is(await Result(b, bad), "Discarded", "Strict result payload");
         var result = h.Fixtures.Result(tool, Fixtures.Missing);
-        Is(await h.Invoke(b, Ingress.Start, result), "Discarded", "Result cannot become start");
+        var wrongKind = Fixtures.Copy(result);
+        wrongKind["kind"] = "turn.start";
+        Is(await h.Invoke(b, wrongKind), "Discarded", "Result cannot become start");
         Is(await Result(a, result), "Discarded", "Cross-owner result");
         Check((await h.Control(b))!.Etag == etag, "Rejected results preserve wait");
         var resultWrites = h.Store.Writes.Count(w => w == "ResultClaimed");
@@ -412,7 +461,7 @@ internal sealed class Checks(Harness h)
         Check(hydrated.SuccessfulLookups == 2 && hydrated.MafSessionId == context.MafSessionId &&
             after.HistoryDeleteAt == after.LastSuccessfulAt!.Value.AddDays(3), "Preserved MAF state and 3-day history");
 
-        foreach (var failure in new[] { "missing", "version", "oversize", "foreign", "overflow" })
+        foreach (var failure in new[] { "missing", "version", "session-shape", "oversize", "foreign", "overflow" })
         {
             var scope = Scope(failure);
             Is(await h.Prepare(scope), "Processed", "Prepare history scenario");
@@ -427,12 +476,13 @@ internal sealed class Checks(Harness h)
             else
             {
                 var corrupt = JsonNode.Parse(stored.Value)!.AsObject();
-                corrupt["mafVersion"] = "0";
+                if (failure == "version") corrupt["mafVersion"] = "0";
+                if (failure == "session-shape") corrupt["serializedSession"] = 42;
                 var session = await snapshots.Load(stored.Value, actor, "101", default);
                 session.StateBag.SetValue("sdv-lookup-state", Snapshot.Read(session) with { SuccessfulLookups = int.MaxValue });
                 var bytes = failure switch
                 {
-                    "version" => Fixtures.Bytes(corrupt), "foreign" => item!.Value,
+                    "version" or "session-shape" => Fixtures.Bytes(corrupt), "foreign" => item!.Value,
                     "overflow" => await snapshots.Save(session, default), _ => new byte[Snapshot.MaximumBytes + 1]
                 };
                 Check(await h.Store.Replace(actor, Category.Success, key, stored.Etag, bytes, default) is not null,
@@ -459,13 +509,13 @@ internal sealed class Checks(Harness h)
     {
         var partial = Scope("partial-prepare");
         Inject("Catalog", after: true);
-        Is(await h.Prepare(partial), "503", "Lost catalog acknowledgment");
+        Is(await h.Prepare(partial), "500", "Lost catalog acknowledgment");
         Is(await h.Prepare(partial), "Discarded", "Partial prepare does not reopen same session");
-        Is(await h.Invoke(partial, Ingress.Start, Input(partial)), "Discarded", "Partial prepare never allows raw start");
+        Is(await h.Invoke(partial, Input(partial)), "Discarded", "Partial prepare never allows raw start");
 
         var lostPrepare = Scope("lost-control-ack");
         Inject("IdleEmpty", after: true);
-        Is(await h.Prepare(lostPrepare), "503", "Lost control-write acknowledgment");
+        Is(await h.Prepare(lostPrepare), "500", "Lost control-write acknowledgment");
         var requests = h.Requests;
         var beforeLostPrepare = h.Transport.Commands.Count;
         Is(await Start(lostPrepare, Input(lostPrepare)), "NotPrepared", "Client requires observed prepare ACK");
@@ -480,7 +530,7 @@ internal sealed class Checks(Harness h)
             var turn = Input(scope);
             var count = h.Transport.Commands.Count;
             Inject(stage, after);
-            Is(await Start(scope, turn), "503", "Store fault " + stage + "/" + after);
+            Is(await Start(scope, turn), "500", "Store fault " + stage + "/" + after);
             Check(h.Transport.Commands.Count == count, "No Send on unconfirmed state " + stage);
             var unadmitted = stage == "Index" && !after;
             Is(await Start(scope, turn), unadmitted ? "Processed" : "Duplicate", "Redelivery " + stage + "/" + after);
@@ -495,7 +545,7 @@ internal sealed class Checks(Harness h)
             var result = h.Fixtures.Result(Command(scope, turn), Fixtures.Missing);
             var publications = h.Transport.Attempts.Count;
             Inject(stage, after);
-            Is(await Result(scope, result), "503", "Lost result write " + stage);
+            Is(await Result(scope, result), "500", "Lost result write " + stage);
             Is(await Result(scope, result), "Duplicate", "Result fault cannot resume " + stage);
             Check(h.Transport.Attempts.Count == publications, "No final after unconfirmed " + stage);
         }
@@ -506,9 +556,9 @@ internal sealed class Checks(Harness h)
         Is(await Start(lost, input), "Processed", "Waiting before lost PubSub");
         var final = h.Fixtures.Result(Command(lost, input), Fixtures.Missing);
         var attempts = h.Transport.Attempts.Count;
-        h.Transport.LosePublication = true;
+        h.Transport.PublicationFailure = new IOException("Synthetic lost delivery.");
         Is(await Result(lost, final), "Processed", "Terminal result after one publish attempt");
-        h.Transport.LosePublication = false;
+        h.Transport.PublicationFailure = null;
         Is(await Result(lost, final), "Duplicate", "Lost delivery never triggers replay");
         Check(h.Transport.Attempts.Count == attempts + 1 && queue.IsEmpty, "Publication loss stays lost");
 
@@ -546,7 +596,7 @@ internal sealed class Checks(Harness h)
             else corrupt["phase"] = phase;
             h.Store.Corrupt(actor, Category.Control, damaged.Session, Fixtures.Bytes(corrupt));
             var writes = h.Store.Writes.Count;
-            Is(await Start(damaged, Input(damaged)), "503", "Corrupt or missing phase has no ACK");
+            Is(await Start(damaged, Input(damaged)), "500", "Corrupt or missing phase has no ACK");
             Check(h.Store.Writes.Count == writes, "Corrupt control makes no admission writes");
         }
         h.Store.Corrupt(actor, Category.Control, damaged.Session, original);
@@ -556,7 +606,7 @@ internal sealed class Checks(Harness h)
         index[0]!.AsObject().Remove("protectUntil");
         h.Store.Corrupt(actor, Category.Receipts, damaged.Session + "/admissions", Fixtures.Bytes(index));
         var stateWrites = h.Store.Writes.Count;
-        Is(await Start(damaged, Input(damaged)), "503", "Missing index protectUntil has no ACK");
+        Is(await Start(damaged, Input(damaged)), "500", "Missing index protectUntil has no ACK");
         Check(h.Store.Writes.Count == stateWrites && h.Transport.Commands.Count == sends + 1, "Corrupt index grants no effects");
 
         var transient = Scope("internal-transient");
@@ -571,7 +621,7 @@ internal sealed class Checks(Harness h)
             }
             return Task.CompletedTask;
         };
-        Is(await Start(transient, retry), "503", "Internal InvalidOperationException has no wire ACK");
+        Is(await Start(transient, retry), "500", "Internal InvalidOperationException has no wire ACK");
         Is(await Start(transient, retry), "Processed", "First admission still available after internal read fault");
     }
 
@@ -642,7 +692,7 @@ internal sealed class Checks(Harness h)
             Wire.Encode(reserved), default) is not null, "Seed protected admissions");
         var eligible = Input(capacity);
         h.Clock.Advance(6);
-        Is(await Start(capacity, eligible), "503", "Full index fails closed through protectUntil");
+        Is(await Start(capacity, eligible), "500", "Full index fails closed through protectUntil");
         Check(h.Transport.Commands.Count == before, "Capacity failure never Sends");
         h.Clock.Advance(1);
         Is(await Start(capacity, eligible), "Processed", "First admission permitted after safe prune");
@@ -674,7 +724,7 @@ internal sealed class Checks(Harness h)
         };
         var nearDeadline = h.Fixtures.Input(canceled, Ingress.Start, clientSent: h.Clock.GetUtcNow().AddSeconds(-119));
         var writesBefore = h.Store.Writes.Count;
-        Is(await Start(canceled, nearDeadline), "503", "Validated expiry cancels state I/O");
+        Is(await Start(canceled, nearDeadline), "504", "Validated expiry cancels state I/O");
         h.Store.AfterRead = null;
         Check(storeCanceled && h.Store.Writes.Count == writesBefore, "Canceled state operation grants no writes");
     }
